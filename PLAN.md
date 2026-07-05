@@ -32,12 +32,12 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
       (system/light/dark) stored in `settings`; expose `useThemeMode()`
 - [x] Point `useTheme()` at the context (system fallback); wrap root layout, nav theme follows
 
-## Phase 3 — Navigation shell
+## Phase 3 — Navigation shell ✅
 
-- [ ] Replace the sample tabs with 5 tabs: Heute / Pläne / Übungen / Verlauf / Einstellungen
-      (classic `Tabs` from expo-router + `@expo/vector-icons`)
-- [ ] Nested stack for detail screens (active session, exercise-set editor, plan editor)
-- [ ] Themed placeholder screens for each tab
+- [x] Replace the sample tabs with 5 tabs: Heute / Pläne / Übungen / Verlauf / Einstellungen
+      (classic `Tabs` from expo-router + `@expo/vector-icons`, themed tab bar)
+- [x] Root `Stack` (headerShown off) hosts the `(tabs)` group; detail screens push over it
+- [x] Themed placeholder screens for each tab + shared `Screen` scaffold component
 
 ## Phase 4 — Übungen (library)
 

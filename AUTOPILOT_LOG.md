@@ -11,3 +11,6 @@ One line per completed loop iteration (newest at bottom).
 - 2026-07-05 — Phase 2 theme: extended palette (dark #0B0D14/indigo, light #F4F5F7) + Radius tokens,
   ThemeProvider with persisted system/light/dark override in settings, useTheme() reads context with
   system fallback, root layout + nav theme follow resolved scheme. Gate green.
+- 2026-07-05 — Phase 3 nav shell: replaced sample tabs/NativeTabs with root Stack + (tabs) group of
+  5 classic Tabs (Heute/Pläne/Übungen/Verlauf/Einstellungen, Ionicons, themed bar), shared Screen
+  scaffold, themed placeholders; removed sample routes. Gate green.

@@ -1,9 +1,8 @@
-import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { SQLiteProvider } from 'expo-sqlite';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
 import { DATABASE_NAME } from '@/constants/app';
 import { migrateDbIfNeeded } from '@/db';
 import { ThemeProvider, useThemeMode } from '@/theme/theme-provider';
@@ -25,7 +24,7 @@ function ThemedNavigation() {
   return (
     <NavThemeProvider value={scheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
-      <AppTabs />
+      <Stack screenOptions={{ headerShown: false }} />
     </NavThemeProvider>
   );
 }
