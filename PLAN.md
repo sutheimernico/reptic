@@ -39,10 +39,11 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
 - [x] Root `Stack` (headerShown off) hosts the `(tabs)` group; detail screens push over it
 - [x] Themed placeholder screens for each tab + shared `Screen` scaffold component
 
-## Phase 4 — Übungen (library)
+## Phase 4 — Übungen (library) ✅
 
-- [ ] List grouped by muscle group, themed rows
-- [ ] Add / edit / delete custom exercises (archived flag for ones used in history)
+- [x] List grouped by muscle group, themed rows (Übungen tab)
+- [x] Add / edit / delete custom exercises; auto-archive instead of delete when in history
+- [x] Themed navigation theme so native detail-screen headers match the palette
 
 ## Phase 5 — Pläne
 

@@ -16,3 +16,6 @@ One line per completed loop iteration (newest at bottom).
   scaffold, themed placeholders; removed sample routes. Gate green.
 - 2026-07-06 — Shared UI kit: Card, Button (primary/secondary/danger), IconButton, TextField,
   ListRow (selectable), EmptyState, SegmentedControl — all themed off the palette. Gate green.
+- 2026-07-06 — Phase 4 Übungen: library grouped by muscle group with add, exercise editor
+  (name + muscle-group chips), delete-or-archive (archive when in history), themed native nav
+  headers. Gate green.

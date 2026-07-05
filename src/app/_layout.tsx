@@ -20,9 +20,21 @@ export default function RootLayout() {
 }
 
 function ThemedNavigation() {
-  const { scheme } = useThemeMode();
+  const { scheme, colors } = useThemeMode();
+  const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
+  const navTheme = {
+    ...base,
+    colors: {
+      ...base.colors,
+      primary: colors.accent,
+      background: colors.background,
+      card: colors.card,
+      text: colors.text,
+      border: colors.border,
+    },
+  };
   return (
-    <NavThemeProvider value={scheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <NavThemeProvider value={navTheme}>
       <AnimatedSplashOverlay />
       <Stack screenOptions={{ headerShown: false }} />
     </NavThemeProvider>

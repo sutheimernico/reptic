@@ -124,6 +124,11 @@ export async function getExercises(
   return rows.map(mapExercise);
 }
 
+export async function getExercise(db: SQLiteDatabase, id: number): Promise<Exercise | null> {
+  const row = await db.getFirstAsync<ExerciseRow>('SELECT * FROM exercises WHERE id = ?', id);
+  return row ? mapExercise(row) : null;
+}
+
 export async function createExercise(
   db: SQLiteDatabase,
   name: string,
