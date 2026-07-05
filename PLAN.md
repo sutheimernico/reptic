@@ -24,13 +24,13 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
 - [x] Wire `SQLiteProvider` (databaseName + onInit=migrate) into the root layout
 - [x] Import-verify the data layer (tsc); pure transforms covered by domain tests
 
-## Phase 2 — Theme system
+## Phase 2 — Theme system ✅
 
-- [ ] Extend `constants/theme.ts` palette (dark `#0B0D14`/card `#151925`, indigo accent,
-      border/textSecondary/success/danger/placeholder tokens) for light + dark
-- [ ] `src/theme/theme-context.tsx` — resolve system scheme + persisted override
+- [x] Extend `constants/theme.ts` palette (dark `#0B0D14`/card `#151925`, indigo accent,
+      border/textSecondary/success/danger/placeholder tokens) for light + dark + `Radius`
+- [x] `src/theme/theme-provider.tsx` — resolve system scheme + persisted override
       (system/light/dark) stored in `settings`; expose `useThemeMode()`
-- [ ] Point `useTheme()` at the context; wrap root layout in the provider
+- [x] Point `useTheme()` at the context (system fallback); wrap root layout, nav theme follows
 
 ## Phase 3 — Navigation shell
 
