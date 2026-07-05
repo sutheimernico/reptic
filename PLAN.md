@@ -15,14 +15,14 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
       (de)serialize, seed data — with unit tests (24 tests green)
 - [x] Project docs (spec, PROJECT, PLAN, LOOP, log)
 
-## Phase 1 — Data layer (SQLite)
+## Phase 1 — Data layer (SQLite) ✅
 
-- [ ] `src/db/schema.ts` — table DDL + `migrateDbIfNeeded` via `PRAGMA user_version`
-- [ ] `src/db/seed.ts` — insert `EXERCISE_LIBRARY` + `EXAMPLE_PLANS` on first migration only
-- [ ] `src/db/index.ts` — typed data layer: exercises/plans/plan_exercises/workouts/
-      workout_exercises/workout_sets/settings CRUD + `getLastSetsForExercise`
-- [ ] Wire `SQLiteProvider` (databaseName + onInit=migrate) into the root layout
-- [ ] Import-verify the data layer; unit-test any pure query helpers
+- [x] `src/db/schema.ts` — table DDL + `migrateDbIfNeeded` via `PRAGMA user_version`
+- [x] `src/db/seed.ts` — insert `EXERCISE_LIBRARY` + `EXAMPLE_PLANS` on first migration only
+- [x] `src/db/index.ts` — typed data layer: exercises/plans/plan_exercises/workouts/
+      workout_exercises/workout_sets/settings CRUD + `getLastSetsForExercise` + backup export/import
+- [x] Wire `SQLiteProvider` (databaseName + onInit=migrate) into the root layout
+- [x] Import-verify the data layer (tsc); pure transforms covered by domain tests
 
 ## Phase 2 — Theme system
 
