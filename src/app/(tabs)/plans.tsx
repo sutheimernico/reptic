@@ -1,10 +1,64 @@
-import { ThemedText } from '@/components/themed-text';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useCallback, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+
+import { EmptyState } from '@/components/ui/empty-state';
+import { IconButton } from '@/components/ui/icon-button';
+import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
+import { getPlansWithExercises } from '@/db';
+import { type PlanWithExercises } from '@/domain/types';
+import { useTheme } from '@/hooks/use-theme';
 
 export default function PlansScreen() {
+  const db = useSQLiteContext();
+  const router = useRouter();
+  const c = useTheme();
+  const [plans, setPlans] = useState<PlanWithExercises[]>([]);
+
+  const load = useCallback(() => {
+    getPlansWithExercises(db).then(setPlans);
+  }, [db]);
+
+  useFocusEffect(useCallback(() => load(), [load]));
+
   return (
-    <Screen title="Pläne" subtitle="Deine Trainingsbilder">
-      <ThemedText themeColor="textSecondary">Plan-Verwaltung folgt.</ThemedText>
+    <Screen
+      title="Pläne"
+      subtitle="Deine Trainingsbilder"
+      headerRight={
+        <IconButton
+          name="add"
+          accessibilityLabel="Plan hinzufügen"
+          color={c.accent}
+          size={28}
+          onPress={() => router.push('/plan/edit')}
+        />
+      }>
+      {plans.length === 0 ? (
+        <EmptyState
+          icon="clipboard-outline"
+          title="Noch keine Pläne"
+          message="Tippe auf + oben rechts."
+        />
+      ) : (
+        plans.map((plan) => (
+          <ListRow
+            key={plan.id}
+            title={plan.name}
+            subtitle={`${plan.exerciseIds.length} Übungen`}
+            left={<View style={[styles.dot, { backgroundColor: plan.color }]} />}
+            right={<Ionicons name="chevron-forward" size={18} color={c.textSecondary} />}
+            onPress={() => router.push({ pathname: '/plan/edit', params: { id: String(plan.id) } })}
+          />
+        ))
+      )}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  dot: { width: 12, height: 12, borderRadius: 6 },
+});

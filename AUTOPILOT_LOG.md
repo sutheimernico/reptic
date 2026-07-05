@@ -19,3 +19,6 @@ One line per completed loop iteration (newest at bottom).
 - 2026-07-06 — Phase 4 Übungen: library grouped by muscle group with add, exercise editor
   (name + muscle-group chips), delete-or-archive (archive when in history), themed native nav
   headers. Gate green.
+- 2026-07-06 — Phase 5 Pläne: plans tab lists plans (color dot + exercise count), plan editor
+  (name, 6 color swatches with accent ring, exercise assignment grouped by muscle group with
+  selection order = plan order, delete with confirm). Gate green.

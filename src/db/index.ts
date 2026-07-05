@@ -179,6 +179,11 @@ export async function getPlans(db: SQLiteDatabase): Promise<Plan[]> {
   return rows.map(mapPlan);
 }
 
+export async function getPlan(db: SQLiteDatabase, id: number): Promise<Plan | null> {
+  const row = await db.getFirstAsync<PlanRow>('SELECT * FROM plans WHERE id = ?', id);
+  return row ? mapPlan(row) : null;
+}
+
 export async function getPlanExerciseIds(db: SQLiteDatabase, planId: number): Promise<number[]> {
   const rows = await db.getAllAsync<{ exercise_id: number }>(
     'SELECT exercise_id FROM plan_exercises WHERE plan_id = ? ORDER BY sort_order',

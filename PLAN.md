@@ -45,10 +45,10 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
 - [x] Add / edit / delete custom exercises; auto-archive instead of delete when in history
 - [x] Themed navigation theme so native detail-screen headers match the palette
 
-## Phase 5 — Pläne
+## Phase 5 — Pläne ✅
 
-- [ ] List of plans (name + color)
-- [ ] Create/edit a plan: name, color, assign exercises, reorder
+- [x] List of plans (name + color)
+- [x] Create/edit a plan: name, color, assign exercises, reorder
 
 ## Phase 6 — Heute (the core flow)
 
