@@ -22,3 +22,7 @@ One line per completed loop iteration (newest at bottom).
 - 2026-07-06 — Phase 5 Pläne: plans tab lists plans (color dot + exercise count), plan editor
   (name, 6 color swatches with accent ring, exercise assignment grouped by muscle group with
   selection order = plan order, delete with confirm). Gate green.
+- 2026-07-06 — Phase 6 Heute/core: plan multi-select + empty/resume session start; session screen
+  (exercise list with set progress, add via picker, remove via long-press, finish); exercise set
+  screen (kg prefilled from last time, reps empty, grey "letztes Mal" line, +Satz, delete, done,
+  live persist). getSetProgressForWorkout added; ListRow gained onLongPress. Gate green.

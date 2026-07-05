@@ -397,6 +397,28 @@ export async function getSetsForWorkoutExercise(
   return rows.map(mapWorkoutSet);
 }
 
+export interface SetProgress {
+  total: number;
+  done: number;
+}
+
+/** Per-workout-exercise set counts (total + done) for the session list, in one query. */
+export async function getSetProgressForWorkout(
+  db: SQLiteDatabase,
+  workoutId: number,
+): Promise<Map<number, SetProgress>> {
+  const rows = await db.getAllAsync<{ workout_exercise_id: number; total: number; done: number }>(
+    `SELECT workout_exercise_id, COUNT(*) AS total, SUM(done) AS done
+     FROM workout_sets WHERE workout_id = ? GROUP BY workout_exercise_id`,
+    workoutId,
+  );
+  const map = new Map<number, SetProgress>();
+  for (const row of rows) {
+    map.set(row.workout_exercise_id, { total: row.total, done: row.done });
+  }
+  return map;
+}
+
 export interface NewSet {
   workoutId: number;
   workoutExerciseId: number;

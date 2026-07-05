@@ -50,13 +50,16 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
 - [x] List of plans (name + color)
 - [x] Create/edit a plan: name, color, assign exercises, reorder
 
-## Phase 6 — Heute (the core flow)
+## Phase 6 — Heute (the core flow) ✅
 
-- [ ] Plan multi-select ("was machst du heute") → start session (merge via `mergePlanExercises`)
-- [ ] Session exercise list — editable per session (add/remove/reorder, no plan mutation)
-- [ ] Exercise set screen — the core interaction: kg prefilled from last time (editable),
-      reps empty, grey "↳ letztes Mal" line, `+ Satz`, remove set, done toggle
-- [ ] Persist sets live; "Übung fertig" / "Einheit beenden" writes `finished_at`
+- [x] Plan multi-select ("was machst du heute") → start session (merge via `mergePlanExercises`);
+      also "leere Einheit" + resume of an active session
+- [x] Session exercise list — editable per session (add via picker, remove via long-press);
+      per-exercise set progress; no plan mutation
+- [x] Exercise set screen — kg prefilled from last time (editable), reps empty, grey
+      "↳ letztes Mal" line, `+ Satz`, remove set (long-press), done toggle
+- [x] Persist sets live (on blur / toggle); "Übung fertig" flushes; "Einheit beenden" writes
+      `finished_at`. (Manual reorder deferred — order = insertion order.)
 
 ## Phase 7 — Verlauf
 

@@ -9,25 +9,36 @@ interface ListRowProps {
   title: string;
   subtitle?: string;
   onPress?: () => void;
+  onLongPress?: () => void;
   left?: ReactNode;
   right?: ReactNode;
   selected?: boolean;
 }
 
 /** A tappable card-style row for lists (exercises, plans, history, …). */
-export function ListRow({ title, subtitle, onPress, left, right, selected }: ListRowProps) {
+export function ListRow({
+  title,
+  subtitle,
+  onPress,
+  onLongPress,
+  left,
+  right,
+  selected,
+}: ListRowProps) {
   const c = useTheme();
+  const interactive = Boolean(onPress || onLongPress);
   return (
     <Pressable
       onPress={onPress}
-      disabled={!onPress}
+      onLongPress={onLongPress}
+      disabled={!interactive}
       style={({ pressed }) => [
         styles.row,
         {
           backgroundColor: selected ? c.backgroundSelected : c.card,
           borderColor: selected ? c.accent : c.border,
         },
-        pressed && onPress ? styles.pressed : null,
+        pressed && interactive ? styles.pressed : null,
       ]}>
       {left}
       <View style={styles.texts}>
