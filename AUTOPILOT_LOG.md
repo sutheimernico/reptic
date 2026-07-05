@@ -14,3 +14,5 @@ One line per completed loop iteration (newest at bottom).
 - 2026-07-05 — Phase 3 nav shell: replaced sample tabs/NativeTabs with root Stack + (tabs) group of
   5 classic Tabs (Heute/Pläne/Übungen/Verlauf/Einstellungen, Ionicons, themed bar), shared Screen
   scaffold, themed placeholders; removed sample routes. Gate green.
+- 2026-07-06 — Shared UI kit: Card, Button (primary/secondary/danger), IconButton, TextField,
+  ListRow (selectable), EmptyState, SegmentedControl — all themed off the palette. Gate green.
