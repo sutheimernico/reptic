@@ -72,6 +72,14 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
 - [ ] Export data → JSON file (expo-file-system + sharing)
 - [ ] Import data ← JSON file (document picker) with `parseBackup` validation + confirm
 
+## Phase 8b — Cloud backup (Google Drive, free / no backend)
+
+- [ ] Optional Google Sign-In via `@react-native-google-signin/google-signin` (config plugin;
+      dev/EAS build only, not Expo Go)
+- [ ] Upload the `exportAllData` JSON to the user's Drive `appDataFolder`; restore on a new device
+      (reuses `parseBackup` + `importAllData`) — no server, data stays in the user's own Drive
+- [ ] Settings section: sign in / out, "Backup jetzt", "Wiederherstellen", last-backup timestamp
+
 ## Phase 9 — Polish
 
 - [ ] Empty states, app name/branding constant, adaptive icon + splash color
@@ -83,3 +91,5 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
 - [ ] Visual / feel sign-off on a real device
 - [ ] Confirm product name `Reptic` (or rename via `constants/app.ts`)
 - [ ] Optional: replace example Push/Pull/Beine plans with Nico's real 3 splits
+- [ ] Create Google Cloud OAuth client(s) — Web + Android client ID with the signing SHA-1 —
+      for the Drive backup sign-in; the login code can't go live without them
