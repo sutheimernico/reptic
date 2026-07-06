@@ -13,6 +13,8 @@ interface ListRowProps {
   left?: ReactNode;
   right?: ReactNode;
   selected?: boolean;
+  /** Overrides the auto-derived a11y label — e.g. to include info conveyed only by color. */
+  accessibilityLabel?: string;
 }
 
 /** A tappable card-style row for lists (exercises, plans, history, …). */
@@ -24,6 +26,7 @@ export function ListRow({
   left,
   right,
   selected,
+  accessibilityLabel,
 }: ListRowProps) {
   const c = useTheme();
   const interactive = Boolean(onPress || onLongPress);
@@ -32,6 +35,7 @@ export function ListRow({
       onPress={onPress}
       onLongPress={onLongPress}
       disabled={!interactive}
+      accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [
         styles.row,
         {

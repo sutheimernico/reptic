@@ -38,17 +38,24 @@ export default function HistoryScreen() {
         />
       ) : (
         sessions.map((s) => {
-          const colors = s.planIds
-            .map((id) => plansById.get(id)?.color)
-            .filter((x): x is string => Boolean(x));
+          const plans = s.planIds
+            .map((id) => plansById.get(id))
+            .filter((p): p is Plan => Boolean(p));
+          const colors = plans.map((p) => p.color);
+          const dateLabel = formatSessionDate(s.finishedAt ?? s.startedAt);
           const summary =
             `${plural(s.exerciseCount, 'Übung', 'Übungen')} · ${plural(s.setCount, 'Satz', 'Sätze')}` +
             (s.volume > 0 ? ` · ${formatVolume(s.volume)}` : '');
+          const a11yLabel =
+            `${dateLabel}. ` +
+            (plans.length ? `Pläne: ${plans.map((p) => p.name).join(', ')}. ` : '') +
+            summary;
           return (
             <ListRow
               key={s.id}
-              title={formatSessionDate(s.finishedAt ?? s.startedAt)}
+              title={dateLabel}
               subtitle={summary}
+              accessibilityLabel={a11yLabel}
               left={
                 colors.length > 0 ? (
                   <View style={styles.dots}>

@@ -29,6 +29,9 @@ export function SegmentedControl<T extends string>({
           <Pressable
             key={option.value}
             onPress={() => onChange(option.value)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={option.label}
             style={[styles.segment, active && { backgroundColor: c.accent }]}>
             <ThemedText type="smallBold" style={{ color: active ? c.onAccent : c.textSecondary }}>
               {option.label}
