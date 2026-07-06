@@ -51,3 +51,11 @@ One line per completed loop iteration (newest at bottom).
 - 2026-07-06 — Hardening loop A: real session volume (Σ weight×reps) in the Verlauf list via a
   SQL SUM in `getFinishedWorkoutSummaries` + new pure `formatVolume` (German thousands, +1 test),
   shown only when > 0. Gate green (tsc + 29 jest + lint).
+- 2026-07-06 — Hardening loop B: frontend review of the session diff, then fixed the real findings.
+  (1) "Performed set" = `reps IS NOT NULL` so opened-but-untouched carried-over rows no longer
+  inflate history counts or fabricate progress bars (`topSetWeight` + history/summary/session-history
+  queries; +1 test, dropped unused `doneCount`). (2) Backup import accepts text/plain +
+  octet-stream (Drive/Files report .json that way). (3) a11y: SegmentedControl selected-state,
+  ListRow `accessibilityLabel` exposing Verlauf plan names (were color-only). Skipped the review's
+  cancel-guard/.catch notes — they match the existing tab-screen convention and React 19 no longer
+  warns on unmount setState. Gate green (tsc + 30 jest + lint).
