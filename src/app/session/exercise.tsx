@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,7 +15,7 @@ import {
   insertSet,
   updateSet,
 } from '@/db';
-import { formatReference, formatWeight } from '@/domain/format';
+import { formatReference, formatWeight, parseReps, parseWeight } from '@/domain/format';
 import { createInitialSets, type PriorSet } from '@/domain/sets';
 import type { WorkoutSet } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
@@ -27,14 +27,8 @@ interface Row {
   done: boolean;
 }
 
-function parseWeight(text: string): number | null {
-  const n = parseFloat(text.replace(',', '.'));
-  return Number.isFinite(n) ? n : null;
-}
-
-function parseReps(text: string): number | null {
-  const n = parseInt(text, 10);
-  return Number.isFinite(n) ? n : null;
+function showSaveError() {
+  Alert.alert('Speichern fehlgeschlagen', 'Die Änderung konnte nicht gespeichert werden.');
 }
 
 function toRows(sets: WorkoutSet[]): Row[] {
@@ -81,6 +75,7 @@ function SetInput({
 export default function ExerciseSetScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
+  const navigation = useNavigation();
   const c = useTheme();
   const params = useLocalSearchParams<{
     workoutId: string;
@@ -140,21 +135,33 @@ export default function ExerciseSetScreen() {
         weightKg: parseWeight(r.weightText),
         reps: parseReps(r.repsText),
         done: r.done,
-      });
+      }).catch(showSaveError);
     }
   };
 
-  const flush = async () => {
-    await Promise.all(
-      rowsRef.current.map((r) =>
-        updateSet(db, r.id, {
-          weightKg: parseWeight(r.weightText),
-          reps: parseReps(r.repsText),
-          done: r.done,
-        }),
-      ),
-    );
-  };
+  const flush = useCallback(async () => {
+    try {
+      await Promise.all(
+        rowsRef.current.map((r) =>
+          updateSet(db, r.id, {
+            weightKg: parseWeight(r.weightText),
+            reps: parseReps(r.repsText),
+            done: r.done,
+          }),
+        ),
+      );
+    } catch {
+      showSaveError();
+    }
+  }, [db]);
+
+  // Header back, swipe-back and Android hardware back all bypass finish();
+  // flush pending edits on any removal so typed values are never lost.
+  useEffect(() => {
+    return navigation.addListener('beforeRemove', () => {
+      void flush();
+    });
+  }, [navigation, flush]);
 
   const toggleDone = (row: Row) => {
     const next = !row.done;
@@ -163,7 +170,7 @@ export default function ExerciseSetScreen() {
       weightKg: parseWeight(row.weightText),
       reps: parseReps(row.repsText),
       done: next,
-    });
+    }).catch(showSaveError);
   };
 
   const addSet = async () => {
