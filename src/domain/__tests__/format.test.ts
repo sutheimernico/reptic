@@ -4,7 +4,36 @@ import {
   formatSetSummary,
   formatVolume,
   formatWeight,
+  parseReps,
+  parseWeight,
 } from '@/domain/format';
+
+describe('parseWeight', () => {
+  it('parses dot and comma decimals', () => {
+    expect(parseWeight('82.5')).toBe(82.5);
+    expect(parseWeight('82,5')).toBe(82.5);
+    expect(parseWeight('0')).toBe(0);
+  });
+
+  it('returns null for empty, non-numeric and negative input', () => {
+    expect(parseWeight('')).toBeNull();
+    expect(parseWeight('abc')).toBeNull();
+    expect(parseWeight('-5')).toBeNull();
+  });
+});
+
+describe('parseReps', () => {
+  it('parses whole numbers', () => {
+    expect(parseReps('8')).toBe(8);
+    expect(parseReps('0')).toBe(0);
+  });
+
+  it('returns null for empty, non-numeric and negative input', () => {
+    expect(parseReps('')).toBeNull();
+    expect(parseReps('x')).toBeNull();
+    expect(parseReps('-3')).toBeNull();
+  });
+});
 
 describe('formatWeight', () => {
   it('drops trailing zeros and keeps useful decimals', () => {

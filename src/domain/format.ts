@@ -14,6 +14,25 @@ export function formatWeight(weightKg: number | null): string {
 }
 
 /**
+ * Parse a weight input ("82,5" or "82.5") to kg. Returns null for anything
+ * that is not a finite, non-negative number — a set cannot weigh less than
+ * bodyweight-only (0 kg).
+ */
+export function parseWeight(text: string): number | null {
+  const n = parseFloat(text.replace(',', '.'));
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+/**
+ * Parse a reps input to a whole number. Returns null for anything that is
+ * not a finite, non-negative integer.
+ */
+export function parseReps(text: string): number | null {
+  const n = parseInt(text, 10);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+/**
  * The grey per-set reference: `80 kg × 8`. Returns null when either value is
  * missing (so the caller can omit the line entirely).
  */
