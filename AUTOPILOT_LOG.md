@@ -39,3 +39,8 @@ One line per completed loop iteration (newest at bottom).
 - 2026-07-06 — Phase 8 (theme toggle): Einstellungen tab now has a system/light/dark
   SegmentedControl wired to `useThemeMode().setMode` (persists via the existing settings row).
   Export/import + Drive backup still open. Gate green (tsc + 28 jest + lint).
+- 2026-07-06 — Phase 8 (export/import): new `src/lib/backup.ts` bridges domain (de)serialize +
+  db export/import to the device via SDK 57 `File`/`Paths`, `expo-sharing`, `expo-document-picker`
+  (checked v57 docs per AGENTS.md — new class-based FS API, not legacy `*Async`). Einstellungen
+  gained a "DATEN" section: export → share sheet, import → pick + validate + confirm-with-counts +
+  replace-all. Installed 3 deps. Phase 8 complete. Gate green (tsc + 28 jest + lint).

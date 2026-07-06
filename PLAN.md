@@ -68,11 +68,12 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
 - [x] Per-exercise progression (`exercise/progress`, last 12 sessions, top-weight bars +
       per-session `formatSetSummary`); reachable from the exercise editor when history exists
 
-## Phase 8 — Einstellungen
+## Phase 8 — Einstellungen ✅
 
 - [x] Theme toggle UI (system / light / dark) — SegmentedControl on the Einstellungen tab
-- [ ] Export data → JSON file (expo-file-system + sharing)
-- [ ] Import data ← JSON file (document picker) with `parseBackup` validation + confirm
+- [x] Export data → JSON file (SDK 57 `File`/`Paths` + `Sharing`), share sheet
+- [x] Import data ← JSON file (`expo-document-picker`) with `parseBackup` validation + confirm
+      (shows counts, replaces all data via `importAllData`)
 
 ## Phase 8b — Cloud backup (Google Drive, free / no backend)
 
