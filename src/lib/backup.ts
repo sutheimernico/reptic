@@ -41,7 +41,10 @@ export async function exportBackup(db: SQLiteDatabase): Promise<boolean> {
  */
 export async function pickBackup(): Promise<BackupData | null> {
   const result = await DocumentPicker.getDocumentAsync({
-    type: 'application/json',
+    // Providers (Google Drive, Files) often report a .json backup as text/plain
+    // or application/octet-stream, which would grey it out under a strict filter.
+    // `parseBackup` validates the contents, so accepting these is safe.
+    type: ['application/json', 'text/plain', 'application/octet-stream'],
     multiple: false,
     copyToCacheDirectory: true,
   });
