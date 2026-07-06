@@ -70,7 +70,7 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
 
 ## Phase 8 — Einstellungen
 
-- [ ] Theme toggle UI (system / light / dark)
+- [x] Theme toggle UI (system / light / dark) — SegmentedControl on the Einstellungen tab
 - [ ] Export data → JSON file (expo-file-system + sharing)
 - [ ] Import data ← JSON file (document picker) with `parseBackup` validation + confirm
 

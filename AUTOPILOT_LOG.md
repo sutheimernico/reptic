@@ -36,3 +36,6 @@ One line per completed loop iteration (newest at bottom).
   reachable via a new "Fortschritt ansehen" button in the exercise editor (only when history
   exists). New pure `topSetWeight` (+2 tests) and `getExerciseSessionHistory`. Phase 7 complete.
   Gate green (tsc + 28 jest + lint).
+- 2026-07-06 — Phase 8 (theme toggle): Einstellungen tab now has a system/light/dark
+  SegmentedControl wired to `useThemeMode().setMode` (persists via the existing settings row).
+  Export/import + Drive backup still open. Gate green (tsc + 28 jest + lint).
