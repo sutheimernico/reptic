@@ -44,3 +44,7 @@ One line per completed loop iteration (newest at bottom).
   (checked v57 docs per AGENTS.md — new class-based FS API, not legacy `*Async`). Einstellungen
   gained a "DATEN" section: export → share sheet, import → pick + validate + confirm-with-counts +
   replace-all. Installed 3 deps. Phase 8 complete. Gate green (tsc + 28 jest + lint).
+- 2026-07-06 — Phase 9 (polish): themed StatusBar in the root layout (follows resolved scheme),
+  display name → `Reptic`, dark splash background `#0B0D14`; empty states already covered.
+  Appended the spec Outcome section. Icon art + Phase 8b Drive backup remain Needs Nico.
+  Final gate green (tsc + 28 jest + expo lint; `expo config` resolves). Autopilot phases done.

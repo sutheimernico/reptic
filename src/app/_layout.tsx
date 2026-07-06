@@ -1,6 +1,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { SQLiteProvider } from 'expo-sqlite';
+import { StatusBar } from 'expo-status-bar';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { DATABASE_NAME } from '@/constants/app';
@@ -35,6 +36,7 @@ function ThemedNavigation() {
   };
   return (
     <NavThemeProvider value={navTheme}>
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <AnimatedSplashOverlay />
       <Stack screenOptions={{ headerShown: false }} />
     </NavThemeProvider>

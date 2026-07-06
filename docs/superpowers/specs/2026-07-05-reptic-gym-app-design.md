@@ -170,3 +170,28 @@ Needs Nico.
 
 Rule: `domain/` must never import from `db/`, `app/`, or any native module — that keeps the core
 testable in plain Node/Jest and the boundaries clean.
+
+## 10. Outcome (2026-07-06)
+
+Built end-to-end on `autopilot/work`; gate green at every commit (`tsc` + `jest` + `expo lint`,
+28 domain tests). Implemented:
+
+- **Phases 0–6** — bootstrap, SQLite data layer + migrations + seed, theme system (dark/light +
+  persisted override), 5-tab nav shell, Übungen library (add/edit/archive), Pläne editor, and the
+  core Heute flow (plan multi-select → session → per-set screen with last-time carry-over).
+- **Phase 7 Verlauf** — past-sessions list (`formatSessionDate`, plan color dots, set counts),
+  read-only `workout/[id]` detail (per-exercise `formatSetSummary`, delete), and `exercise/progress`
+  (last 12 sessions, top-weight bars) reachable from the exercise editor.
+- **Phase 8 Einstellungen** — theme toggle; JSON backup **export** (SDK 57 `File`/`Paths` + share
+  sheet) and **import** (`expo-document-picker` → `parseBackup` validation → confirm-with-counts →
+  replace-all). This is the working, backend-free "back up & restore on a new device" path.
+- **Phase 9 Polish** — empty states across all list screens, themed status bar, `APP_NAME`/display
+  name, dark splash background.
+
+**Deferred / Needs Nico:**
+- **Phase 8b Google Drive backup** — deliberately not built: blocked on a Google Cloud OAuth client
+  and unverifiable without a dev build. Local export/import already covers device migration; the
+  Drive login is a convenience layer to add once the OAuth client exists.
+- On-device run, APK/EAS build, and visual sign-off (no Java/Android SDK in the build env).
+- Real icon/splash **art** (foreground PNGs are still the Expo template).
+- Confirm the product name; optionally swap the example plans for Nico's real splits.

@@ -83,10 +83,12 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
       (reuses `parseBackup` + `importAllData`) — no server, data stays in the user's own Drive
 - [ ] Settings section: sign in / out, "Backup jetzt", "Wiederherstellen", last-backup timestamp
 
-## Phase 9 — Polish
+## Phase 9 — Polish ✅
 
-- [ ] Empty states, app name/branding constant, adaptive icon + splash color
-- [ ] Final full-gate pass; update spec Outcome section
+- [x] Empty states (already across all list screens), themed status bar, `APP_NAME` +
+      display name `Reptic`, dark splash background (`#0B0D14`). Icon *art* stays Needs Nico
+      (adaptiveIcon uses a backgroundImage, so only new PNGs would change it).
+- [x] Final full-gate pass (tsc + 28 jest + expo lint, `expo config` resolves) + spec Outcome section
 
 ## Needs Nico
 
@@ -96,3 +98,4 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
 - [ ] Optional: replace example Push/Pull/Beine plans with Nico's real 3 splits
 - [ ] Create Google Cloud OAuth client(s) — Web + Android client ID with the signing SHA-1 —
       for the Drive backup sign-in; the login code can't go live without them
+- [ ] Replace the Expo-template icon/splash art (foreground PNGs) with real Reptic art
