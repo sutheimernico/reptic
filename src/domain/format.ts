@@ -44,3 +44,20 @@ export function formatSetSummary(sets: { weightKg: number | null; reps: number |
     .map((g) => `${formatWeight(g.weightKg)} kg × ${g.reps.join(', ')}`)
     .join(' · ');
 }
+
+const WEEKDAYS_DE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+const MONTHS_DE = [
+  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
+];
+
+/**
+ * A session date for history rows: `So, 5. Juli 2026`. Reads the device-local
+ * calendar fields (getDay/getDate/…), which is what the user expects to see.
+ * Returns "" for an unparseable timestamp.
+ */
+export function formatSessionDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${WEEKDAYS_DE[d.getDay()]}, ${d.getDate()}. ${MONTHS_DE[d.getMonth()]} ${d.getFullYear()}`;
+}

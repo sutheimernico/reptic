@@ -303,6 +303,35 @@ export async function getFinishedWorkouts(db: SQLiteDatabase): Promise<Workout[]
   return rows.map(mapWorkout);
 }
 
+export interface WorkoutSummary extends Workout {
+  exerciseCount: number;
+  setCount: number;
+  doneCount: number;
+}
+
+/** Finished sessions with per-session counts for the history list, newest first. */
+export async function getFinishedWorkoutSummaries(db: SQLiteDatabase): Promise<WorkoutSummary[]> {
+  // Correlated subqueries, not joins: joining workout_exercises AND workout_sets
+  // at once would cross-multiply the rows and inflate the counts.
+  const rows = await db.getAllAsync<
+    WorkoutRow & { exercise_count: number; set_count: number; done_count: number }
+  >(
+    `SELECT w.*,
+       (SELECT COUNT(*) FROM workout_exercises we WHERE we.workout_id = w.id) AS exercise_count,
+       (SELECT COUNT(*) FROM workout_sets ws WHERE ws.workout_id = w.id) AS set_count,
+       (SELECT COALESCE(SUM(ws.done), 0) FROM workout_sets ws WHERE ws.workout_id = w.id) AS done_count
+     FROM workouts w
+     WHERE w.finished_at IS NOT NULL
+     ORDER BY w.finished_at DESC`,
+  );
+  return rows.map((r) => ({
+    ...mapWorkout(r),
+    exerciseCount: r.exercise_count,
+    setCount: r.set_count,
+    doneCount: r.done_count,
+  }));
+}
+
 export async function finishWorkout(
   db: SQLiteDatabase,
   id: number,

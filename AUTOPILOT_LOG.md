@@ -26,3 +26,8 @@ One line per completed loop iteration (newest at bottom).
   (exercise list with set progress, add via picker, remove via long-press, finish); exercise set
   screen (kg prefilled from last time, reps empty, grey "letztes Mal" line, +Satz, delete, done,
   live persist). getSetProgressForWorkout added; ListRow gained onLongPress. Gate green.
+- 2026-07-06 — Phase 7 (list): Verlauf tab lists finished sessions (date via new pure
+  `formatSessionDate`, plan color dots, "N Übungen · M Sätze") + read-only session detail
+  `workout/[id]` showing each exercise's `formatSetSummary`, with delete. New
+  `getFinishedWorkoutSummaries` (correlated subqueries, no row multiplication) + 2 date tests.
+  Also logged the decision to add Google Drive backup as Phase 8b. Gate green (tsc + 26 jest + lint).

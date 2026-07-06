@@ -1,4 +1,4 @@
-import { formatReference, formatSetSummary, formatWeight } from '@/domain/format';
+import { formatReference, formatSessionDate, formatSetSummary, formatWeight } from '@/domain/format';
 
 describe('formatWeight', () => {
   it('drops trailing zeros and keeps useful decimals', () => {
@@ -48,5 +48,18 @@ describe('formatSetSummary', () => {
   it('ignores unfinished sets and returns empty for none', () => {
     expect(formatSetSummary([{ weightKg: null, reps: null }])).toBe('');
     expect(formatSetSummary([])).toBe('');
+  });
+});
+
+describe('formatSessionDate', () => {
+  it('renders weekday, day, month and year in German', () => {
+    // Build from a local noon date so the ISO round-trip never crosses a day
+    // boundary in any time zone; 2026-07-05 is a Sunday.
+    const local = new Date(2026, 6, 5, 12, 0, 0);
+    expect(formatSessionDate(local.toISOString())).toBe('So, 5. Juli 2026');
+  });
+
+  it('returns empty string for an unparseable input', () => {
+    expect(formatSessionDate('not-a-date')).toBe('');
   });
 });

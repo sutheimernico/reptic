@@ -63,7 +63,8 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
 
 ## Phase 7 — Verlauf
 
-- [ ] Past sessions list (date, plans, volume summary via `formatSetSummary`)
+- [x] Past sessions list (date, plans, set-count summary) + read-only session detail
+      (`workout/[id]`) with per-exercise `formatSetSummary` and delete
 - [ ] Per-exercise progression (last N sessions, simple list/sparkline)
 
 ## Phase 8 — Einstellungen
