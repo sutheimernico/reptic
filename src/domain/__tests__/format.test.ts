@@ -1,4 +1,10 @@
-import { formatReference, formatSessionDate, formatSetSummary, formatWeight } from '@/domain/format';
+import {
+  formatReference,
+  formatSessionDate,
+  formatSetSummary,
+  formatVolume,
+  formatWeight,
+} from '@/domain/format';
 
 describe('formatWeight', () => {
   it('drops trailing zeros and keeps useful decimals', () => {
@@ -61,5 +67,15 @@ describe('formatSessionDate', () => {
 
   it('returns empty string for an unparseable input', () => {
     expect(formatSessionDate('not-a-date')).toBe('');
+  });
+});
+
+describe('formatVolume', () => {
+  it('rounds and groups thousands with a dot', () => {
+    expect(formatVolume(0)).toBe('0 kg');
+    expect(formatVolume(950)).toBe('950 kg');
+    expect(formatVolume(4180)).toBe('4.180 kg');
+    expect(formatVolume(1234567)).toBe('1.234.567 kg');
+    expect(formatVolume(4179.6)).toBe('4.180 kg');
   });
 });

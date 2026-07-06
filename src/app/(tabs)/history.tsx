@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
 import { getFinishedWorkoutSummaries, getPlans, type WorkoutSummary } from '@/db';
-import { formatSessionDate } from '@/domain/format';
+import { formatSessionDate, formatVolume } from '@/domain/format';
 import type { Plan } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -41,11 +41,14 @@ export default function HistoryScreen() {
           const colors = s.planIds
             .map((id) => plansById.get(id)?.color)
             .filter((x): x is string => Boolean(x));
+          const summary =
+            `${plural(s.exerciseCount, 'Übung', 'Übungen')} · ${plural(s.setCount, 'Satz', 'Sätze')}` +
+            (s.volume > 0 ? ` · ${formatVolume(s.volume)}` : '');
           return (
             <ListRow
               key={s.id}
               title={formatSessionDate(s.finishedAt ?? s.startedAt)}
-              subtitle={`${plural(s.exerciseCount, 'Übung', 'Übungen')} · ${plural(s.setCount, 'Satz', 'Sätze')}`}
+              subtitle={summary}
               left={
                 colors.length > 0 ? (
                   <View style={styles.dots}>

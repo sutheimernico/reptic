@@ -48,3 +48,6 @@ One line per completed loop iteration (newest at bottom).
   display name → `Reptic`, dark splash background `#0B0D14`; empty states already covered.
   Appended the spec Outcome section. Icon art + Phase 8b Drive backup remain Needs Nico.
   Final gate green (tsc + 28 jest + expo lint; `expo config` resolves). Autopilot phases done.
+- 2026-07-06 — Hardening loop A: real session volume (Σ weight×reps) in the Verlauf list via a
+  SQL SUM in `getFinishedWorkoutSummaries` + new pure `formatVolume` (German thousands, +1 test),
+  shown only when > 0. Gate green (tsc + 29 jest + lint).

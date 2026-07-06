@@ -61,3 +61,13 @@ export function formatSessionDate(iso: string): string {
   if (Number.isNaN(d.getTime())) return '';
   return `${WEEKDAYS_DE[d.getDay()]}, ${d.getDate()}. ${MONTHS_DE[d.getMonth()]} ${d.getFullYear()}`;
 }
+
+/** Group thousands with a dot (German): 4180 -> "4.180". */
+function groupThousands(n: number): string {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+/** Total session volume (kg moved = Σ weight × reps), rounded: `4.180 kg`. */
+export function formatVolume(kg: number): string {
+  return `${groupThousands(Math.round(kg))} kg`;
+}

@@ -307,6 +307,8 @@ export interface WorkoutSummary extends Workout {
   exerciseCount: number;
   setCount: number;
   doneCount: number;
+  /** Σ weight_kg × reps across the session's sets (kg). */
+  volume: number;
 }
 
 /** Finished sessions with per-session counts for the history list, newest first. */
@@ -314,12 +316,13 @@ export async function getFinishedWorkoutSummaries(db: SQLiteDatabase): Promise<W
   // Correlated subqueries, not joins: joining workout_exercises AND workout_sets
   // at once would cross-multiply the rows and inflate the counts.
   const rows = await db.getAllAsync<
-    WorkoutRow & { exercise_count: number; set_count: number; done_count: number }
+    WorkoutRow & { exercise_count: number; set_count: number; done_count: number; volume: number }
   >(
     `SELECT w.*,
        (SELECT COUNT(*) FROM workout_exercises we WHERE we.workout_id = w.id) AS exercise_count,
        (SELECT COUNT(*) FROM workout_sets ws WHERE ws.workout_id = w.id) AS set_count,
-       (SELECT COALESCE(SUM(ws.done), 0) FROM workout_sets ws WHERE ws.workout_id = w.id) AS done_count
+       (SELECT COALESCE(SUM(ws.done), 0) FROM workout_sets ws WHERE ws.workout_id = w.id) AS done_count,
+       (SELECT COALESCE(SUM(ws.weight_kg * ws.reps), 0) FROM workout_sets ws WHERE ws.workout_id = w.id) AS volume
      FROM workouts w
      WHERE w.finished_at IS NOT NULL
      ORDER BY w.finished_at DESC`,
@@ -329,6 +332,7 @@ export async function getFinishedWorkoutSummaries(db: SQLiteDatabase): Promise<W
     exerciseCount: r.exercise_count,
     setCount: r.set_count,
     doneCount: r.done_count,
+    volume: r.volume,
   }));
 }
 
