@@ -304,9 +304,10 @@ export async function getFinishedWorkouts(db: SQLiteDatabase): Promise<Workout[]
 }
 
 export interface WorkoutSummary extends Workout {
+  /** Distinct exercises with at least one performed set (reps entered). */
   exerciseCount: number;
+  /** Performed sets (reps entered); carried-over-but-untouched rows don't count. */
   setCount: number;
-  doneCount: number;
   /** Σ weight_kg × reps across the session's sets (kg). */
   volume: number;
 }
@@ -315,14 +316,18 @@ export interface WorkoutSummary extends Workout {
 export async function getFinishedWorkoutSummaries(db: SQLiteDatabase): Promise<WorkoutSummary[]> {
   // Correlated subqueries, not joins: joining workout_exercises AND workout_sets
   // at once would cross-multiply the rows and inflate the counts.
+  // "Performed" = reps IS NOT NULL: opening an exercise pre-fills carried-over
+  // weights with empty reps, so those unfilled rows must not count as done work.
   const rows = await db.getAllAsync<
-    WorkoutRow & { exercise_count: number; set_count: number; done_count: number; volume: number }
+    WorkoutRow & { exercise_count: number; set_count: number; volume: number }
   >(
     `SELECT w.*,
-       (SELECT COUNT(*) FROM workout_exercises we WHERE we.workout_id = w.id) AS exercise_count,
-       (SELECT COUNT(*) FROM workout_sets ws WHERE ws.workout_id = w.id) AS set_count,
-       (SELECT COALESCE(SUM(ws.done), 0) FROM workout_sets ws WHERE ws.workout_id = w.id) AS done_count,
-       (SELECT COALESCE(SUM(ws.weight_kg * ws.reps), 0) FROM workout_sets ws WHERE ws.workout_id = w.id) AS volume
+       (SELECT COUNT(DISTINCT ws.exercise_id) FROM workout_sets ws
+          WHERE ws.workout_id = w.id AND ws.reps IS NOT NULL) AS exercise_count,
+       (SELECT COUNT(*) FROM workout_sets ws
+          WHERE ws.workout_id = w.id AND ws.reps IS NOT NULL) AS set_count,
+       (SELECT COALESCE(SUM(ws.weight_kg * ws.reps), 0) FROM workout_sets ws
+          WHERE ws.workout_id = w.id) AS volume
      FROM workouts w
      WHERE w.finished_at IS NOT NULL
      ORDER BY w.finished_at DESC`,
@@ -331,7 +336,6 @@ export async function getFinishedWorkoutSummaries(db: SQLiteDatabase): Promise<W
     ...mapWorkout(r),
     exerciseCount: r.exercise_count,
     setCount: r.set_count,
-    doneCount: r.done_count,
     volume: r.volume,
   }));
 }
@@ -555,7 +559,10 @@ export async function getExerciseSessionHistory(
     `SELECT w.id, w.started_at, w.finished_at
      FROM workouts w
      WHERE w.finished_at IS NOT NULL
-       AND EXISTS (SELECT 1 FROM workout_sets ws WHERE ws.workout_id = w.id AND ws.exercise_id = ?)
+       AND EXISTS (
+         SELECT 1 FROM workout_sets ws
+         WHERE ws.workout_id = w.id AND ws.exercise_id = ? AND ws.reps IS NOT NULL
+       )
      ORDER BY w.finished_at DESC
      LIMIT ?`,
     exerciseId,
@@ -563,8 +570,9 @@ export async function getExerciseSessionHistory(
   );
   const entries: ExerciseSessionEntry[] = [];
   for (const w of workouts) {
+    // Only performed sets (reps entered) — skip carried-over rows left untouched.
     const rows = await db.getAllAsync<{ set_number: number; weight_kg: number | null; reps: number | null }>(
-      'SELECT set_number, weight_kg, reps FROM workout_sets WHERE workout_id = ? AND exercise_id = ? ORDER BY set_number',
+      'SELECT set_number, weight_kg, reps FROM workout_sets WHERE workout_id = ? AND exercise_id = ? AND reps IS NOT NULL ORDER BY set_number',
       w.id,
       exerciseId,
     );

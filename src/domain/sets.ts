@@ -87,11 +87,17 @@ export function removeSet(current: DraftSet[], setNumber: number, prior: PriorSe
     .map((s, i) => ({ ...s, setNumber: i + 1, reference: referenceFor(prior[i]) }));
 }
 
-/** The heaviest weight logged across a set list; null when none carries a weight. */
-export function topSetWeight(sets: Pick<WorkoutSet, 'weightKg'>[]): number | null {
+/**
+ * The heaviest weight among *performed* sets. A set counts only when reps were
+ * entered (`reps !== null`): opening an exercise pre-fills carried-over weights
+ * with empty reps, so those untouched rows must not be read as real lifts.
+ * Returns null when no performed set carries a weight.
+ */
+export function topSetWeight(sets: Pick<WorkoutSet, 'weightKg' | 'reps'>[]): number | null {
   let max: number | null = null;
   for (const s of sets) {
-    if (s.weightKg !== null && (max === null || s.weightKg > max)) max = s.weightKg;
+    if (s.reps === null || s.weightKg === null) continue;
+    if (max === null || s.weightKg > max) max = s.weightKg;
   }
   return max;
 }

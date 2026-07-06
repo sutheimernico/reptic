@@ -82,12 +82,27 @@ describe('removeSet', () => {
 });
 
 describe('topSetWeight', () => {
-  it('returns the heaviest weight, ignoring sets without one', () => {
-    expect(topSetWeight([{ weightKg: 80 }, { weightKg: 100 }, { weightKg: null }])).toBe(100);
+  it('returns the heaviest weight among performed sets', () => {
+    expect(
+      topSetWeight([
+        { weightKg: 80, reps: 8 },
+        { weightKg: 100, reps: 5 },
+        { weightKg: null, reps: 10 },
+      ]),
+    ).toBe(100);
   });
 
-  it('returns null when no set carries a weight', () => {
-    expect(topSetWeight([{ weightKg: null }, { weightKg: null }])).toBeNull();
+  it('ignores carried-over sets that were never performed (no reps)', () => {
+    expect(
+      topSetWeight([
+        { weightKg: 120, reps: null }, // opened, weight pre-filled, never done
+        { weightKg: 80, reps: 8 },
+      ]),
+    ).toBe(80);
+  });
+
+  it('returns null when no set was performed with a weight', () => {
+    expect(topSetWeight([{ weightKg: 120, reps: null }])).toBeNull();
     expect(topSetWeight([])).toBeNull();
   });
 });
