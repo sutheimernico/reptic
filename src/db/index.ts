@@ -534,6 +534,45 @@ export async function getLastSetsForExercise(
   );
 }
 
+export interface ExerciseSessionEntry {
+  workoutId: number;
+  /** finished_at, or started_at as a fallback. */
+  date: string;
+  sets: { setNumber: number; weightKg: number | null; reps: number | null }[];
+}
+
+/** The last `limit` finished sessions that logged this exercise, newest first, with its sets. */
+export async function getExerciseSessionHistory(
+  db: SQLiteDatabase,
+  exerciseId: number,
+  limit = 12,
+): Promise<ExerciseSessionEntry[]> {
+  const workouts = await db.getAllAsync<{ id: number; started_at: string; finished_at: string | null }>(
+    `SELECT w.id, w.started_at, w.finished_at
+     FROM workouts w
+     WHERE w.finished_at IS NOT NULL
+       AND EXISTS (SELECT 1 FROM workout_sets ws WHERE ws.workout_id = w.id AND ws.exercise_id = ?)
+     ORDER BY w.finished_at DESC
+     LIMIT ?`,
+    exerciseId,
+    limit,
+  );
+  const entries: ExerciseSessionEntry[] = [];
+  for (const w of workouts) {
+    const rows = await db.getAllAsync<{ set_number: number; weight_kg: number | null; reps: number | null }>(
+      'SELECT set_number, weight_kg, reps FROM workout_sets WHERE workout_id = ? AND exercise_id = ? ORDER BY set_number',
+      w.id,
+      exerciseId,
+    );
+    entries.push({
+      workoutId: w.id,
+      date: w.finished_at ?? w.started_at,
+      sets: rows.map((r) => ({ setNumber: r.set_number, weightKg: r.weight_kg, reps: r.reps })),
+    });
+  }
+  return entries;
+}
+
 // ---------- settings ----------
 
 export async function getSetting(db: SQLiteDatabase, key: string): Promise<string | null> {

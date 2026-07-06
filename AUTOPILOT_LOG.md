@@ -31,3 +31,8 @@ One line per completed loop iteration (newest at bottom).
   `workout/[id]` showing each exercise's `formatSetSummary`, with delete. New
   `getFinishedWorkoutSummaries` (correlated subqueries, no row multiplication) + 2 date tests.
   Also logged the decision to add Google Drive backup as Phase 8b. Gate green (tsc + 26 jest + lint).
+- 2026-07-06 — Phase 7 (progression): `exercise/progress` screen shows an exercise's last 12
+  finished sessions with top-weight bars (scaled to the max) + per-session `formatSetSummary`;
+  reachable via a new "Fortschritt ansehen" button in the exercise editor (only when history
+  exists). New pure `topSetWeight` (+2 tests) and `getExerciseSessionHistory`. Phase 7 complete.
+  Gate green (tsc + 28 jest + lint).

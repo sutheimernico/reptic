@@ -126,6 +126,20 @@ export default function ExerciseEditScreen() {
 
         <Button label="Speichern" icon="checkmark" onPress={save} disabled={!name.trim()} />
 
+        {isEditing && hasHistory ? (
+          <Button
+            label="Fortschritt ansehen"
+            icon="trending-up"
+            variant="secondary"
+            onPress={() =>
+              router.push({
+                pathname: '/exercise/progress',
+                params: { id: String(editingId), name: name.trim() },
+              })
+            }
+          />
+        ) : null}
+
         {isEditing ? (
           <Button
             label={hasHistory ? 'Archivieren' : 'Löschen'}

@@ -1,4 +1,11 @@
-import { addSet, createInitialSets, type PriorSet, removeSet, toPriorSets } from '@/domain/sets';
+import {
+  addSet,
+  createInitialSets,
+  type PriorSet,
+  removeSet,
+  topSetWeight,
+  toPriorSets,
+} from '@/domain/sets';
 
 const prior: PriorSet[] = [
   { setNumber: 1, weightKg: 80, reps: 8 },
@@ -71,5 +78,16 @@ describe('removeSet', () => {
     expect(out.map((s) => s.setNumber)).toEqual([1, 2]);
     // position 2 now references last time's set index 1 (80 kg × 8)
     expect(out[1].reference).toEqual({ weightKg: 80, reps: 8 });
+  });
+});
+
+describe('topSetWeight', () => {
+  it('returns the heaviest weight, ignoring sets without one', () => {
+    expect(topSetWeight([{ weightKg: 80 }, { weightKg: 100 }, { weightKg: null }])).toBe(100);
+  });
+
+  it('returns null when no set carries a weight', () => {
+    expect(topSetWeight([{ weightKg: null }, { weightKg: null }])).toBeNull();
+    expect(topSetWeight([])).toBeNull();
   });
 });

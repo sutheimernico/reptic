@@ -86,3 +86,12 @@ export function removeSet(current: DraftSet[], setNumber: number, prior: PriorSe
     .filter((s) => s.setNumber !== setNumber)
     .map((s, i) => ({ ...s, setNumber: i + 1, reference: referenceFor(prior[i]) }));
 }
+
+/** The heaviest weight logged across a set list; null when none carries a weight. */
+export function topSetWeight(sets: Pick<WorkoutSet, 'weightKg'>[]): number | null {
+  let max: number | null = null;
+  for (const s of sets) {
+    if (s.weightKg !== null && (max === null || s.weightKg > max)) max = s.weightKg;
+  }
+  return max;
+}

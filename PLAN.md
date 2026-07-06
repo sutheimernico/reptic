@@ -61,11 +61,12 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
 - [x] Persist sets live (on blur / toggle); "Übung fertig" flushes; "Einheit beenden" writes
       `finished_at`. (Manual reorder deferred — order = insertion order.)
 
-## Phase 7 — Verlauf
+## Phase 7 — Verlauf ✅
 
 - [x] Past sessions list (date, plans, set-count summary) + read-only session detail
       (`workout/[id]`) with per-exercise `formatSetSummary` and delete
-- [ ] Per-exercise progression (last N sessions, simple list/sparkline)
+- [x] Per-exercise progression (`exercise/progress`, last 12 sessions, top-weight bars +
+      per-session `formatSetSummary`); reachable from the exercise editor when history exists
 
 ## Phase 8 — Einstellungen
 
