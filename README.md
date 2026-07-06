@@ -1,56 +1,74 @@
-# Welcome to your Expo app 👋
+# Reptic
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A private, self-tailored **gym tracking** app — a local-first replacement for an
+ad-hoc Notes workflow. Installable Android app, fully offline, single user.
 
-## Get started
+Its core value over notes: every session is stored, and while training you see
+**"letztes Mal" per set** — last time's weight is pre-filled (editable), reps are
+typed fresh, and a grey `↳ letztes Mal: 80 kg × 8` line shows the target to beat.
 
-1. Install dependencies
+## Features
 
-   ```bash
-   npm install
-   ```
+- **Heute** — pick one or more plans (or an empty session), then log each exercise
+  set by set with last-time carry-over. Resume an in-progress session.
+- **Pläne** — create/edit training splits (name, color, ordered exercises).
+- **Übungen** — exercise library grouped by muscle group; add/edit, archive when
+  it already appears in history instead of deleting.
+- **Verlauf** — past sessions (date, plan colors, performed sets + volume), a
+  read-only session detail, and per-exercise progression (last 12 sessions,
+  top-weight bars).
+- **Einstellungen** — system/light/dark theme, and JSON **backup export/import**
+  (share to Drive/Files, restore on a new device).
 
-2. Start the app
+## Stack
 
-   ```bash
-   npx expo start
-   ```
+Expo SDK 57 · React Native 0.86 · TypeScript · expo-router (typed routes) ·
+expo-sqlite (async, `PRAGMA user_version` migrations) · own theme token system.
+No state/styling framework.
 
-In the output, you'll find options to open the app in a
+## Architecture
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- `src/domain/` — **pure** logic (no native/react imports), fully unit-tested:
+  last-time resolver, set carry-over, plan merge, formatting, backup (de)serialize.
+- `src/db/` — thin typed data layer over expo-sqlite (snake_case rows → domain types).
+- `src/theme/` — tokens + theme context (persisted system/light/dark override).
+- `src/app/` — thin expo-router screens that call `db/` and render `domain/` output.
+- `src/lib/` — impure device bridges (backup file I/O via `File`/`Paths`, sharing, picker).
+- `src/constants/app.ts` — product name and other trivially-changeable constants.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Rule: `domain/` must never import from `db/`, `app/`, or any native module, so the
+core stays testable in plain Node/Jest.
 
-## Get a fresh project
-
-When you're ready, run:
+## Develop
 
 ```bash
-npm run reset-project
+npm install
+npx expo start        # open in Expo Go or a dev build
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Gate (green before every commit):
 
-### Other setup steps
+```bash
+npm run typecheck     # tsc --noEmit
+npm test              # jest
+npm run lint          # expo lint
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Setup still required (device / accounts)
 
-## Learn more
+The build environment here has no Java/Android SDK, so the following are done by hand:
 
-To learn more about developing your project with Expo, look at the following resources:
+- **Run on device / APK**: `npx expo start` (Expo Go) for day-to-day; an
+  [EAS build](https://docs.expo.dev/build/introduction/) (needs an Expo login) for a
+  standalone APK.
+- **Cloud backup (planned, Phase 8b)**: an optional Google Sign-In that backs up to the
+  user's own Google Drive (`appDataFolder`) — no backend. It needs a Google Cloud OAuth
+  client (Web + Android client ID with the signing SHA-1) and a dev build (native module,
+  not Expo Go). Until then, local JSON export/import covers device migration.
+- **Icon/splash art**: the foreground images are still the Expo template; only the
+  colors are branded.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Data & privacy
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+All data lives in a local SQLite database on the device. Nothing is sent anywhere;
+the optional Drive backup (when added) writes only to the user's own Drive.
