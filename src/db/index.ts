@@ -11,6 +11,7 @@ import { mergePlanExercises, type PlanExercises } from '@/domain/plans';
 import { type PriorSet, toPriorSets } from '@/domain/sets';
 import type {
   Exercise,
+  Gym,
   MuscleGroup,
   Plan,
   PlanWithExercises,
@@ -58,6 +59,7 @@ interface WorkoutRow {
   started_at: string;
   finished_at: string | null;
   plan_ids: string;
+  gym_id: number;
 }
 
 const mapWorkout = (r: WorkoutRow): Workout => ({
@@ -65,7 +67,16 @@ const mapWorkout = (r: WorkoutRow): Workout => ({
   startedAt: r.started_at,
   finishedAt: r.finished_at,
   planIds: safeParseIds(r.plan_ids),
+  gymId: r.gym_id,
 });
+
+interface GymRow {
+  id: number;
+  name: string;
+  archived: number;
+}
+
+const mapGym = (r: GymRow): Gym => ({ id: r.id, name: r.name, archived: r.archived === 1 });
 
 function safeParseIds(json: string): number[] {
   try {
@@ -172,6 +183,56 @@ export async function deleteExercise(db: SQLiteDatabase, id: number): Promise<vo
   await db.runAsync('DELETE FROM exercises WHERE id = ?', id);
 }
 
+// ---------- gyms ----------
+
+/** Settings key holding the id of the gym used for the last (or upcoming) session. */
+export const LAST_GYM_SETTING = 'last_gym_id';
+
+export async function getGyms(
+  db: SQLiteDatabase,
+  { includeArchived = false } = {},
+): Promise<Gym[]> {
+  const rows = await db.getAllAsync<GymRow>(
+    `SELECT * FROM gyms ${includeArchived ? '' : 'WHERE archived = 0'} ORDER BY name`,
+  );
+  return rows.map(mapGym);
+}
+
+export async function getGym(db: SQLiteDatabase, id: number): Promise<Gym | null> {
+  const row = await db.getFirstAsync<GymRow>('SELECT * FROM gyms WHERE id = ?', id);
+  return row ? mapGym(row) : null;
+}
+
+export async function createGym(db: SQLiteDatabase, name: string): Promise<number> {
+  const res = await db.runAsync('INSERT INTO gyms (name, archived) VALUES (?, 0)', name);
+  return res.lastInsertRowId;
+}
+
+export async function updateGym(db: SQLiteDatabase, id: number, name: string): Promise<void> {
+  await db.runAsync('UPDATE gyms SET name = ? WHERE id = ?', name, id);
+}
+
+export async function setGymArchived(
+  db: SQLiteDatabase,
+  id: number,
+  archived: boolean,
+): Promise<void> {
+  await db.runAsync('UPDATE gyms SET archived = ? WHERE id = ?', archived ? 1 : 0, id);
+}
+
+/** Whether any session references the gym (used to decide delete vs archive in the UI). */
+export async function gymHasWorkouts(db: SQLiteDatabase, id: number): Promise<boolean> {
+  const row = await db.getFirstAsync<{ n: number }>(
+    'SELECT COUNT(*) AS n FROM workouts WHERE gym_id = ?',
+    id,
+  );
+  return (row?.n ?? 0) > 0;
+}
+
+export async function deleteGym(db: SQLiteDatabase, id: number): Promise<void> {
+  await db.runAsync('DELETE FROM gyms WHERE id = ?', id);
+}
+
 // ---------- plans ----------
 
 export async function getPlans(db: SQLiteDatabase): Promise<Plan[]> {
@@ -254,6 +315,7 @@ export async function setPlanExercises(
 export async function startWorkout(
   db: SQLiteDatabase,
   planIds: number[],
+  gymId: number,
   startedAt: string,
 ): Promise<number> {
   const plansEx: PlanExercises[] = [];
@@ -265,9 +327,10 @@ export async function startWorkout(
   let workoutId = 0;
   await db.withTransactionAsync(async () => {
     const res = await db.runAsync(
-      'INSERT INTO workouts (started_at, finished_at, plan_ids) VALUES (?, NULL, ?)',
+      'INSERT INTO workouts (started_at, finished_at, plan_ids, gym_id) VALUES (?, NULL, ?, ?)',
       startedAt,
       JSON.stringify(planIds),
+      gymId,
     );
     workoutId = res.lastInsertRowId;
     let sort = 0;
@@ -281,6 +344,7 @@ export async function startWorkout(
       sort += 1;
     }
   });
+  await setSetting(db, LAST_GYM_SETTING, String(gymId));
   return workoutId;
 }
 

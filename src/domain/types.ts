@@ -51,6 +51,8 @@ export interface Workout {
   finishedAt: string | null;
   /** Plan ids the user picked for this session. */
   planIds: number[];
+  /** The gym this session happens in — weights depend on it. */
+  gymId: number;
 }
 
 export interface WorkoutExercise {

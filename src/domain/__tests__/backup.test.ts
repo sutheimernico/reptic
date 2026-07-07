@@ -5,7 +5,7 @@ const payload: BackupPayload = {
   exercises: [{ id: 1, name: 'Bankdrücken', muscleGroup: 'Brust', isCustom: false, archived: false }],
   plans: [{ id: 1, name: 'Push', color: '#6366F1', sortOrder: 0 }],
   planExercises: [{ planId: 1, exerciseId: 1, sortOrder: 0 }],
-  workouts: [{ id: 1, startedAt: '2026-07-05T09:00:00.000Z', finishedAt: null, planIds: [1] }],
+  workouts: [{ id: 1, startedAt: '2026-07-05T09:00:00.000Z', finishedAt: null, planIds: [1], gymId: 1 }],
   workoutExercises: [{ id: 1, workoutId: 1, exerciseId: 1, sortOrder: 0 }],
   workoutSets: [
     {
