@@ -94,3 +94,15 @@ One line per completed loop iteration (newest at bottom).
   instrumentation (never committed) discarded; code stands at 860ac48/96bf4cc. Which of the two
   proven mechanisms hit the device stays forensically open — moot now: the class is fixed,
   regression-tested, and any future write failure surfaces as an alert with the SQLite message.
+- 2026-07-07 — Feedback round 2 (swipe-delete, reorder, icon, exercises). Icon design D
+  (barbell, indigo->violet gradient) rendered to all Android/adaptive/monochrome/splash/
+  favicon assets via sharp. New: swipe-to-delete an exercise in a running session
+  (ReanimatedSwipeable red trash panel; open->delete; long-press keeps the confirm dialog;
+  GestureHandlerRootView added at root). Plan editor gained an ordered "Reihenfolge" list
+  with up/down + remove, persisted via existing setPlanExercises order; pure moveBy helper
+  (src/domain/ordering.ts) with 7 tests. Session delete already existed (workout/[id]) — left
+  as is per Nico. Nico's 18 dictated exercises delivered as an optional Reptic v2 backup in
+  Downloads (reptic-starter-uebungen.json, 2 gyms + 18 exercises), validated against the real
+  parseBackup; NOT seeded in code (library-stays-empty product decision holds). versionCode 3.
+  Gate green (tsc + 57 jest + expo lint). EAS build 8937038f (preview APK). Superseded the
+  icon-only build 2 (ac1301a8, canceled in queue).
