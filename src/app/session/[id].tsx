@@ -57,6 +57,7 @@ function ExerciseRow({
           subtitle={progress ? `${progress.done}/${progress.total} Sätze` : we.exercise.muscleGroup}
           onPress={onOpen}
           onLongPress={drag}
+          delayLongPress={150}
           right={<Ionicons name="reorder-three-outline" size={22} color={c.textSecondary} />}
         />
       </SwipeToDelete>

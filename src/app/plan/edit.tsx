@@ -2,7 +2,14 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import {
+  NestedReorderableList,
+  reorderItems,
+  ScrollViewContainer,
+  useReorderableDrag,
+  type ReorderableListReorderEvent,
+} from 'react-native-reorderable-list';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
@@ -10,7 +17,6 @@ import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
 import { TextField } from '@/components/ui/text-field';
 import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
-import { moveBy } from '@/domain/ordering';
 import {
   createPlan,
   deletePlan,
@@ -25,6 +31,33 @@ import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
 
 const PLAN_COLORS = ['#6366F1', '#8B5CF6', '#14B8A6', '#F59E0B', '#F43F5E', '#0EA5E9'];
+
+/** A selected exercise in the ordered list: long-press to drag-reorder, X to remove. */
+function PlanExerciseRow({ exercise, onRemove }: { exercise: Exercise; onRemove: () => void }) {
+  const c = useTheme();
+  const drag = useReorderableDrag();
+  return (
+    <View style={[styles.orderRow, { backgroundColor: c.card, borderColor: c.border }]}>
+      <Pressable
+        onLongPress={drag}
+        delayLongPress={150}
+        style={styles.orderDrag}
+        accessibilityLabel={`„${exercise.name}" zum Umsortieren gedrückt halten und ziehen`}>
+        <Ionicons name="reorder-three-outline" size={22} color={c.textSecondary} />
+        <ThemedText style={styles.orderName} numberOfLines={1}>
+          {exercise.name}
+        </ThemedText>
+      </Pressable>
+      <IconButton
+        name="close"
+        size={20}
+        color={c.danger}
+        onPress={onRemove}
+        accessibilityLabel={`„${exercise.name}" aus dem Plan entfernen`}
+      />
+    </View>
+  );
+}
 
 export default function PlanEditScreen() {
   const db = useSQLiteContext();
@@ -66,8 +99,8 @@ export default function PlanEditScreen() {
     );
   };
 
-  const move = (index: number, delta: number) => {
-    setSelectedIds((prev) => moveBy(prev, index, delta));
+  const onReorderSelected = ({ from, to }: ReorderableListReorderEvent) => {
+    setSelectedIds((prev) => reorderItems(prev, from, to));
   };
 
   const save = async () => {
@@ -124,7 +157,7 @@ export default function PlanEditScreen() {
       <Stack.Screen
         options={{ headerShown: true, title: isEditing ? 'Plan bearbeiten' : 'Neuer Plan' }}
       />
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollViewContainer contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <TextField
           label="Name"
           value={name}
@@ -162,43 +195,17 @@ export default function PlanEditScreen() {
           {orderedSelected.length > 0 ? (
             <View style={styles.section}>
               <ThemedText type="small" themeColor="textSecondary" style={styles.sectionTitle}>
-                Reihenfolge
+                Reihenfolge — gedrückt halten und ziehen
               </ThemedText>
-              {orderedSelected.map((exercise, index) => (
-                <View
-                  key={exercise.id}
-                  style={[styles.orderRow, { backgroundColor: c.card, borderColor: c.border }]}>
-                  <ThemedText type="small" themeColor="textSecondary" style={styles.orderNum}>
-                    {index + 1}
-                  </ThemedText>
-                  <ThemedText style={styles.orderName} numberOfLines={1}>
-                    {exercise.name}
-                  </ThemedText>
-                  <View style={styles.orderControls}>
-                    <IconButton
-                      name="chevron-up"
-                      size={20}
-                      color={index === 0 ? c.border : c.text}
-                      onPress={() => move(index, -1)}
-                      accessibilityLabel={`„${exercise.name}" nach oben`}
-                    />
-                    <IconButton
-                      name="chevron-down"
-                      size={20}
-                      color={index === orderedSelected.length - 1 ? c.border : c.text}
-                      onPress={() => move(index, 1)}
-                      accessibilityLabel={`„${exercise.name}" nach unten`}
-                    />
-                    <IconButton
-                      name="close"
-                      size={20}
-                      color={c.danger}
-                      onPress={() => toggleExercise(exercise.id)}
-                      accessibilityLabel={`„${exercise.name}" aus dem Plan entfernen`}
-                    />
-                  </View>
-                </View>
-              ))}
+              <NestedReorderableList
+                data={orderedSelected}
+                scrollable={false}
+                keyExtractor={(e) => String(e.id)}
+                onReorder={onReorderSelected}
+                renderItem={({ item }) => (
+                  <PlanExerciseRow exercise={item} onRemove={() => toggleExercise(item.id)} />
+                )}
+              />
             </View>
           ) : null}
 
@@ -232,7 +239,7 @@ export default function PlanEditScreen() {
         {isEditing ? (
           <Button label="Löschen" icon="trash-outline" variant="danger" onPress={confirmDelete} />
         ) : null}
-      </ScrollView>
+      </ScrollViewContainer>
     </View>
   );
 }
@@ -266,13 +273,19 @@ const styles = StyleSheet.create({
   orderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
+    gap: Spacing.two,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderWidth: 1,
     borderRadius: Radius.md,
+    marginBottom: Spacing.two,
   },
-  orderNum: { width: 18, textAlign: 'center', fontVariant: ['tabular-nums'] },
+  orderDrag: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    paddingVertical: Spacing.one,
+  },
   orderName: { flex: 1, fontSize: 15, fontWeight: '600' },
-  orderControls: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
 });

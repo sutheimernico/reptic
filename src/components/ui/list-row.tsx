@@ -10,6 +10,8 @@ interface ListRowProps {
   subtitle?: string;
   onPress?: () => void;
   onLongPress?: () => void;
+  /** Hold time (ms) before onLongPress fires. Lower it for a snappier drag start. */
+  delayLongPress?: number;
   left?: ReactNode;
   right?: ReactNode;
   selected?: boolean;
@@ -23,6 +25,7 @@ export function ListRow({
   subtitle,
   onPress,
   onLongPress,
+  delayLongPress,
   left,
   right,
   selected,
@@ -34,6 +37,7 @@ export function ListRow({
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
+      delayLongPress={delayLongPress}
       disabled={!interactive}
       accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [
