@@ -88,3 +88,9 @@ One line per completed loop iteration (newest at bottom).
   mid-failure rollback, orphaned-txn cleanup, concurrent runs. Gate green (tsc + 50 jest + lint).
   Which mechanism hit Nico's device stays unconfirmed until the next on-device test — the new
   alerts + [db] logs will show it immediately if anything still fails.
+- 2026-07-07 — Gym-save fix VERIFIED on device (Nico, Expo Go tunnel): gyms and exercises save
+  and persist across an app kill. His earlier "still broken" report predated the device loading
+  the fixed bundle (Metro log shows the full rebundle only at ~14:17). Temporary [db] forensics
+  instrumentation (never committed) discarded; code stands at 860ac48/96bf4cc. Which of the two
+  proven mechanisms hit the device stays forensically open — moot now: the class is fixed,
+  regression-tested, and any future write failure surfaces as an alert with the SQLite message.

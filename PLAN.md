@@ -119,9 +119,8 @@ gym/exercise persisted, no visible error. Root-cause analysis + fix:
 
 ## Needs Nico
 
-- [ ] On-device verify of feedback round 1 + gym-save fix (migration wipes test data — expected!
-      Create gyms, exercises, a plan, run a session, kill + reopen the app, verify everything
-      survived; any failure now shows an alert with the SQLite message — report that text)
+- [x] On-device verify of the gym-save fix (2026-07-07, Nico via Expo Go tunnel: gyms +
+      exercises save and survive an app kill; failures would now surface as alerts)
 - [ ] On-device run + APK/EAS build (no Java/Android SDK in the build env)
 - [ ] Visual / feel sign-off on a real device
 - [ ] Confirm product name `Reptic` (or rename via `constants/app.ts`)
