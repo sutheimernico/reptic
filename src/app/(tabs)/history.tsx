@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '@/components/ui/empty-state';
+import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
 import { getFinishedWorkoutSummaries, getPlans, type WorkoutSummary } from '@/db';
@@ -29,7 +30,16 @@ export default function HistoryScreen() {
   useFocusEffect(useCallback(() => load(), [load]));
 
   return (
-    <Screen title="Verlauf" subtitle="Deine vergangenen Einheiten">
+    <Screen
+      title="Verlauf"
+      subtitle="Deine vergangenen Einheiten"
+      headerRight={
+        <IconButton
+          name="calendar-outline"
+          accessibilityLabel="Kalenderansicht öffnen"
+          onPress={() => router.push('/history/calendar')}
+        />
+      }>
       {sessions.length === 0 ? (
         <EmptyState
           icon="time-outline"

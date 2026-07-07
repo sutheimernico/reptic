@@ -377,8 +377,14 @@ export interface WorkoutSummary extends Workout {
   gymName: string;
 }
 
-/** Finished sessions with per-session counts for the history list, newest first. */
-export async function getFinishedWorkoutSummaries(db: SQLiteDatabase): Promise<WorkoutSummary[]> {
+/**
+ * Finished sessions with per-session counts for the history list, newest first.
+ * Pass `range` to restrict to finished_at ∈ [from, to) — used by the calendar.
+ */
+export async function getFinishedWorkoutSummaries(
+  db: SQLiteDatabase,
+  range?: { from: string; to: string },
+): Promise<WorkoutSummary[]> {
   // Correlated subqueries, not joins: joining workout_exercises AND workout_sets
   // at once would cross-multiply the rows and inflate the counts.
   // "Performed" = reps IS NOT NULL: opening an exercise pre-fills carried-over
@@ -396,7 +402,9 @@ export async function getFinishedWorkoutSummaries(db: SQLiteDatabase): Promise<W
        (SELECT g.name FROM gyms g WHERE g.id = w.gym_id) AS gym_name
      FROM workouts w
      WHERE w.finished_at IS NOT NULL
+       ${range ? 'AND w.finished_at >= ? AND w.finished_at < ?' : ''}
      ORDER BY w.finished_at DESC`,
+    ...(range ? [range.from, range.to] : []),
   );
   return rows.map((r) => ({
     ...mapWorkout(r),

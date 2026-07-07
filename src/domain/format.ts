@@ -65,7 +65,7 @@ export function formatSetSummary(sets: { weightKg: number | null; reps: number |
 }
 
 const WEEKDAYS_DE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
-const MONTHS_DE = [
+export const MONTHS_DE = [
   'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
   'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
 ];
