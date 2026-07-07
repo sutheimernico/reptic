@@ -1,5 +1,5 @@
 /**
- * SQLite schema and migrations. Version is bumped and a new `if (currentDbVersion === N)`
+ * SQLite schema and migrations. Version is bumped and a new `if (version === N)`
  * block added for each future change; existing blocks are never edited.
  */
 
@@ -7,8 +7,12 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 export const DATABASE_VERSION = 2;
 
+// IF NOT EXISTS throughout: the pre-2026-07-07 migration code was not atomic,
+// so devices may carry a half-applied schema with user_version still 0. This
+// lets the migration re-run over such a state instead of dying on the first
+// CREATE TABLE forever.
 const V1_SCHEMA = `
-CREATE TABLE exercises (
+CREATE TABLE IF NOT EXISTS exercises (
   id INTEGER PRIMARY KEY NOT NULL,
   name TEXT NOT NULL,
   muscle_group TEXT NOT NULL,
@@ -16,14 +20,14 @@ CREATE TABLE exercises (
   archived INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE TABLE plans (
+CREATE TABLE IF NOT EXISTS plans (
   id INTEGER PRIMARY KEY NOT NULL,
   name TEXT NOT NULL,
   color TEXT NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE TABLE plan_exercises (
+CREATE TABLE IF NOT EXISTS plan_exercises (
   plan_id INTEGER NOT NULL,
   exercise_id INTEGER NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 0,
@@ -32,14 +36,14 @@ CREATE TABLE plan_exercises (
   FOREIGN KEY (exercise_id) REFERENCES exercises (id) ON DELETE CASCADE
 );
 
-CREATE TABLE workouts (
+CREATE TABLE IF NOT EXISTS workouts (
   id INTEGER PRIMARY KEY NOT NULL,
   started_at TEXT NOT NULL,
   finished_at TEXT,
   plan_ids TEXT NOT NULL DEFAULT '[]'
 );
 
-CREATE TABLE workout_exercises (
+CREATE TABLE IF NOT EXISTS workout_exercises (
   id INTEGER PRIMARY KEY NOT NULL,
   workout_id INTEGER NOT NULL,
   exercise_id INTEGER NOT NULL,
@@ -48,7 +52,7 @@ CREATE TABLE workout_exercises (
   FOREIGN KEY (exercise_id) REFERENCES exercises (id)
 );
 
-CREATE TABLE workout_sets (
+CREATE TABLE IF NOT EXISTS workout_sets (
   id INTEGER PRIMARY KEY NOT NULL,
   workout_id INTEGER NOT NULL,
   workout_exercise_id INTEGER NOT NULL,
@@ -61,13 +65,13 @@ CREATE TABLE workout_sets (
   FOREIGN KEY (workout_exercise_id) REFERENCES workout_exercises (id) ON DELETE CASCADE
 );
 
-CREATE TABLE settings (
+CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY NOT NULL,
   value TEXT NOT NULL
 );
 
-CREATE INDEX idx_workout_sets_exercise ON workout_sets (exercise_id);
-CREATE INDEX idx_workout_exercises_workout ON workout_exercises (workout_id);
+CREATE INDEX IF NOT EXISTS idx_workout_sets_exercise ON workout_sets (exercise_id);
+CREATE INDEX IF NOT EXISTS idx_workout_exercises_workout ON workout_exercises (workout_id);
 `;
 
 /**
@@ -83,10 +87,6 @@ CREATE TABLE IF NOT EXISTS gyms (
   archived INTEGER NOT NULL DEFAULT 0
 );
 
--- Drop children BEFORE deleting from parents: with foreign_keys = ON, deleting
--- exercises while workout_exercises/workout_sets rows still reference them
--- fails (their FKs have no ON DELETE action). IF EXISTS keeps a previously
--- interrupted run of this migration retryable.
 DROP TABLE IF EXISTS workout_sets;
 DROP TABLE IF EXISTS workout_exercises;
 DROP TABLE IF EXISTS workouts;
@@ -130,24 +130,66 @@ CREATE INDEX idx_workout_sets_exercise ON workout_sets (exercise_id);
 CREATE INDEX idx_workout_exercises_workout ON workout_exercises (workout_id);
 `;
 
-export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
-  // foreign_keys is per-connection and off by default in SQLite.
-  await db.execAsync('PRAGMA foreign_keys = ON;');
+// SQLiteProvider re-runs onInit on every remount (Fast Refresh does this
+// constantly in dev), and expo-sqlite hands the SAME cached native connection
+// to each run. Serialize them so two migrations never interleave.
+let pendingMigration: Promise<void> = Promise.resolve();
+
+export function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
+  const run = pendingMigration.then(() => migrate(db));
+  pendingMigration = run.catch(() => undefined);
+  return run;
+}
+
+async function migrate(db: SQLiteDatabase): Promise<void> {
+  // A Metro reload can kill the JS context mid-withTransactionAsync. The
+  // cached native connection then carries the open transaction into the next
+  // app instance: every later write joins it, looks saved, and vanishes with
+  // the eventual rollback. Nothing legitimate is in a transaction during
+  // init, so clear any leftover one. (No-op error when there is none.)
+  await db.execAsync('ROLLBACK').catch(() => undefined);
 
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  let currentDbVersion = row?.user_version ?? 0;
+  const fromVersion = row?.user_version ?? 0;
 
-  if (currentDbVersion >= DATABASE_VERSION) return;
+  if (fromVersion < DATABASE_VERSION) {
+    console.log(`[db] migrating schema v${fromVersion} -> v${DATABASE_VERSION}`);
 
-  if (currentDbVersion === 0) {
-    await db.execAsync(`PRAGMA journal_mode = 'wal';${V1_SCHEMA}`);
-    currentDbVersion = 1;
+    // journal_mode and foreign_keys cannot change inside a transaction, so
+    // both precede BEGIN. foreign_keys must be OFF while migrating: the v2
+    // step drops and recreates the workouts family, which FK enforcement
+    // would reject halfway through (SQLite's recommended procedure for
+    // destructive schema changes).
+    await db.execAsync(`PRAGMA journal_mode = 'wal';`);
+    await db.execAsync('PRAGMA foreign_keys = OFF;');
+
+    // One exclusive transaction makes the migration atomic: an interrupt or a
+    // failing statement rolls back everything INCLUDING user_version, so the
+    // next launch retries from a clean state. Without it, sqlite3_exec
+    // commits each statement individually and a mid-script failure strands
+    // the schema half-applied with user_version never bumped.
+    await db.execAsync('BEGIN EXCLUSIVE;');
+    try {
+      let version = fromVersion;
+      if (version === 0) {
+        await db.execAsync(V1_SCHEMA);
+        version = 1;
+      }
+      if (version === 1) {
+        await db.execAsync(V2_MIGRATION);
+        version = 2;
+      }
+      await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION};`);
+      await db.execAsync('COMMIT;');
+    } catch (error) {
+      await db.execAsync('ROLLBACK;').catch(() => undefined);
+      console.error('[db] migration failed, rolled back', error);
+      throw error;
+    }
+    console.log('[db] migration done');
   }
 
-  if (currentDbVersion === 1) {
-    await db.execAsync(V2_MIGRATION);
-    currentDbVersion = 2;
-  }
-
-  await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+  // Enforce foreign keys for all normal app operation (ON DELETE CASCADE
+  // etc.). Per-connection and off by default, so set it on every init.
+  await db.execAsync('PRAGMA foreign_keys = ON;');
 }
