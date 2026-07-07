@@ -721,6 +721,7 @@ export async function exportAllData(
   db: SQLiteDatabase,
   exportedAt: string,
 ): Promise<BackupPayload> {
+  const gyms = (await db.getAllAsync<GymRow>('SELECT * FROM gyms')).map(mapGym);
   const exercises = (await db.getAllAsync<ExerciseRow>('SELECT * FROM exercises')).map(mapExercise);
   const plans = (await db.getAllAsync<PlanRow>('SELECT * FROM plans')).map(mapPlan);
   const planExercises = await db.getAllAsync<PlanExerciseRow>(
@@ -733,7 +734,7 @@ export async function exportAllData(
   const workoutSets = (await db.getAllAsync<WorkoutSetRow>('SELECT * FROM workout_sets')).map(
     mapWorkoutSet,
   );
-  return { exportedAt, exercises, plans, planExercises, workouts, workoutExercises, workoutSets };
+  return { exportedAt, gyms, exercises, plans, planExercises, workouts, workoutExercises, workoutSets };
 }
 
 /** Replace ALL data with the backup's contents (used by Import). Runs in one transaction. */
@@ -746,10 +747,19 @@ export async function importAllData(db: SQLiteDatabase, data: BackupData): Promi
       'plan_exercises',
       'plans',
       'exercises',
+      'gyms',
     ]) {
       await db.runAsync(`DELETE FROM ${table}`);
     }
 
+    for (const g of data.gyms) {
+      await db.runAsync(
+        'INSERT INTO gyms (id, name, archived) VALUES (?, ?, ?)',
+        g.id,
+        g.name,
+        g.archived ? 1 : 0,
+      );
+    }
     for (const e of data.exercises) {
       await db.runAsync(
         'INSERT INTO exercises (id, name, muscle_group, is_custom, archived) VALUES (?, ?, ?, ?, ?)',
@@ -779,11 +789,12 @@ export async function importAllData(db: SQLiteDatabase, data: BackupData): Promi
     }
     for (const w of data.workouts) {
       await db.runAsync(
-        'INSERT INTO workouts (id, started_at, finished_at, plan_ids) VALUES (?, ?, ?, ?)',
+        'INSERT INTO workouts (id, started_at, finished_at, plan_ids, gym_id) VALUES (?, ?, ?, ?, ?)',
         w.id,
         w.startedAt,
         w.finishedAt,
         JSON.stringify(w.planIds),
+        w.gymId,
       );
     }
     for (const we of data.workoutExercises) {

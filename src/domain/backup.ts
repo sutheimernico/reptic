@@ -4,9 +4,10 @@
  * and validation so a round-trip is guaranteed and bad input fails loudly.
  */
 
-import type { Exercise, Plan, Workout, WorkoutExercise, WorkoutSet } from '@/domain/types';
+import type { Exercise, Gym, Plan, Workout, WorkoutExercise, WorkoutSet } from '@/domain/types';
 
-export const BACKUP_VERSION = 1;
+/** v2: adds gyms and workouts.gymId. v1 backups are rejected (pre-gym data model). */
+export const BACKUP_VERSION = 2;
 
 export interface PlanExerciseRow {
   planId: number;
@@ -18,6 +19,7 @@ export interface BackupData {
   version: number;
   /** ISO 8601 timestamp, supplied by the caller (domain stays clock-free). */
   exportedAt: string;
+  gyms: Gym[];
   exercises: Exercise[];
   plans: Plan[];
   planExercises: PlanExerciseRow[];
@@ -29,6 +31,7 @@ export interface BackupData {
 export type BackupPayload = Omit<BackupData, 'version'>;
 
 const REQUIRED_ARRAYS = [
+  'gyms',
   'exercises',
   'plans',
   'planExercises',

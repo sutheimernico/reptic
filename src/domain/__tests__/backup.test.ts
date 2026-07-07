@@ -2,6 +2,7 @@ import { type BackupPayload, BACKUP_VERSION, parseBackup, serializeBackup } from
 
 const payload: BackupPayload = {
   exportedAt: '2026-07-05T10:00:00.000Z',
+  gyms: [{ id: 1, name: 'FitX Innenstadt', archived: false }],
   exercises: [{ id: 1, name: 'Bankdrücken', muscleGroup: 'Brust', isCustom: false, archived: false }],
   plans: [{ id: 1, name: 'Push', color: '#6366F1', sortOrder: 0 }],
   planExercises: [{ planId: 1, exerciseId: 1, sortOrder: 0 }],
@@ -37,6 +38,17 @@ describe('parseBackup validation', () => {
   it('rejects an unsupported version', () => {
     const json = JSON.stringify({ ...payload, version: 99 });
     expect(() => parseBackup(json)).toThrow(/Version 99/);
+  });
+
+  it('rejects a v1 backup (pre-gym format)', () => {
+    const { gyms: _gyms, ...v1Payload } = payload;
+    const json = JSON.stringify({ version: 1, ...v1Payload });
+    expect(() => parseBackup(json)).toThrow(/Version 1.*erwartet 2/);
+  });
+
+  it('rejects a payload without gyms', () => {
+    const broken = serializeBackup(payload).replace('"gyms"', '"somethingElse"');
+    expect(() => parseBackup(broken)).toThrow(/gyms/);
   });
 
   it('rejects a missing table', () => {
