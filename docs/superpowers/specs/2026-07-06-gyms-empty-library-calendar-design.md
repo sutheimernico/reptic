@@ -39,7 +39,7 @@ New table:
 
 ```sql
 CREATE TABLE gyms (
-  id TEXT PRIMARY KEY NOT NULL,
+  id INTEGER PRIMARY KEY NOT NULL,
   name TEXT NOT NULL,
   archived INTEGER NOT NULL DEFAULT 0
 );
@@ -47,7 +47,7 @@ CREATE TABLE gyms (
 
 `workouts` (+ its children `workout_exercises`, `workout_sets`) are dropped
 and recreated — all history is test data and is wiped anyway — so `workouts`
-gains a hard `gym_id TEXT NOT NULL REFERENCES gyms(id)` column without an
+gains a hard `gym_id INTEGER NOT NULL REFERENCES gyms(id)` column without an
 ALTER-TABLE workaround.
 
 Migration v2 (`migrateDbIfNeeded`, `PRAGMA user_version` 1 → 2):
