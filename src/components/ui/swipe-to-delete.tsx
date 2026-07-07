@@ -2,7 +2,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import ReanimatedSwipeable, {
-  SwipeDirection,
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
 
@@ -44,13 +43,14 @@ export function SwipeToDelete({ children, onDelete, accessibilityLabel }: SwipeT
   );
 
   return (
+    // Only left actions are rendered, so any "open" is a delete — no direction
+    // check needed. Low friction + a modest threshold make a normal swipe
+    // settle open (and thus delete) instead of springing back.
     <ReanimatedSwipeable
-      friction={2}
-      leftThreshold={64}
+      friction={1}
+      leftThreshold={40}
       renderLeftActions={renderLeftActions}
-      onSwipeableOpen={(direction) => {
-        if (direction === SwipeDirection.LEFT) onDelete();
-      }}>
+      onSwipeableOpen={() => onDelete()}>
       {children}
     </ReanimatedSwipeable>
   );
