@@ -106,3 +106,17 @@ One line per completed loop iteration (newest at bottom).
   parseBackup; NOT seeded in code (library-stays-empty product decision holds). versionCode 3.
   Gate green (tsc + 57 jest + expo lint). EAS build 8937038f (preview APK). Superseded the
   icon-only build 2 (ac1301a8, canceled in queue).
+- 2026-07-07 — Feedback round 3 (drag-and-drop, swipe fix, tap targets, name, seed). Fixes after
+  live Expo Go testing: (1) swipe-to-delete now actually deletes — friction 1 + leftThreshold 40
+  so a normal swipe settles open, delete on open, with immediate reflow (was: only flashed red).
+  (2) Drag-and-drop reorder in the SESSION via react-native-reorderable-list (long-press → drag,
+  persisted via reorderWorkoutExercises); tap opens, swipe deletes. (3) Drag-and-drop in the PLAN
+  editor too (NestedReorderableList in ScrollViewContainer) — arrows removed per Nico; moveBy/
+  ordering.ts kept but now unused. (4) Long-press hold shortened 500→150ms (ListRow delayLongPress).
+  (5) Button hit area forced full-width (Android new-arch Pressable collapsed to content — only the
+  label was tappable). (6) Renamed app to "Repz" (display only; slug/package unchanged). (7) 18
+  dictated exercises seeded once on fresh install (fromVersion 0, in migration txn; not re-seeded on
+  upgrade) — reverses the earlier empty-start default per Nico's request. Process change: iterated on
+  Expo Go tunnel + forced Metro Android bundle (HTTP 200) to validate BEFORE building, instead of
+  blind 3h EAS builds. Gate green (tsc + 58 jest + expo lint). versionCode 4, EAS build 3eee2904
+  (preview APK) after Nico's live sign-off.
