@@ -64,6 +64,11 @@ export function Button({
 
 const styles = StyleSheet.create({
   button: {
+    // width:100% + alignSelf make the whole coloured surface the touch target.
+    // Without it, on the Android new architecture the Pressable's hit area can
+    // collapse to its centred content, so only a tap on the label registered.
+    width: '100%',
+    alignSelf: 'stretch',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
