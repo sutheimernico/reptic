@@ -121,7 +121,8 @@ gym/exercise persisted, no visible error. Root-cause analysis + fix:
 
 - [x] On-device verify of the gym-save fix (2026-07-07, Nico via Expo Go tunnel: gyms +
       exercises save and survive an app kill; failures would now surface as alerts)
-- [ ] On-device run + APK/EAS build (no Java/Android SDK in the build env)
+- [x] APK/EAS build (2026-07-07: EAS project @nico_su2004/reptic linked, cloud keystore,
+      preview APK built — build 575c3575; `production` profile ready for a future store release)
 - [ ] Visual / feel sign-off on a real device
 - [ ] Confirm product name `Reptic` (or rename via `constants/app.ts`)
 - [ ] Create Google Cloud OAuth client(s) — Web + Android client ID with the signing SHA-1 —
