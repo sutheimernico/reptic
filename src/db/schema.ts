@@ -5,8 +5,6 @@
 
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { seedDatabase } from '@/db/seed';
-
 export const DATABASE_VERSION = 1;
 
 const V1_SCHEMA = `
@@ -83,7 +81,6 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
 
   if (currentDbVersion === 0) {
     await db.execAsync(`PRAGMA journal_mode = 'wal';${V1_SCHEMA}`);
-    await seedDatabase(db);
     currentDbVersion = 1;
   }
 
