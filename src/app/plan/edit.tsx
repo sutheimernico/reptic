@@ -20,6 +20,7 @@ import {
 } from '@/db';
 import { MUSCLE_GROUPS, type Exercise } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
+import { showSaveError } from '@/lib/alerts';
 
 const PLAN_COLORS = ['#6366F1', '#8B5CF6', '#14B8A6', '#F59E0B', '#F43F5E', '#0EA5E9'];
 
@@ -66,14 +67,19 @@ export default function PlanEditScreen() {
   const save = async () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    let planId: number;
-    if (isEditing) {
-      await updatePlan(db, editingId, trimmed, color);
-      planId = editingId;
-    } else {
-      planId = await createPlan(db, trimmed, color);
+    try {
+      let planId: number;
+      if (isEditing) {
+        await updatePlan(db, editingId, trimmed, color);
+        planId = editingId;
+      } else {
+        planId = await createPlan(db, trimmed, color);
+      }
+      await setPlanExercises(db, planId, selectedIds);
+    } catch (error) {
+      showSaveError(error);
+      return;
     }
-    await setPlanExercises(db, planId, selectedIds);
     router.back();
   };
 
@@ -85,7 +91,12 @@ export default function PlanEditScreen() {
         text: 'Löschen',
         style: 'destructive',
         onPress: async () => {
-          await deletePlan(db, editingId);
+          try {
+            await deletePlan(db, editingId);
+          } catch (error) {
+            showSaveError(error);
+            return;
+          }
           router.back();
         },
       },

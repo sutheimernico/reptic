@@ -8,6 +8,7 @@ import { TextField } from '@/components/ui/text-field';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { createGym, deleteGym, getGym, gymHasWorkouts, setGymArchived, updateGym } from '@/db';
 import { useTheme } from '@/hooks/use-theme';
+import { showSaveError } from '@/lib/alerts';
 
 export default function GymEditScreen() {
   const db = useSQLiteContext();
@@ -41,10 +42,15 @@ export default function GymEditScreen() {
   const save = async () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    if (isEditing) {
-      await updateGym(db, editingId, trimmed);
-    } else {
-      await createGym(db, trimmed);
+    try {
+      if (isEditing) {
+        await updateGym(db, editingId, trimmed);
+      } else {
+        await createGym(db, trimmed);
+      }
+    } catch (error) {
+      showSaveError(error);
+      return;
     }
     router.back();
   };
@@ -63,8 +69,13 @@ export default function GymEditScreen() {
           text: archive ? 'Archivieren' : 'Löschen',
           style: 'destructive',
           onPress: async () => {
-            if (archive) await setGymArchived(db, editingId, true);
-            else await deleteGym(db, editingId);
+            try {
+              if (archive) await setGymArchived(db, editingId, true);
+              else await deleteGym(db, editingId);
+            } catch (error) {
+              showSaveError(error);
+              return;
+            }
             router.back();
           },
         },
@@ -74,7 +85,12 @@ export default function GymEditScreen() {
 
   const unarchive = async () => {
     if (editingId === null) return;
-    await setGymArchived(db, editingId, false);
+    try {
+      await setGymArchived(db, editingId, false);
+    } catch (error) {
+      showSaveError(error);
+      return;
+    }
     router.back();
   };
 

@@ -17,6 +17,7 @@ import {
 } from '@/db';
 import { MUSCLE_GROUPS, type MuscleGroup } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
+import { showSaveError } from '@/lib/alerts';
 
 export default function ExerciseEditScreen() {
   const db = useSQLiteContext();
@@ -50,10 +51,15 @@ export default function ExerciseEditScreen() {
   const save = async () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    if (isEditing) {
-      await updateExercise(db, editingId, trimmed, group);
-    } else {
-      await createExercise(db, trimmed, group);
+    try {
+      if (isEditing) {
+        await updateExercise(db, editingId, trimmed, group);
+      } else {
+        await createExercise(db, trimmed, group);
+      }
+    } catch (error) {
+      showSaveError(error);
+      return;
     }
     router.back();
   };
@@ -72,8 +78,13 @@ export default function ExerciseEditScreen() {
           text: archive ? 'Archivieren' : 'Löschen',
           style: 'destructive',
           onPress: async () => {
-            if (archive) await setExerciseArchived(db, editingId, true);
-            else await deleteExercise(db, editingId);
+            try {
+              if (archive) await setExerciseArchived(db, editingId, true);
+              else await deleteExercise(db, editingId);
+            } catch (error) {
+              showSaveError(error);
+              return;
+            }
             router.back();
           },
         },

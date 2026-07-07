@@ -11,6 +11,7 @@ import { BottomTabInset, Spacing } from '@/constants/theme';
 import { createGym, getGyms, LAST_GYM_SETTING, setSetting } from '@/db';
 import type { Gym } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
+import { showSaveError } from '@/lib/alerts';
 
 export default function GymSelectScreen() {
   const db = useSQLiteContext();
@@ -26,15 +27,24 @@ export default function GymSelectScreen() {
   );
 
   const select = async (id: number) => {
-    await setSetting(db, LAST_GYM_SETTING, String(id));
+    try {
+      await setSetting(db, LAST_GYM_SETTING, String(id));
+    } catch (error) {
+      showSaveError(error);
+      return;
+    }
     router.back();
   };
 
   const create = async () => {
     const name = newName.trim();
     if (!name) return;
-    const id = await createGym(db, name);
-    await select(id);
+    try {
+      const id = await createGym(db, name);
+      await select(id);
+    } catch (error) {
+      showSaveError(error);
+    }
   };
 
   return (
