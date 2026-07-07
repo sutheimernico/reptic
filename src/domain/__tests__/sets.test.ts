@@ -24,10 +24,12 @@ describe('toPriorSets', () => {
   });
 });
 
+const cardioNulls = { distanceKm: null, durationSec: null, level: null };
+
 describe('createInitialSets', () => {
   it('returns one empty set with no history', () => {
     expect(createInitialSets([])).toEqual([
-      { setNumber: 1, weightKg: null, reps: null, done: false, reference: null },
+      { setNumber: 1, weightKg: null, reps: null, ...cardioNulls, done: false, reference: null },
     ]);
   });
 
@@ -38,10 +40,19 @@ describe('createInitialSets', () => {
       setNumber: 1,
       weightKg: 80,
       reps: null,
+      ...cardioNulls,
       done: false,
       reference: { weightKg: 80, reps: 8 },
     });
     expect(out.every((s) => s.reps === null)).toBe(true);
+  });
+
+  it('carries distance and level over for cardio, leaves duration empty', () => {
+    const cardioPrior: PriorSet[] = [
+      { setNumber: 1, weightKg: null, reps: null, distanceKm: 5, durationSec: 1950, level: 8 },
+    ];
+    const out = createInitialSets(cardioPrior);
+    expect(out[0]).toMatchObject({ distanceKm: 5, level: 8, durationSec: null });
   });
 });
 
@@ -54,6 +65,7 @@ describe('addSet', () => {
       setNumber: 3,
       weightKg: 80,
       reps: null,
+      ...cardioNulls,
       done: false,
       reference: { weightKg: 80, reps: 7 },
     });
@@ -66,6 +78,7 @@ describe('addSet', () => {
       setNumber: 4,
       weightKg: 80, // from the last current set
       reps: null,
+      ...cardioNulls,
       done: false,
       reference: null,
     });

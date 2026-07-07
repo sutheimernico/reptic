@@ -70,6 +70,10 @@ export interface WorkoutSet {
   setNumber: number;
   weightKg: number | null;
   reps: number | null;
+  /** Cardio only: distance in km, duration in seconds, machine level/incline. */
+  distanceKm: number | null;
+  durationSec: number | null;
+  level: number | null;
   done: boolean;
 }
 

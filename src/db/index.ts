@@ -109,6 +109,9 @@ interface WorkoutSetRow {
   set_number: number;
   weight_kg: number | null;
   reps: number | null;
+  distance_km: number | null;
+  duration_sec: number | null;
+  level: number | null;
   done: number;
 }
 
@@ -120,6 +123,9 @@ const mapWorkoutSet = (r: WorkoutSetRow): WorkoutSet => ({
   setNumber: r.set_number,
   weightKg: r.weight_kg,
   reps: r.reps,
+  distanceKm: r.distance_km ?? null,
+  durationSec: r.duration_sec ?? null,
+  level: r.level ?? null,
   done: r.done === 1,
 });
 
@@ -392,11 +398,16 @@ export async function getFinishedWorkoutSummaries(
   const rows = await db.getAllAsync<
     WorkoutRow & { exercise_count: number; set_count: number; volume: number; gym_name: string }
   >(
+    // "Performed" = reps entered (strength) OR a cardio metric entered, so a
+    // cardio-only session still counts. Opening an exercise pre-fills settings
+    // with empty performance, so those untouched rows must not count.
     `SELECT w.*,
        (SELECT COUNT(DISTINCT ws.exercise_id) FROM workout_sets ws
-          WHERE ws.workout_id = w.id AND ws.reps IS NOT NULL) AS exercise_count,
+          WHERE ws.workout_id = w.id
+            AND (ws.reps IS NOT NULL OR ws.duration_sec IS NOT NULL OR ws.distance_km IS NOT NULL)) AS exercise_count,
        (SELECT COUNT(*) FROM workout_sets ws
-          WHERE ws.workout_id = w.id AND ws.reps IS NOT NULL) AS set_count,
+          WHERE ws.workout_id = w.id
+            AND (ws.reps IS NOT NULL OR ws.duration_sec IS NOT NULL OR ws.distance_km IS NOT NULL)) AS set_count,
        (SELECT COALESCE(SUM(ws.weight_kg * ws.reps), 0) FROM workout_sets ws
           WHERE ws.workout_id = w.id) AS volume,
        (SELECT g.name FROM gyms g WHERE g.id = w.gym_id) AS gym_name
@@ -538,48 +549,64 @@ export interface NewSet {
   setNumber: number;
   weightKg: number | null;
   reps: number | null;
+  distanceKm?: number | null;
+  durationSec?: number | null;
+  level?: number | null;
   done: boolean;
 }
 
 export async function insertSet(db: SQLiteDatabase, set: NewSet): Promise<number> {
   const res = await db.runAsync(
     `INSERT INTO workout_sets
-       (workout_id, workout_exercise_id, exercise_id, set_number, weight_kg, reps, done)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (workout_id, workout_exercise_id, exercise_id, set_number, weight_kg, reps,
+        distance_km, duration_sec, level, done)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     set.workoutId,
     set.workoutExerciseId,
     set.exerciseId,
     set.setNumber,
     set.weightKg,
     set.reps,
+    set.distanceKm ?? null,
+    set.durationSec ?? null,
+    set.level ?? null,
     set.done ? 1 : 0,
   );
   return res.lastInsertRowId;
 }
 
-export async function updateSet(
+export interface SetFields {
+  weightKg?: number | null;
+  reps?: number | null;
+  distanceKm?: number | null;
+  durationSec?: number | null;
+  level?: number | null;
+  done: boolean;
+}
+
+/** Update all value columns of a set (missing fields become NULL). */
+export async function updateSet(db: SQLiteDatabase, id: number, fields: SetFields): Promise<void> {
+  await db.runAsync(
+    `UPDATE workout_sets
+       SET weight_kg = ?, reps = ?, distance_km = ?, duration_sec = ?, level = ?, done = ?
+     WHERE id = ?`,
+    fields.weightKg ?? null,
+    fields.reps ?? null,
+    fields.distanceKm ?? null,
+    fields.durationSec ?? null,
+    fields.level ?? null,
+    fields.done ? 1 : 0,
+    id,
+  );
+}
+
+/** Renumber a set without touching its values (used when a set is deleted). */
+export async function updateSetNumber(
   db: SQLiteDatabase,
   id: number,
-  fields: { weightKg: number | null; reps: number | null; done: boolean; setNumber?: number },
+  setNumber: number,
 ): Promise<void> {
-  if (fields.setNumber === undefined) {
-    await db.runAsync(
-      'UPDATE workout_sets SET weight_kg = ?, reps = ?, done = ? WHERE id = ?',
-      fields.weightKg,
-      fields.reps,
-      fields.done ? 1 : 0,
-      id,
-    );
-  } else {
-    await db.runAsync(
-      'UPDATE workout_sets SET weight_kg = ?, reps = ?, done = ?, set_number = ? WHERE id = ?',
-      fields.weightKg,
-      fields.reps,
-      fields.done ? 1 : 0,
-      fields.setNumber,
-      id,
-    );
-  }
+  await db.runAsync('UPDATE workout_sets SET set_number = ? WHERE id = ?', setNumber, id);
 }
 
 export async function deleteSet(db: SQLiteDatabase, id: number): Promise<void> {
@@ -633,14 +660,28 @@ export async function getLastSetsForExercise(
     sourceGymName = fallback.gym_name;
   }
 
-  const rows = await db.getAllAsync<{ set_number: number; weight_kg: number | null; reps: number | null }>(
-    'SELECT set_number, weight_kg, reps FROM workout_sets WHERE workout_id = ? AND exercise_id = ? ORDER BY set_number',
+  const rows = await db.getAllAsync<{
+    set_number: number;
+    weight_kg: number | null;
+    reps: number | null;
+    distance_km: number | null;
+    duration_sec: number | null;
+    level: number | null;
+  }>(
+    'SELECT set_number, weight_kg, reps, distance_km, duration_sec, level FROM workout_sets WHERE workout_id = ? AND exercise_id = ? ORDER BY set_number',
     source.id,
     exerciseId,
   );
   return {
     sets: toPriorSets(
-      rows.map((r) => ({ setNumber: r.set_number, weightKg: r.weight_kg, reps: r.reps })),
+      rows.map((r) => ({
+        setNumber: r.set_number,
+        weightKg: r.weight_kg,
+        reps: r.reps,
+        distanceKm: r.distance_km,
+        durationSec: r.duration_sec,
+        level: r.level,
+      })),
     ),
     sourceGymName,
   };
@@ -672,7 +713,8 @@ export async function getExerciseSessionHistory(
      WHERE w.finished_at IS NOT NULL
        AND EXISTS (
          SELECT 1 FROM workout_sets ws
-         WHERE ws.workout_id = w.id AND ws.exercise_id = ? AND ws.reps IS NOT NULL
+         WHERE ws.workout_id = w.id AND ws.exercise_id = ?
+           AND (ws.reps IS NOT NULL OR ws.duration_sec IS NOT NULL OR ws.distance_km IS NOT NULL)
        )
      ORDER BY w.finished_at DESC
      LIMIT ?`,
@@ -809,8 +851,9 @@ export async function importAllData(db: SQLiteDatabase, data: BackupData): Promi
     for (const s of data.workoutSets) {
       await db.runAsync(
         `INSERT INTO workout_sets
-           (id, workout_id, workout_exercise_id, exercise_id, set_number, weight_kg, reps, done)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, workout_id, workout_exercise_id, exercise_id, set_number, weight_kg, reps,
+            distance_km, duration_sec, level, done)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         s.id,
         s.workoutId,
         s.workoutExerciseId,
@@ -818,6 +861,9 @@ export async function importAllData(db: SQLiteDatabase, data: BackupData): Promi
         s.setNumber,
         s.weightKg,
         s.reps,
+        s.distanceKm ?? null,
+        s.durationSec ?? null,
+        s.level ?? null,
         s.done ? 1 : 0,
       );
     }

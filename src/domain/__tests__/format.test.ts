@@ -1,9 +1,12 @@
 import {
+  formatCardioReference,
+  formatDuration,
   formatReference,
   formatSessionDate,
   formatSetSummary,
   formatVolume,
   formatWeight,
+  parseDuration,
   parseReps,
   parseWeight,
 } from '@/domain/format';
@@ -57,6 +60,49 @@ describe('formatReference', () => {
   it('returns null when either value is missing', () => {
     expect(formatReference(null, 8)).toBeNull();
     expect(formatReference(80, null)).toBeNull();
+  });
+});
+
+describe('parseDuration', () => {
+  it('parses mm:ss', () => {
+    expect(parseDuration('32:30')).toBe(1950);
+    expect(parseDuration('0:45')).toBe(45);
+  });
+
+  it('parses bare minutes (dot or comma)', () => {
+    expect(parseDuration('32')).toBe(1920);
+    expect(parseDuration('32,5')).toBe(1950);
+  });
+
+  it('returns null for empty, negative or invalid seconds', () => {
+    expect(parseDuration('')).toBeNull();
+    expect(parseDuration('-5')).toBeNull();
+    expect(parseDuration('1:75')).toBeNull(); // seconds must be < 60
+    expect(parseDuration('abc')).toBeNull();
+  });
+});
+
+describe('formatDuration', () => {
+  it('renders m:ss with zero-padded seconds', () => {
+    expect(formatDuration(1950)).toBe('32:30');
+    expect(formatDuration(45)).toBe('0:45');
+    expect(formatDuration(0)).toBe('0:00');
+  });
+
+  it('returns empty string for null', () => {
+    expect(formatDuration(null)).toBe('');
+  });
+});
+
+describe('formatCardioReference', () => {
+  it('joins the set parts', () => {
+    expect(formatCardioReference(5, 1950, 8)).toBe('5 km · 32:30 · Stufe 8');
+    expect(formatCardioReference(5, 1950, null)).toBe('5 km · 32:30');
+    expect(formatCardioReference(null, 1200, null)).toBe('20:00');
+  });
+
+  it('returns null when nothing is set', () => {
+    expect(formatCardioReference(null, null, null)).toBeNull();
   });
 });
 

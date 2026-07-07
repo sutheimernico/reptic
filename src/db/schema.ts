@@ -7,7 +7,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { MuscleGroup } from '@/domain/types';
 
-export const DATABASE_VERSION = 2;
+export const DATABASE_VERSION = 3;
 
 /**
  * Default exercise library, inserted once on a brand-new install so the app is
@@ -158,6 +158,18 @@ CREATE INDEX idx_workout_sets_exercise ON workout_sets (exercise_id);
 CREATE INDEX idx_workout_exercises_workout ON workout_exercises (workout_id);
 `;
 
+/**
+ * V3: cardio metrics on a set. Purely additive — three nullable columns added
+ * to workout_sets via ALTER TABLE, which never touches existing rows or any
+ * other table. Strength sets leave them NULL; cardio sets use them instead of
+ * weight/reps.
+ */
+const V3_MIGRATION = `
+ALTER TABLE workout_sets ADD COLUMN distance_km REAL;
+ALTER TABLE workout_sets ADD COLUMN duration_sec INTEGER;
+ALTER TABLE workout_sets ADD COLUMN level INTEGER;
+`;
+
 // SQLiteProvider re-runs onInit on every remount (Fast Refresh does this
 // constantly in dev), and expo-sqlite hands the SAME cached native connection
 // to each run. Serialize them so two migrations never interleave.
@@ -206,6 +218,10 @@ async function migrate(db: SQLiteDatabase): Promise<void> {
       if (version === 1) {
         await db.execAsync(V2_MIGRATION);
         version = 2;
+      }
+      if (version === 2) {
+        await db.execAsync(V3_MIGRATION);
+        version = 3;
       }
       // Seed the default library only on a truly fresh database, inside the
       // same transaction so a fresh install is all-or-nothing.

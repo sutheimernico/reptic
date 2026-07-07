@@ -42,6 +42,50 @@ export function formatReference(weightKg: number | null, reps: number | null): s
 }
 
 /**
+ * Parse a cardio time input to seconds. Accepts "mm:ss" ("32:30" -> 1950) or a
+ * bare minutes value ("32" -> 1920, "32,5" -> 1950). Returns null for anything
+ * negative or unparseable.
+ */
+export function parseDuration(text: string): number | null {
+  const t = text.trim();
+  if (t === '') return null;
+  if (t.includes(':')) {
+    const [mm, ss] = t.split(':');
+    const m = parseInt(mm, 10);
+    const s = parseInt(ss, 10);
+    if (![m, s].every(Number.isFinite) || m < 0 || s < 0 || s >= 60) return null;
+    return m * 60 + s;
+  }
+  const minutes = parseFloat(t.replace(',', '.'));
+  return Number.isFinite(minutes) && minutes >= 0 ? Math.round(minutes * 60) : null;
+}
+
+/** Render seconds as "m:ss" (1950 -> "32:30"). Returns "" for null so inputs bind to it. */
+export function formatDuration(sec: number | null): string {
+  if (sec === null || !Number.isFinite(sec) || sec < 0) return '';
+  const total = Math.round(sec);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/**
+ * The grey per-set reference for a cardio exercise: `5 km · 32:30 · Stufe 8`.
+ * Each part is optional; returns null when nothing is set.
+ */
+export function formatCardioReference(
+  distanceKm: number | null,
+  durationSec: number | null,
+  level: number | null,
+): string | null {
+  const parts: string[] = [];
+  if (distanceKm !== null) parts.push(`${formatWeight(distanceKm)} km`);
+  if (durationSec !== null) parts.push(formatDuration(durationSec));
+  if (level !== null) parts.push(`Stufe ${level}`);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+/**
  * A compact summary of a set list for history rows: `80 kg × 8, 8, 7`.
  * Groups consecutive sets that share the same weight. Returns "" for no sets.
  */

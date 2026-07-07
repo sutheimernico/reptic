@@ -10,11 +10,17 @@
 
 import type { WorkoutSet } from '@/domain/types';
 
-/** Last time's set values for one exercise, ordered by set number. */
+/**
+ * Last time's set values for one exercise, ordered by set number. The cardio
+ * fields are optional so strength callers can keep passing weight/reps only.
+ */
 export interface PriorSet {
   setNumber: number;
   weightKg: number | null;
   reps: number | null;
+  distanceKm?: number | null;
+  durationSec?: number | null;
+  level?: number | null;
 }
 
 /** An editable set row shown during the session. */
@@ -22,6 +28,9 @@ export interface DraftSet {
   setNumber: number;
   weightKg: number | null;
   reps: number | null;
+  distanceKm: number | null;
+  durationSec: number | null;
+  level: number | null;
   done: boolean;
   /** Last time's values for this set position; null when there is no history. */
   reference: { weightKg: number; reps: number } | null;
@@ -29,11 +38,19 @@ export interface DraftSet {
 
 /** Normalize stored sets into ordered PriorSet[] (defensive copy + sort). */
 export function toPriorSets(
-  sets: Pick<WorkoutSet, 'setNumber' | 'weightKg' | 'reps'>[],
+  sets: (Pick<WorkoutSet, 'setNumber' | 'weightKg' | 'reps'> &
+    Partial<Pick<WorkoutSet, 'distanceKm' | 'durationSec' | 'level'>>)[],
 ): PriorSet[] {
   return [...sets]
     .sort((a, b) => a.setNumber - b.setNumber)
-    .map((s) => ({ setNumber: s.setNumber, weightKg: s.weightKg, reps: s.reps }));
+    .map((s) => ({
+      setNumber: s.setNumber,
+      weightKg: s.weightKg,
+      reps: s.reps,
+      distanceKm: s.distanceKm ?? null,
+      durationSec: s.durationSec ?? null,
+      level: s.level ?? null,
+    }));
 }
 
 function referenceFor(prior: PriorSet | undefined): DraftSet['reference'] {
@@ -41,37 +58,50 @@ function referenceFor(prior: PriorSet | undefined): DraftSet['reference'] {
   return { weightKg: prior.weightKg, reps: prior.reps };
 }
 
+const EMPTY_SET: Omit<DraftSet, 'setNumber' | 'reference'> = {
+  weightKg: null,
+  reps: null,
+  distanceKm: null,
+  durationSec: null,
+  level: null,
+  done: false,
+};
+
 /**
  * The set rows shown when an exercise is opened: mirror last time's set count
- * with weights carried over and reps left empty. With no history, one empty set.
+ * with the "settings" carried over (weight for strength, distance + level for
+ * cardio) and the "performance" left empty (reps / duration typed fresh). With
+ * no history, one empty set.
  */
 export function createInitialSets(prior: PriorSet[]): DraftSet[] {
   if (prior.length === 0) {
-    return [{ setNumber: 1, weightKg: null, reps: null, done: false, reference: null }];
+    return [{ setNumber: 1, ...EMPTY_SET, reference: null }];
   }
   return prior.map((p, i) => ({
+    ...EMPTY_SET,
     setNumber: i + 1,
     weightKg: p.weightKg,
-    reps: null,
-    done: false,
+    distanceKm: p.distanceKm ?? null,
+    level: p.level ?? null,
     reference: referenceFor(p),
   }));
 }
 
 /**
- * Append a new set. Weight inherits from last time's set at this position, or
- * failing that from the current last set; reps stay empty.
+ * Append a new set. The carried-over "settings" inherit from last time's set at
+ * this position, or failing that from the current last set; performance fields
+ * stay empty.
  */
 export function addSet(current: DraftSet[], prior: PriorSet[]): DraftSet[] {
   const index = current.length; // 0-based position of the new set
   const priorForIndex = prior[index];
-  const inheritedWeight =
-    priorForIndex?.weightKg ?? (current.length > 0 ? current[current.length - 1].weightKg : null);
+  const last = current.length > 0 ? current[current.length - 1] : undefined;
   const next: DraftSet = {
+    ...EMPTY_SET,
     setNumber: index + 1,
-    weightKg: inheritedWeight,
-    reps: null,
-    done: false,
+    weightKg: priorForIndex?.weightKg ?? last?.weightKg ?? null,
+    distanceKm: priorForIndex?.distanceKm ?? last?.distanceKm ?? null,
+    level: priorForIndex?.level ?? last?.level ?? null,
     reference: referenceFor(priorForIndex),
   };
   return [...current, next];

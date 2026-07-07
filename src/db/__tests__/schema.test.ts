@@ -70,6 +70,49 @@ describe('migrateDbIfNeeded', () => {
     expect(count(raw, 'exercises')).toBe(0);
   });
 
+  it('adds cardio columns on a v2 upgrade without losing any data', async () => {
+    const { raw, db } = openDb();
+    // Build a v2-shaped database (workout_sets without the cardio columns) with
+    // real user data, exactly what sits on Nico's device.
+    raw.exec(`
+      CREATE TABLE exercises (id INTEGER PRIMARY KEY NOT NULL, name TEXT NOT NULL,
+        muscle_group TEXT NOT NULL, is_custom INTEGER NOT NULL DEFAULT 0,
+        archived INTEGER NOT NULL DEFAULT 0);
+      CREATE TABLE workout_sets (id INTEGER PRIMARY KEY NOT NULL, workout_id INTEGER NOT NULL,
+        workout_exercise_id INTEGER NOT NULL, exercise_id INTEGER NOT NULL,
+        set_number INTEGER NOT NULL, weight_kg REAL, reps INTEGER, done INTEGER NOT NULL DEFAULT 0);
+      INSERT INTO exercises (name, muscle_group, is_custom) VALUES ('Bankdrücken', 'Brust', 1);
+      INSERT INTO workout_sets (workout_id, workout_exercise_id, exercise_id, set_number, weight_kg, reps, done)
+        VALUES (1, 1, 1, 1, 80, 8, 1);
+      PRAGMA user_version = 2;
+    `);
+
+    await migrateDbIfNeeded(db);
+
+    expect(userVersion(raw)).toBe(DATABASE_VERSION);
+    const hasColumn = (name: string) =>
+      Number(
+        (
+          raw
+            .prepare("SELECT COUNT(*) AS n FROM pragma_table_info('workout_sets') WHERE name = ?")
+            .get(name) as { n: number }
+        ).n,
+      ) === 1;
+    expect(hasColumn('distance_km')).toBe(true);
+    expect(hasColumn('duration_sec')).toBe(true);
+    expect(hasColumn('level')).toBe(true);
+    // existing data survives untouched
+    expect(count(raw, 'exercises')).toBe(1);
+    const set = raw.prepare('SELECT weight_kg, reps, distance_km FROM workout_sets').get() as {
+      weight_kg: number;
+      reps: number;
+      distance_km: number | null;
+    };
+    expect(set.weight_kg).toBe(80);
+    expect(set.reps).toBe(8);
+    expect(set.distance_km).toBeNull();
+  });
+
   it('is a no-op when already at the current version', async () => {
     const { raw, db } = openDb();
     await migrateDbIfNeeded(db);

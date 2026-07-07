@@ -10,13 +10,23 @@ import { Button } from '@/components/ui/button';
 import { Radius, Spacing } from '@/constants/theme';
 import {
   deleteSet,
+  getExercise,
   getLastSetsForExercise,
   getSetsForWorkoutExercise,
   getWorkout,
   insertSet,
   updateSet,
+  updateSetNumber,
 } from '@/db';
-import { formatReference, formatWeight, parseReps, parseWeight } from '@/domain/format';
+import {
+  formatCardioReference,
+  formatDuration,
+  formatReference,
+  formatWeight,
+  parseDuration,
+  parseReps,
+  parseWeight,
+} from '@/domain/format';
 import { createInitialSets, referenceLabel, type PriorSet } from '@/domain/sets';
 import type { WorkoutSet } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
@@ -25,8 +35,13 @@ interface Row {
   id: number;
   weightText: string;
   repsText: string;
+  distanceText: string;
+  timeText: string;
+  levelText: string;
   done: boolean;
 }
+
+type TextField = 'weightText' | 'repsText' | 'distanceText' | 'timeText' | 'levelText';
 
 function showSaveError() {
   Alert.alert('Speichern fehlgeschlagen', 'Die Änderung konnte nicht gespeichert werden.');
@@ -37,8 +52,23 @@ function toRows(sets: WorkoutSet[]): Row[] {
     id: s.id,
     weightText: formatWeight(s.weightKg),
     repsText: s.reps === null ? '' : String(s.reps),
+    distanceText: formatWeight(s.distanceKm),
+    timeText: formatDuration(s.durationSec),
+    levelText: s.level === null ? '' : String(s.level),
     done: s.done,
   }));
+}
+
+/** The value columns for a row, parsed from its text fields (empty → null). */
+function fieldsOf(r: Row) {
+  return {
+    weightKg: parseWeight(r.weightText),
+    reps: parseReps(r.repsText),
+    distanceKm: parseWeight(r.distanceText),
+    durationSec: parseDuration(r.timeText),
+    level: parseReps(r.levelText),
+    done: r.done,
+  };
 }
 
 function SetInput({
@@ -52,7 +82,7 @@ function SetInput({
   value: string;
   onChangeText: (text: string) => void;
   onEndEditing: () => void;
-  keyboardType: 'decimal-pad' | 'number-pad';
+  keyboardType: 'decimal-pad' | 'number-pad' | 'default';
 }) {
   const c = useTheme();
   return (
@@ -88,6 +118,7 @@ export default function ExerciseSetScreen() {
   const workoutExerciseId = Number(params.workoutExerciseId);
   const exerciseId = Number(params.exerciseId);
 
+  const [isCardio, setIsCardio] = useState(false);
   const [prior, setPrior] = useState<PriorSet[]>([]);
   const [priorGymName, setPriorGymName] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
@@ -100,6 +131,7 @@ export default function ExerciseSetScreen() {
   useEffect(() => {
     let active = true;
     (async () => {
+      const exercise = await getExercise(db, exerciseId);
       const workout = await getWorkout(db, workoutId);
       const { sets: priorSets, sourceGymName } = await getLastSetsForExercise(
         db,
@@ -117,12 +149,16 @@ export default function ExerciseSetScreen() {
             setNumber: draft.setNumber,
             weightKg: draft.weightKg,
             reps: draft.reps,
+            distanceKm: draft.distanceKm,
+            durationSec: draft.durationSec,
+            level: draft.level,
             done: draft.done,
           });
         }
         current = await getSetsForWorkoutExercise(db, workoutExerciseId);
       }
       if (active) {
+        setIsCardio(exercise?.muscleGroup === 'Cardio');
         setPrior(priorSets);
         setPriorGymName(sourceGymName);
         setRows(toRows(current));
@@ -133,32 +169,18 @@ export default function ExerciseSetScreen() {
     };
   }, [db, exerciseId, workoutExerciseId, workoutId]);
 
-  const setField = (id: number, field: 'weightText' | 'repsText', value: string) => {
+  const setField = (id: number, field: TextField, value: string) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
   };
 
   const persist = (id: number) => {
     const r = rowsRef.current.find((x) => x.id === id);
-    if (r) {
-      void updateSet(db, id, {
-        weightKg: parseWeight(r.weightText),
-        reps: parseReps(r.repsText),
-        done: r.done,
-      }).catch(showSaveError);
-    }
+    if (r) void updateSet(db, id, fieldsOf(r)).catch(showSaveError);
   };
 
   const flush = useCallback(async () => {
     try {
-      await Promise.all(
-        rowsRef.current.map((r) =>
-          updateSet(db, r.id, {
-            weightKg: parseWeight(r.weightText),
-            reps: parseReps(r.repsText),
-            done: r.done,
-          }),
-        ),
-      );
+      await Promise.all(rowsRef.current.map((r) => updateSet(db, r.id, fieldsOf(r))));
     } catch {
       showSaveError();
     }
@@ -175,25 +197,26 @@ export default function ExerciseSetScreen() {
   const toggleDone = (row: Row) => {
     const next = !row.done;
     setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, done: next } : r)));
-    void updateSet(db, row.id, {
-      weightKg: parseWeight(row.weightText),
-      reps: parseReps(row.repsText),
-      done: next,
-    }).catch(showSaveError);
+    void updateSet(db, row.id, { ...fieldsOf(row), done: next }).catch(showSaveError);
   };
 
   const addSet = async () => {
     await flush();
     const index = rowsRef.current.length;
-    const lastRow = rowsRef.current[index - 1];
-    const inheritedWeight = prior[index]?.weightKg ?? (lastRow ? parseWeight(lastRow.weightText) : null);
+    const prev = rowsRef.current[index - 1];
+    const priorAt = prior[index];
     await insertSet(db, {
       workoutId,
       workoutExerciseId,
       exerciseId,
       setNumber: index + 1,
-      weightKg: inheritedWeight,
+      // Carry over the "settings" from last time (or the previous set); the
+      // performance fields (reps / time) stay empty.
+      weightKg: priorAt?.weightKg ?? (prev ? parseWeight(prev.weightText) : null),
+      distanceKm: priorAt?.distanceKm ?? (prev ? parseWeight(prev.distanceText) : null),
+      level: priorAt?.level ?? (prev ? parseReps(prev.levelText) : null),
       reps: null,
+      durationSec: null,
       done: false,
     });
     setRows(toRows(await getSetsForWorkoutExercise(db, workoutExerciseId)));
@@ -209,16 +232,7 @@ export default function ExerciseSetScreen() {
           await flush();
           await deleteSet(db, row.id);
           const remaining = await getSetsForWorkoutExercise(db, workoutExerciseId);
-          await Promise.all(
-            remaining.map((s, i) =>
-              updateSet(db, s.id, {
-                weightKg: s.weightKg,
-                reps: s.reps,
-                done: s.done,
-                setNumber: i + 1,
-              }),
-            ),
-          );
+          await Promise.all(remaining.map((s, i) => updateSetNumber(db, s.id, i + 1)));
           setRows(toRows(await getSetsForWorkoutExercise(db, workoutExerciseId)));
         },
       },
@@ -230,6 +244,13 @@ export default function ExerciseSetScreen() {
     router.back();
   };
 
+  const referenceFor = (ref: PriorSet | undefined): string | null => {
+    if (!ref) return null;
+    return isCardio
+      ? formatCardioReference(ref.distanceKm ?? null, ref.durationSec ?? null, ref.level ?? null)
+      : formatReference(ref.weightKg, ref.reps);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
       <Stack.Screen options={{ headerShown: true, title: params.name ?? 'Übung' }} />
@@ -238,8 +259,7 @@ export default function ExerciseSetScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         {rows.map((row, i) => {
-          const ref = prior[i];
-          const refLabel = ref ? formatReference(ref.weightKg, ref.reps) : null;
+          const refLabel = referenceFor(prior[i]);
           return (
             <View key={row.id} style={styles.setBlock}>
               <View style={styles.setRow}>
@@ -248,20 +268,48 @@ export default function ExerciseSetScreen() {
                   style={[styles.badge, { borderColor: c.border }]}>
                   <Text style={[styles.badgeText, { color: c.textSecondary }]}>{i + 1}</Text>
                 </Pressable>
-                <SetInput
-                  label="KG"
-                  value={row.weightText}
-                  onChangeText={(t) => setField(row.id, 'weightText', t)}
-                  onEndEditing={() => persist(row.id)}
-                  keyboardType="decimal-pad"
-                />
-                <SetInput
-                  label="WDH"
-                  value={row.repsText}
-                  onChangeText={(t) => setField(row.id, 'repsText', t)}
-                  onEndEditing={() => persist(row.id)}
-                  keyboardType="number-pad"
-                />
+                {isCardio ? (
+                  <>
+                    <SetInput
+                      label="KM"
+                      value={row.distanceText}
+                      onChangeText={(t) => setField(row.id, 'distanceText', t)}
+                      onEndEditing={() => persist(row.id)}
+                      keyboardType="decimal-pad"
+                    />
+                    <SetInput
+                      label="ZEIT (min:s)"
+                      value={row.timeText}
+                      onChangeText={(t) => setField(row.id, 'timeText', t)}
+                      onEndEditing={() => persist(row.id)}
+                      keyboardType="default"
+                    />
+                    <SetInput
+                      label="STUFE"
+                      value={row.levelText}
+                      onChangeText={(t) => setField(row.id, 'levelText', t)}
+                      onEndEditing={() => persist(row.id)}
+                      keyboardType="number-pad"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <SetInput
+                      label="KG"
+                      value={row.weightText}
+                      onChangeText={(t) => setField(row.id, 'weightText', t)}
+                      onEndEditing={() => persist(row.id)}
+                      keyboardType="decimal-pad"
+                    />
+                    <SetInput
+                      label="WDH"
+                      value={row.repsText}
+                      onChangeText={(t) => setField(row.id, 'repsText', t)}
+                      onEndEditing={() => persist(row.id)}
+                      keyboardType="number-pad"
+                    />
+                  </>
+                )}
                 <Pressable
                   onPress={() => toggleDone(row)}
                   accessibilityLabel="Satz erledigt"
