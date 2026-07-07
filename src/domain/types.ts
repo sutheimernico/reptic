@@ -8,14 +8,20 @@ export const MUSCLE_GROUPS = [
   'Brust',
   'Rücken',
   'Schultern',
-  'Trapez/Nacken',
   'Beine',
   'Bizeps',
   'Trizeps',
-  'Core',
+  'Bauch',
+  'Cardio',
 ] as const;
 
 export type MuscleGroup = (typeof MUSCLE_GROUPS)[number];
+
+export interface Gym {
+  id: number;
+  name: string;
+  archived: boolean;
+}
 
 export interface Exercise {
   id: number;
