@@ -97,7 +97,8 @@ export default function HistoryCalendarScreen() {
               return (
                 <Pressable
                   key={cell.key}
-                  onPress={() => setSelectedDay(colors.length > 0 ? day : null)}
+                  disabled={colors.length === 0}
+                  onPress={() => setSelectedDay(day)}
                   accessibilityLabel={
                     `${day}. ${monthTitle(year, month0)}` +
                     (colors.length > 0 ? ', Training' : ', kein Training')

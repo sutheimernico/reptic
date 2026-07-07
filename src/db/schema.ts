@@ -77,19 +77,23 @@ CREATE INDEX idx_workout_exercises_workout ON workout_exercises (workout_id);
  * so `gym_id` can be NOT NULL without an ALTER TABLE workaround.
  */
 const V2_MIGRATION = `
-CREATE TABLE gyms (
+CREATE TABLE IF NOT EXISTS gyms (
   id INTEGER PRIMARY KEY NOT NULL,
   name TEXT NOT NULL,
   archived INTEGER NOT NULL DEFAULT 0
 );
 
+-- Drop children BEFORE deleting from parents: with foreign_keys = ON, deleting
+-- exercises while workout_exercises/workout_sets rows still reference them
+-- fails (their FKs have no ON DELETE action). IF EXISTS keeps a previously
+-- interrupted run of this migration retryable.
+DROP TABLE IF EXISTS workout_sets;
+DROP TABLE IF EXISTS workout_exercises;
+DROP TABLE IF EXISTS workouts;
+
 DELETE FROM plan_exercises;
 DELETE FROM plans;
 DELETE FROM exercises;
-
-DROP TABLE workout_sets;
-DROP TABLE workout_exercises;
-DROP TABLE workouts;
 
 CREATE TABLE workouts (
   id INTEGER PRIMARY KEY NOT NULL,
