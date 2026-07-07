@@ -12,7 +12,7 @@
     },
     "android": {
       "package": "io.github.sutheimernico.reptic",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#0B0D14",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
