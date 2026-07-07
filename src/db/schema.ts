@@ -5,7 +5,35 @@
 
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import type { MuscleGroup } from '@/domain/types';
+
 export const DATABASE_VERSION = 2;
+
+/**
+ * Default exercise library, inserted once on a brand-new install so the app is
+ * usable out of the box. NOT re-added on later launches, so deleting one keeps
+ * it gone. Existing installs (already past v0) are untouched.
+ */
+const STARTER_EXERCISES: readonly (readonly [string, MuscleGroup])[] = [
+  ['Brustpresse', 'Brust'],
+  ['Obere Brustpresse', 'Brust'],
+  ['Breites Rudern', 'Rücken'],
+  ['Einarmiges Latziehen', 'Rücken'],
+  ['Einarmiges Latrudern', 'Rücken'],
+  ['Klimmzüge', 'Rücken'],
+  ['Schulterdrücken', 'Schultern'],
+  ['Seitheben', 'Schultern'],
+  ['Beinbeuger', 'Beine'],
+  ['Beinpresse', 'Beine'],
+  ['Beinstrecker', 'Beine'],
+  ['Wadenheben (Beinpresse)', 'Beine'],
+  ['Wadenheben (sitzend)', 'Beine'],
+  ['Bizeps-Curls (Kabelturm)', 'Bizeps'],
+  ['Bizeps-Curls (Maschine)', 'Bizeps'],
+  ['Hammer-Curls', 'Bizeps'],
+  ['Trizeps (Überkopf)', 'Trizeps'],
+  ['Trizeps drücken', 'Trizeps'],
+];
 
 // IF NOT EXISTS throughout: the pre-2026-07-07 migration code was not atomic,
 // so devices may carry a half-applied schema with user_version still 0. This
@@ -179,6 +207,11 @@ async function migrate(db: SQLiteDatabase): Promise<void> {
         await db.execAsync(V2_MIGRATION);
         version = 2;
       }
+      // Seed the default library only on a truly fresh database, inside the
+      // same transaction so a fresh install is all-or-nothing.
+      if (fromVersion === 0) {
+        await seedStarterExercises(db);
+      }
       await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION};`);
       await db.execAsync('COMMIT;');
     } catch (error) {
@@ -192,4 +225,14 @@ async function migrate(db: SQLiteDatabase): Promise<void> {
   // Enforce foreign keys for all normal app operation (ON DELETE CASCADE
   // etc.). Per-connection and off by default, so set it on every init.
   await db.execAsync('PRAGMA foreign_keys = ON;');
+}
+
+async function seedStarterExercises(db: SQLiteDatabase): Promise<void> {
+  for (const [name, group] of STARTER_EXERCISES) {
+    await db.runAsync(
+      'INSERT INTO exercises (name, muscle_group, is_custom, archived) VALUES (?, ?, 1, 0)',
+      name,
+      group,
+    );
+  }
 }

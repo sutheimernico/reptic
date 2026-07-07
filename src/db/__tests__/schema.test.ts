@@ -18,6 +18,10 @@ function adapt(db: DatabaseSync): SQLiteDatabase {
       db.exec(sql);
     },
     getFirstAsync: async (sql: string) => db.prepare(sql).get() ?? null,
+    runAsync: async (sql: string, ...params: unknown[]) => {
+      const res = db.prepare(sql).run(...(params as never[]));
+      return { lastInsertRowId: Number(res.lastInsertRowid), changes: Number(res.changes) };
+    },
   } as unknown as SQLiteDatabase;
 }
 
@@ -33,15 +37,37 @@ const count = (raw: DatabaseSync, table: string): number =>
   Number((raw.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n);
 
 describe('migrateDbIfNeeded', () => {
-  it('migrates a fresh database to the current version', async () => {
+  it('migrates a fresh database to the current version and seeds the library', async () => {
     const { raw, db } = openDb();
     await migrateDbIfNeeded(db);
 
     expect(userVersion(raw)).toBe(DATABASE_VERSION);
+    expect(count(raw, 'gyms')).toBe(0);
+    expect(count(raw, 'exercises')).toBe(18); // starter library seeded once
     raw.exec("INSERT INTO gyms (name, archived) VALUES ('Quakenbrück', 0)");
-    raw.exec("INSERT INTO exercises (name, muscle_group, is_custom, archived) VALUES ('Bankdrücken', 'Brust', 1, 0)");
     expect(count(raw, 'gyms')).toBe(1);
-    expect(count(raw, 'exercises')).toBe(1);
+  });
+
+  it('does not seed when upgrading an existing v1 install', async () => {
+    const { raw, db } = openDb();
+    raw.exec(`
+      CREATE TABLE exercises (id INTEGER PRIMARY KEY NOT NULL, name TEXT NOT NULL,
+        muscle_group TEXT NOT NULL, is_custom INTEGER NOT NULL DEFAULT 0,
+        archived INTEGER NOT NULL DEFAULT 0);
+      CREATE TABLE plans (id INTEGER PRIMARY KEY NOT NULL, name TEXT NOT NULL,
+        color TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0);
+      CREATE TABLE plan_exercises (plan_id INTEGER NOT NULL, exercise_id INTEGER NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (plan_id, exercise_id));
+      INSERT INTO exercises (name, muscle_group) VALUES ('Alt', 'Brust');
+      PRAGMA user_version = 1;
+    `);
+
+    await migrateDbIfNeeded(db);
+
+    // v2 wipes the old library and, because this is an upgrade (not a fresh
+    // install), no starter set is seeded — the user owns their library.
+    expect(userVersion(raw)).toBe(DATABASE_VERSION);
+    expect(count(raw, 'exercises')).toBe(0);
   });
 
   it('is a no-op when already at the current version', async () => {
