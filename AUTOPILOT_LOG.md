@@ -59,3 +59,14 @@ One line per completed loop iteration (newest at bottom).
   ListRow `accessibilityLabel` exposing Verlauf plan names (were color-only). Skipped the review's
   cancel-guard/.catch notes — they match the existing tab-screen convention and React 19 no longer
   warns on unmount setState. Gate green (tsc + 30 jest + lint).
+- 2026-07-07 — Feedback round 1 (overnight autonomous build, Nico's go): gyms + user-owned
+  library + calendar. Schema v2 (gyms table, workouts.gym_id NOT NULL, seed wipe — app starts
+  empty), final muscle groups (Bauch/Cardio in, Trapez/Nacken out), mandatory gym pick at
+  session start (last-used preselected, inline create), two-stage gym-aware weight suggestions
+  ("↳ letztes Mal im <Gym>" on fallback), gym management in Einstellungen, gym in history/
+  detail/progression, custom calendar screen (Monday-first month grid, plan-color markers),
+  backup v2 with gyms (v1 rejected). Review pass caught a CRITICAL migration bug (DELETE FROM
+  exercises before dropping referencing workout tables → FK failure → startup crash-loop on
+  any device with v1 data); fixed drop order + IF EXISTS retry guards, verified against real
+  sqlite3 (happy + retry path). 9 commits, gate green (tsc + 43 jest + expo lint), Android
+  bundle compiles via Metro. Not fixed (pre-existing): ListRow lacks accessibilityRole.

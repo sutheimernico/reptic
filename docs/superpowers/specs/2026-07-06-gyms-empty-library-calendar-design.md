@@ -118,3 +118,13 @@ the seeds. DB layer and screens remain untested (existing convention).
 - Cardio duration/distance tracking
 - Google Drive backup (Phase 8b, needs OAuth client)
 - App icon / splash artwork
+
+## Outcome (2026-07-07)
+
+Implemented as designed in an autonomous overnight run (9 commits on
+`autopilot/work`, gate green: tsc + 43 jest + expo lint). One design detail
+changed during implementation: `gyms.id` is `INTEGER PRIMARY KEY` (repo
+convention), not TEXT. The v2 migration's statement order from the plan had
+to be corrected after review (drop workout tables before deleting exercises;
+retryable via IF EXISTS guards) — verified against real sqlite3.
+Needs Nico: on-device verify (migration wipes test data as designed).

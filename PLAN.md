@@ -90,12 +90,28 @@ Design: `docs/superpowers/specs/2026-07-05-reptic-gym-app-design.md`.
       (adaptiveIcon uses a backgroundImage, so only new PNGs would change it).
 - [x] Final full-gate pass (tsc + 28 jest + expo lint, `expo config` resolves) + spec Outcome section
 
+## Phase 10 — Feedback round 1: gyms, user-owned library, calendar ✅
+
+Nico's feedback after the first on-device test (2026-07-06). Spec:
+`docs/superpowers/specs/2026-07-06-gyms-empty-library-calendar-design.md`,
+plan: `docs/superpowers/plans/2026-07-07-gyms-empty-library-calendar.md`.
+
+- [x] Remove all seed data (exercises + example plans); app starts empty
+- [x] Final muscle groups: Brust, Rücken, Schultern, Beine, Bizeps, Trizeps, Bauch, Cardio
+- [x] Schema v2: `gyms` table, `workouts.gym_id NOT NULL`, wipe of v1 test data
+- [x] Mandatory gym pick at session start (last-used preselected, inline create)
+- [x] Gym-aware weight suggestions: same gym first, any-gym fallback with source label
+- [x] Gym management in Einstellungen (create, rename, archive/delete)
+- [x] Gym shown in history list, workout detail, per-exercise progression
+- [x] Calendar screen (custom Monday-first month grid, plan-color day markers)
+- [x] Backup format v2 (gyms included; v1 backups rejected)
+
 ## Needs Nico
 
+- [ ] On-device verify of feedback round 1 (migration wipes test data — expected!)
 - [ ] On-device run + APK/EAS build (no Java/Android SDK in the build env)
 - [ ] Visual / feel sign-off on a real device
 - [ ] Confirm product name `Reptic` (or rename via `constants/app.ts`)
-- [ ] Optional: replace example Push/Pull/Beine plans with Nico's real 3 splits
 - [ ] Create Google Cloud OAuth client(s) — Web + Android client ID with the signing SHA-1 —
       for the Drive backup sign-in; the login code can't go live without them
 - [ ] Replace the Expo-template icon/splash art (foreground PNGs) with real Reptic art
