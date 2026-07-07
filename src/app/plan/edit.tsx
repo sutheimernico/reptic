@@ -6,9 +6,11 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
 import { TextField } from '@/components/ui/text-field';
 import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
+import { moveBy } from '@/domain/ordering';
 import {
   createPlan,
   deletePlan,
@@ -64,6 +66,10 @@ export default function PlanEditScreen() {
     );
   };
 
+  const move = (index: number, delta: number) => {
+    setSelectedIds((prev) => moveBy(prev, index, delta));
+  };
+
   const save = async () => {
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -108,6 +114,11 @@ export default function PlanEditScreen() {
     items: exercises.filter((e) => e.muscleGroup === group),
   })).filter((s) => s.items.length > 0);
 
+  const byId = new Map(exercises.map((e) => [e.id, e]));
+  const orderedSelected = selectedIds
+    .map((id) => byId.get(id))
+    .filter((e): e is Exercise => e !== undefined);
+
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
       <Stack.Screen
@@ -147,6 +158,50 @@ export default function PlanEditScreen() {
           <ThemedText type="small" themeColor="textSecondary" style={styles.blockLabel}>
             {`Übungen (${selectedIds.length})`}
           </ThemedText>
+
+          {orderedSelected.length > 0 ? (
+            <View style={styles.section}>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.sectionTitle}>
+                Reihenfolge
+              </ThemedText>
+              {orderedSelected.map((exercise, index) => (
+                <View
+                  key={exercise.id}
+                  style={[styles.orderRow, { backgroundColor: c.card, borderColor: c.border }]}>
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.orderNum}>
+                    {index + 1}
+                  </ThemedText>
+                  <ThemedText style={styles.orderName} numberOfLines={1}>
+                    {exercise.name}
+                  </ThemedText>
+                  <View style={styles.orderControls}>
+                    <IconButton
+                      name="chevron-up"
+                      size={20}
+                      color={index === 0 ? c.border : c.text}
+                      onPress={() => move(index, -1)}
+                      accessibilityLabel={`„${exercise.name}" nach oben`}
+                    />
+                    <IconButton
+                      name="chevron-down"
+                      size={20}
+                      color={index === orderedSelected.length - 1 ? c.border : c.text}
+                      onPress={() => move(index, 1)}
+                      accessibilityLabel={`„${exercise.name}" nach unten`}
+                    />
+                    <IconButton
+                      name="close"
+                      size={20}
+                      color={c.danger}
+                      onPress={() => toggleExercise(exercise.id)}
+                      accessibilityLabel={`„${exercise.name}" aus dem Plan entfernen`}
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
           {sections.map((section) => (
             <View key={section.group} style={styles.section}>
               <ThemedText type="small" themeColor="textSecondary" style={styles.sectionTitle}>
@@ -208,4 +263,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     marginTop: Spacing.two,
   },
+  orderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+  },
+  orderNum: { width: 18, textAlign: 'center', fontVariant: ['tabular-nums'] },
+  orderName: { flex: 1, fontSize: 15, fontWeight: '600' },
+  orderControls: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
 });
