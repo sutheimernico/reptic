@@ -70,3 +70,21 @@ One line per completed loop iteration (newest at bottom).
   any device with v1 data); fixed drop order + IF EXISTS retry guards, verified against real
   sqlite3 (happy + retry path). 9 commits, gate green (tsc + 43 jest + expo lint), Android
   bundle compiles via Metro. Not fixed (pre-existing): ListRow lacks accessibilityRole.
+- 2026-07-07 — Gym-save bug root-caused + fixed (continuation of docs/sessions/2026-07-07_1010).
+  Evidence: expo-sqlite@57 source analysis (execAsync = raw sqlite3_exec, statement-by-statement
+  autocommit, no rollback; onInit re-runs on every provider remount; native connections are
+  CACHED across Metro reloads incl. their open transactions) + SQLite scenario harness. Two
+  mechanisms reproduce the symptom (one gym saved, later writes lost, reads fine): an orphaned
+  transaction inherited through the connection cache after a reload killed a
+  withTransactionAsync mid-flight (writes join it, vanish on rollback), and/or the non-atomic
+  non-idempotent migration stranding user_version=0 with schema applied. Fix `96bf4cc`:
+  migration wrapped in BEGIN EXCLUSIVE..COMMIT incl. user_version, V1 schema IF NOT EXISTS
+  (self-repair of stranded devices), ROLLBACK guard at init, module-level serialization of
+  concurrent onInit runs, progress/error logging. Fix `860ac48`: all gym/exercise/plan write
+  handlers surface errors via alert (incl. raw SQLite message) instead of silent unhandled
+  rejections. The previously uncommitted foreign_keys-OFF change is folded into `96bf4cc`.
+  New: src/db/__tests__/schema.test.ts runs the REAL migrateDbIfNeeded against real SQLite
+  via node:sqlite (exec matches sqlite3_exec semantics) — 7 scenarios incl. interrupt-recovery,
+  mid-failure rollback, orphaned-txn cleanup, concurrent runs. Gate green (tsc + 50 jest + lint).
+  Which mechanism hit Nico's device stays unconfirmed until the next on-device test — the new
+  alerts + [db] logs will show it immediately if anything still fails.

@@ -106,9 +106,22 @@ plan: `docs/superpowers/plans/2026-07-07-gyms-empty-library-calendar.md`.
 - [x] Calendar screen (custom Monday-first month grid, plan-color day markers)
 - [x] Backup format v2 (gyms included; v1 backups rejected)
 
+## Phase 11 — Gym-save bug (2026-07-07) ✅
+
+Reported after the first live test of feedback round 1: one gym saved, then no further
+gym/exercise persisted, no visible error. Root-cause analysis + fix:
+`AUTOPILOT_LOG.md` 2026-07-07 and `docs/sessions/2026-07-07_1010_gym-save-bug.md`.
+
+- [x] Atomic + idempotent migrations (BEGIN EXCLUSIVE, IF NOT EXISTS self-repair,
+      orphaned-transaction guard, serialized onInit runs) — `96bf4cc`
+- [x] Write errors surfaced via alert in gym/exercise/plan screens — `860ac48`
+- [x] Migration test suite against real SQLite (node:sqlite), 7 scenarios
+
 ## Needs Nico
 
-- [ ] On-device verify of feedback round 1 (migration wipes test data — expected!)
+- [ ] On-device verify of feedback round 1 + gym-save fix (migration wipes test data — expected!
+      Create gyms, exercises, a plan, run a session, kill + reopen the app, verify everything
+      survived; any failure now shows an alert with the SQLite message — report that text)
 - [ ] On-device run + APK/EAS build (no Java/Android SDK in the build env)
 - [ ] Visual / feel sign-off on a real device
 - [ ] Confirm product name `Reptic` (or rename via `constants/app.ts`)
