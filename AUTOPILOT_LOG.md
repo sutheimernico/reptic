@@ -120,3 +120,15 @@ One line per completed loop iteration (newest at bottom).
   Expo Go tunnel + forced Metro Android bundle (HTTP 200) to validate BEFORE building, instead of
   blind 3h EAS builds. Gate green (tsc + 58 jest + expo lint). versionCode 4, EAS build 3eee2904
   (preview APK) after Nico's live sign-off.
+- 2026-07-08 — Cardio set input (km / time / level). Additive schema v3: three nullable columns
+  on workout_sets via ALTER TABLE (distance_km, duration_sec, level) — provably non-destructive
+  (test migrates a v2 DB with data → columns added, rows preserved). Cardio exercises
+  (muscleGroup 'Cardio') show KM · ZEIT (mm:ss or minutes) · STUFE instead of KG/WDH, with the
+  same last-time carry-over (distance+level carried, time typed fresh) and reference line
+  ("↳ letztes Mal: 5 km · 32:30 · Stufe 8"). Uniform fieldsOf() persistence (no cardio branching
+  in save logic); updateSetNumber() added so set renumber-on-delete preserves cardio values.
+  History "performed" counts broadened to include cardio sets. Domain parsers/formatters
+  (parseDuration/formatDuration/formatCardioReference) + migration tested; 67 jest green.
+  Known gap (told Nico): history detail summary + progress bars still strength-only for cardio.
+  versionCode 5, EAS build 0981fd79. Feature works for the user's existing exercises via their
+  muscle group — the seed does NOT run on an update, so his ~20 APK exercises are untouched.
