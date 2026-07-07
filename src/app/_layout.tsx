@@ -2,6 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider, Stack } fro
 import * as SplashScreen from 'expo-splash-screen';
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { DATABASE_NAME } from '@/constants/app';
@@ -12,11 +13,15 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   return (
-    <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded}>
-      <ThemeProvider>
-        <ThemedNavigation />
-      </ThemeProvider>
-    </SQLiteProvider>
+    // Required for react-native-gesture-handler; without it swipe gestures
+    // (e.g. swipe-to-delete in a session) silently do nothing.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded}>
+        <ThemeProvider>
+          <ThemedNavigation />
+        </ThemeProvider>
+      </SQLiteProvider>
+    </GestureHandlerRootView>
   );
 }
 

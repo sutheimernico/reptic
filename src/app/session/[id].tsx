@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListRow } from '@/components/ui/list-row';
+import { SwipeToDelete } from '@/components/ui/swipe-to-delete';
 import { Spacing } from '@/constants/theme';
 import {
   finishWorkout,
@@ -20,6 +21,7 @@ import {
   type WorkoutExerciseWithExercise,
 } from '@/db';
 import { useTheme } from '@/hooks/use-theme';
+import { showSaveError } from '@/lib/alerts';
 
 export default function SessionScreen() {
   const db = useSQLiteContext();
@@ -54,20 +56,24 @@ export default function SessionScreen() {
     });
   };
 
+  const removeExercise = async (we: WorkoutExerciseWithExercise) => {
+    try {
+      await removeWorkoutExercise(db, we.id);
+      load();
+    } catch (error) {
+      showSaveError(error);
+    }
+  };
+
+  // Long-press keeps a confirmation dialog (the careful path); the swipe
+  // gesture deletes directly (the quick path).
   const confirmRemove = (we: WorkoutExerciseWithExercise) => {
     Alert.alert(
       'Übung entfernen?',
       `„${we.exercise.name}" wird aus dieser Einheit entfernt (samt eingetragener Sätze).`,
       [
         { text: 'Abbrechen', style: 'cancel' },
-        {
-          text: 'Entfernen',
-          style: 'destructive',
-          onPress: async () => {
-            await removeWorkoutExercise(db, we.id);
-            load();
-          },
-        },
+        { text: 'Entfernen', style: 'destructive', onPress: () => removeExercise(we) },
       ],
     );
   };
@@ -101,14 +107,18 @@ export default function SessionScreen() {
           exercises.map((we) => {
             const p = progress.get(we.id);
             return (
-              <ListRow
+              <SwipeToDelete
                 key={we.id}
-                title={we.exercise.name}
-                subtitle={p ? `${p.done}/${p.total} Sätze` : we.exercise.muscleGroup}
-                onPress={() => openExercise(we)}
-                onLongPress={() => confirmRemove(we)}
-                right={<Ionicons name="chevron-forward" size={18} color={c.textSecondary} />}
-              />
+                onDelete={() => removeExercise(we)}
+                accessibilityLabel={`„${we.exercise.name}" aus der Einheit entfernen`}>
+                <ListRow
+                  title={we.exercise.name}
+                  subtitle={p ? `${p.done}/${p.total} Sätze` : we.exercise.muscleGroup}
+                  onPress={() => openExercise(we)}
+                  onLongPress={() => confirmRemove(we)}
+                  right={<Ionicons name="chevron-forward" size={18} color={c.textSecondary} />}
+                />
+              </SwipeToDelete>
             );
           })
         )}
