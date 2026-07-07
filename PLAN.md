@@ -117,6 +117,18 @@ gym/exercise persisted, no visible error. Root-cause analysis + fix:
 - [x] Write errors surfaced via alert in gym/exercise/plan screens — `860ac48`
 - [x] Migration test suite against real SQLite (node:sqlite), 7 scenarios
 
+## Phase 12 — App icon, name, drag-and-drop, seed library (2026-07-07) ✅
+
+Live-tested via Expo Go before each build (see `AUTOPILOT_LOG.md`).
+
+- [x] Barbell app icon (design D) — adaptive/monochrome/splash/favicon
+- [x] Renamed app to **Repz** (display name only)
+- [x] Swipe-to-delete an exercise in a running session (actually deletes + reflows)
+- [x] Drag-and-drop reorder everywhere (session + plan editor), 150ms hold, persisted
+- [x] Button hit area forced full-width (Android new-arch fix)
+- [x] 18 dictated exercises seeded on fresh install (fromVersion 0 only)
+- [x] versionCode 4 APK build (EAS `3eee2904`)
+
 ## Needs Nico
 
 - [x] On-device verify of the gym-save fix (2026-07-07, Nico via Expo Go tunnel: gyms +
