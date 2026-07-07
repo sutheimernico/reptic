@@ -47,7 +47,9 @@ export default function ExerciseProgressScreen() {
             return (
               <Card key={entry.workoutId} style={styles.card}>
                 <View style={styles.header}>
-                  <ThemedText type="smallBold">{formatSessionDate(entry.date)}</ThemedText>
+                  <ThemedText type="smallBold">
+                    {formatSessionDate(entry.date)} · {entry.gymName}
+                  </ThemedText>
                   {top !== null ? (
                     <ThemedText type="small" themeColor="accent">
                       {formatWeight(top)} kg

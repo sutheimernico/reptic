@@ -374,6 +374,7 @@ export interface WorkoutSummary extends Workout {
   setCount: number;
   /** Σ weight_kg × reps across the session's sets (kg). */
   volume: number;
+  gymName: string;
 }
 
 /** Finished sessions with per-session counts for the history list, newest first. */
@@ -383,7 +384,7 @@ export async function getFinishedWorkoutSummaries(db: SQLiteDatabase): Promise<W
   // "Performed" = reps IS NOT NULL: opening an exercise pre-fills carried-over
   // weights with empty reps, so those unfilled rows must not count as done work.
   const rows = await db.getAllAsync<
-    WorkoutRow & { exercise_count: number; set_count: number; volume: number }
+    WorkoutRow & { exercise_count: number; set_count: number; volume: number; gym_name: string }
   >(
     `SELECT w.*,
        (SELECT COUNT(DISTINCT ws.exercise_id) FROM workout_sets ws
@@ -391,7 +392,8 @@ export async function getFinishedWorkoutSummaries(db: SQLiteDatabase): Promise<W
        (SELECT COUNT(*) FROM workout_sets ws
           WHERE ws.workout_id = w.id AND ws.reps IS NOT NULL) AS set_count,
        (SELECT COALESCE(SUM(ws.weight_kg * ws.reps), 0) FROM workout_sets ws
-          WHERE ws.workout_id = w.id) AS volume
+          WHERE ws.workout_id = w.id) AS volume,
+       (SELECT g.name FROM gyms g WHERE g.id = w.gym_id) AS gym_name
      FROM workouts w
      WHERE w.finished_at IS NOT NULL
      ORDER BY w.finished_at DESC`,
@@ -401,6 +403,7 @@ export async function getFinishedWorkoutSummaries(db: SQLiteDatabase): Promise<W
     exerciseCount: r.exercise_count,
     setCount: r.set_count,
     volume: r.volume,
+    gymName: r.gym_name,
   }));
 }
 
@@ -639,6 +642,7 @@ export interface ExerciseSessionEntry {
   workoutId: number;
   /** finished_at, or started_at as a fallback. */
   date: string;
+  gymName: string;
   sets: { setNumber: number; weightKg: number | null; reps: number | null }[];
 }
 
@@ -648,8 +652,14 @@ export async function getExerciseSessionHistory(
   exerciseId: number,
   limit = 12,
 ): Promise<ExerciseSessionEntry[]> {
-  const workouts = await db.getAllAsync<{ id: number; started_at: string; finished_at: string | null }>(
-    `SELECT w.id, w.started_at, w.finished_at
+  const workouts = await db.getAllAsync<{
+    id: number;
+    started_at: string;
+    finished_at: string | null;
+    gym_name: string;
+  }>(
+    `SELECT w.id, w.started_at, w.finished_at,
+       (SELECT g.name FROM gyms g WHERE g.id = w.gym_id) AS gym_name
      FROM workouts w
      WHERE w.finished_at IS NOT NULL
        AND EXISTS (
@@ -672,6 +682,7 @@ export async function getExerciseSessionHistory(
     entries.push({
       workoutId: w.id,
       date: w.finished_at ?? w.started_at,
+      gymName: w.gym_name,
       sets: rows.map((r) => ({ setNumber: r.set_number, weightKg: r.weight_kg, reps: r.reps })),
     });
   }

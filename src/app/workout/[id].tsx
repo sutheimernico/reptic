@@ -9,6 +9,7 @@ import { ListRow } from '@/components/ui/list-row';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import {
   deleteWorkout,
+  getGym,
   getSetsForWorkoutExercise,
   getWorkout,
   getWorkoutExercises,
@@ -30,10 +31,14 @@ export default function WorkoutDetailScreen() {
   const workoutId = Number(id);
 
   const [workout, setWorkout] = useState<Workout | null>(null);
+  const [gymName, setGymName] = useState<string | null>(null);
   const [exercises, setExercises] = useState<ExerciseWithSummary[]>([]);
 
   const load = useCallback(() => {
-    getWorkout(db, workoutId).then(setWorkout);
+    getWorkout(db, workoutId).then((w) => {
+      setWorkout(w);
+      if (w) getGym(db, w.gymId).then((g) => setGymName(g?.name ?? null));
+    });
     getWorkoutExercises(db, workoutId).then(async (list) => {
       const withSummary = await Promise.all(
         list.map(async (we) => ({
@@ -68,7 +73,7 @@ export default function WorkoutDetailScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: dateLabel,
+          title: gymName ? `${dateLabel} · ${gymName}` : dateLabel,
           headerRight: () => (
             <IconButton
               name="trash-outline"

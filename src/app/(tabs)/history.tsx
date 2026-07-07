@@ -44,6 +44,7 @@ export default function HistoryScreen() {
           const colors = plans.map((p) => p.color);
           const dateLabel = formatSessionDate(s.finishedAt ?? s.startedAt);
           const summary =
+            `${s.gymName} · ` +
             `${plural(s.exerciseCount, 'Übung', 'Übungen')} · ${plural(s.setCount, 'Satz', 'Sätze')}` +
             (s.volume > 0 ? ` · ${formatVolume(s.volume)}` : '');
           const a11yLabel =
