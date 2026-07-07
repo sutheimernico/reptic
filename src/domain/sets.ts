@@ -88,6 +88,15 @@ export function removeSet(current: DraftSet[], setNumber: number, prior: PriorSe
 }
 
 /**
+ * Prefix for the grey reference line. Prior sets come from the same gym by
+ * default; when they were pulled from another gym (fallback), name it so the
+ * user knows the weights may not match this gym's machines.
+ */
+export function referenceLabel(sourceGymName: string | null): string {
+  return sourceGymName === null ? '↳ letztes Mal' : `↳ letztes Mal im ${sourceGymName}`;
+}
+
+/**
  * The heaviest weight among *performed* sets. A set counts only when reps were
  * entered (`reps !== null`): opening an exercise pre-fills carried-over weights
  * with empty reps, so those untouched rows must not be read as real lifts.

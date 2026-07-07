@@ -575,35 +575,64 @@ export async function deleteSet(db: SQLiteDatabase, id: number): Promise<void> {
   await db.runAsync('DELETE FROM workout_sets WHERE id = ?', id);
 }
 
+export interface LastSetsResult {
+  sets: PriorSet[];
+  /** Name of the gym the sets came from when it is NOT the requested one; null otherwise. */
+  sourceGymName: string | null;
+}
+
 /**
- * Last time's sets for an exercise: the sets of the most recent *finished* workout
- * that contains it, ordered by set number. Drives the kg pre-fill and grey reference.
+ * Last time's sets for an exercise, gym-aware: prefer the most recent *finished*
+ * workout containing it in the SAME gym; fall back to any gym, reporting the
+ * source gym's name so the UI can label the reference. Drives the kg pre-fill.
  */
 export async function getLastSetsForExercise(
   db: SQLiteDatabase,
   exerciseId: number,
+  gymId: number,
   excludeWorkoutId?: number,
-): Promise<PriorSet[]> {
+): Promise<LastSetsResult> {
   const exclude = excludeWorkoutId ?? -1;
-  const rows = await db.getAllAsync<{ set_number: number; weight_kg: number | null; reps: number | null }>(
-    `SELECT ws.set_number, ws.weight_kg, ws.reps
-     FROM workout_sets ws
-     WHERE ws.exercise_id = ?
-       AND ws.workout_id = (
-         SELECT w.id FROM workouts w
-         JOIN workout_sets s ON s.workout_id = w.id
-         WHERE s.exercise_id = ? AND w.finished_at IS NOT NULL AND w.id != ?
-         ORDER BY w.finished_at DESC
-         LIMIT 1
-       )
-     ORDER BY ws.set_number`,
-    exerciseId,
+
+  let source = await db.getFirstAsync<{ id: number }>(
+    `SELECT w.id FROM workouts w
+     JOIN workout_sets s ON s.workout_id = w.id
+     WHERE s.exercise_id = ? AND w.finished_at IS NOT NULL AND w.id != ? AND w.gym_id = ?
+     ORDER BY w.finished_at DESC
+     LIMIT 1`,
     exerciseId,
     exclude,
+    gymId,
   );
-  return toPriorSets(
-    rows.map((r) => ({ setNumber: r.set_number, weightKg: r.weight_kg, reps: r.reps })),
+  let sourceGymName: string | null = null;
+
+  if (!source) {
+    const fallback = await db.getFirstAsync<{ id: number; gym_name: string }>(
+      `SELECT w.id, g.name AS gym_name FROM workouts w
+       JOIN gyms g ON g.id = w.gym_id
+       JOIN workout_sets s ON s.workout_id = w.id
+       WHERE s.exercise_id = ? AND w.finished_at IS NOT NULL AND w.id != ?
+       ORDER BY w.finished_at DESC
+       LIMIT 1`,
+      exerciseId,
+      exclude,
+    );
+    if (!fallback) return { sets: [], sourceGymName: null };
+    source = { id: fallback.id };
+    sourceGymName = fallback.gym_name;
+  }
+
+  const rows = await db.getAllAsync<{ set_number: number; weight_kg: number | null; reps: number | null }>(
+    'SELECT set_number, weight_kg, reps FROM workout_sets WHERE workout_id = ? AND exercise_id = ? ORDER BY set_number',
+    source.id,
+    exerciseId,
   );
+  return {
+    sets: toPriorSets(
+      rows.map((r) => ({ setNumber: r.set_number, weightKg: r.weight_kg, reps: r.reps })),
+    ),
+    sourceGymName,
+  };
 }
 
 export interface ExerciseSessionEntry {

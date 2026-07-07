@@ -12,11 +12,12 @@ import {
   deleteSet,
   getLastSetsForExercise,
   getSetsForWorkoutExercise,
+  getWorkout,
   insertSet,
   updateSet,
 } from '@/db';
 import { formatReference, formatWeight, parseReps, parseWeight } from '@/domain/format';
-import { createInitialSets, type PriorSet } from '@/domain/sets';
+import { createInitialSets, referenceLabel, type PriorSet } from '@/domain/sets';
 import type { WorkoutSet } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -88,6 +89,7 @@ export default function ExerciseSetScreen() {
   const exerciseId = Number(params.exerciseId);
 
   const [prior, setPrior] = useState<PriorSet[]>([]);
+  const [priorGymName, setPriorGymName] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const rowsRef = useRef<Row[]>([]);
 
@@ -98,7 +100,13 @@ export default function ExerciseSetScreen() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const priorSets = await getLastSetsForExercise(db, exerciseId, workoutId);
+      const workout = await getWorkout(db, workoutId);
+      const { sets: priorSets, sourceGymName } = await getLastSetsForExercise(
+        db,
+        exerciseId,
+        workout?.gymId ?? -1,
+        workoutId,
+      );
       let current = await getSetsForWorkoutExercise(db, workoutExerciseId);
       if (current.length === 0) {
         for (const draft of createInitialSets(priorSets)) {
@@ -116,6 +124,7 @@ export default function ExerciseSetScreen() {
       }
       if (active) {
         setPrior(priorSets);
+        setPriorGymName(sourceGymName);
         setRows(toRows(current));
       }
     })();
@@ -268,7 +277,7 @@ export default function ExerciseSetScreen() {
               </View>
               {refLabel ? (
                 <ThemedText type="small" themeColor="textSecondary" style={styles.refLine}>
-                  ↳ letztes Mal: {refLabel}
+                  {referenceLabel(priorGymName)}: {refLabel}
                 </ThemedText>
               ) : null}
             </View>

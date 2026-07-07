@@ -11,7 +11,9 @@ import { ListRow } from '@/components/ui/list-row';
 import { Spacing } from '@/constants/theme';
 import {
   finishWorkout,
+  getGym,
   getSetProgressForWorkout,
+  getWorkout,
   getWorkoutExercises,
   removeWorkoutExercise,
   type SetProgress,
@@ -28,10 +30,14 @@ export default function SessionScreen() {
 
   const [exercises, setExercises] = useState<WorkoutExerciseWithExercise[]>([]);
   const [progress, setProgress] = useState<Map<number, SetProgress>>(new Map());
+  const [gymName, setGymName] = useState<string | null>(null);
 
   const load = useCallback(() => {
     getWorkoutExercises(db, workoutId).then(setExercises);
     getSetProgressForWorkout(db, workoutId).then(setProgress);
+    getWorkout(db, workoutId)
+      .then((w) => (w ? getGym(db, w.gymId) : null))
+      .then((g) => setGymName(g?.name ?? null));
   }, [db, workoutId]);
 
   useFocusEffect(useCallback(() => load(), [load]));
@@ -81,7 +87,9 @@ export default function SessionScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
-      <Stack.Screen options={{ headerShown: true, title: 'Einheit' }} />
+      <Stack.Screen
+        options={{ headerShown: true, title: gymName ? `Einheit · ${gymName}` : 'Einheit' }}
+      />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {exercises.length === 0 ? (
           <EmptyState

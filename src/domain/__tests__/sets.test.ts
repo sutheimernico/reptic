@@ -2,6 +2,7 @@ import {
   addSet,
   createInitialSets,
   type PriorSet,
+  referenceLabel,
   removeSet,
   topSetWeight,
   toPriorSets,
@@ -104,5 +105,15 @@ describe('topSetWeight', () => {
   it('returns null when no set was performed with a weight', () => {
     expect(topSetWeight([{ weightKg: 120, reps: null }])).toBeNull();
     expect(topSetWeight([])).toBeNull();
+  });
+});
+
+describe('referenceLabel', () => {
+  it('is plain when the prior sets are from the same gym', () => {
+    expect(referenceLabel(null)).toBe('↳ letztes Mal');
+  });
+
+  it('names the source gym on fallback', () => {
+    expect(referenceLabel('McFit Köln')).toBe('↳ letztes Mal im McFit Köln');
   });
 });
