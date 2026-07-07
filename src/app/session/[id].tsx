@@ -2,7 +2,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
+import ReorderableList, {
+  reorderItems,
+  useReorderableDrag,
+  type ReorderableListReorderEvent,
+} from 'react-native-reorderable-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
@@ -17,11 +22,47 @@ import {
   getWorkout,
   getWorkoutExercises,
   removeWorkoutExercise,
+  reorderWorkoutExercises,
   type SetProgress,
   type WorkoutExerciseWithExercise,
 } from '@/db';
 import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
+
+/**
+ * One exercise row. Rendered inside ReorderableList, so it can call
+ * useReorderableDrag: long-press starts a drag-to-reorder, swipe deletes,
+ * tap opens the set screen.
+ */
+function ExerciseRow({
+  we,
+  progress,
+  onOpen,
+  onRemove,
+}: {
+  we: WorkoutExerciseWithExercise;
+  progress?: SetProgress;
+  onOpen: () => void;
+  onRemove: () => void;
+}) {
+  const c = useTheme();
+  const drag = useReorderableDrag();
+  return (
+    <View style={styles.rowWrap}>
+      <SwipeToDelete
+        onDelete={onRemove}
+        accessibilityLabel={`„${we.exercise.name}" aus der Einheit entfernen`}>
+        <ListRow
+          title={we.exercise.name}
+          subtitle={progress ? `${progress.done}/${progress.total} Sätze` : we.exercise.muscleGroup}
+          onPress={onOpen}
+          onLongPress={drag}
+          right={<Ionicons name="reorder-three-outline" size={22} color={c.textSecondary} />}
+        />
+      </SwipeToDelete>
+    </View>
+  );
+}
 
 export default function SessionScreen() {
   const db = useSQLiteContext();
@@ -57,25 +98,22 @@ export default function SessionScreen() {
   };
 
   const removeExercise = async (we: WorkoutExerciseWithExercise) => {
+    setExercises((prev) => prev.filter((x) => x.id !== we.id)); // reflow immediately
     try {
       await removeWorkoutExercise(db, we.id);
-      load();
     } catch (error) {
       showSaveError(error);
+      load(); // re-sync on failure
     }
   };
 
-  // Long-press keeps a confirmation dialog (the careful path); the swipe
-  // gesture deletes directly (the quick path).
-  const confirmRemove = (we: WorkoutExerciseWithExercise) => {
-    Alert.alert(
-      'Übung entfernen?',
-      `„${we.exercise.name}" wird aus dieser Einheit entfernt (samt eingetragener Sätze).`,
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        { text: 'Entfernen', style: 'destructive', onPress: () => removeExercise(we) },
-      ],
-    );
+  const onReorder = ({ from, to }: ReorderableListReorderEvent) => {
+    const next = reorderItems(exercises, from, to);
+    setExercises(next);
+    reorderWorkoutExercises(
+      db,
+      next.map((we) => we.id),
+    ).catch(showSaveError);
   };
 
   const finish = () => {
@@ -96,45 +134,41 @@ export default function SessionScreen() {
       <Stack.Screen
         options={{ headerShown: true, title: gymName ? `Einheit · ${gymName}` : 'Einheit' }}
       />
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        {exercises.length === 0 ? (
+      <ReorderableList
+        data={exercises}
+        keyExtractor={(we) => String(we.id)}
+        onReorder={onReorder}
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => (
+          <ExerciseRow
+            we={item}
+            progress={progress.get(item.id)}
+            onOpen={() => openExercise(item)}
+            onRemove={() => removeExercise(item)}
+          />
+        )}
+        ListEmptyComponent={
           <EmptyState
             icon="barbell-outline"
             title="Noch keine Übungen"
             message="Füge unten eine Übung hinzu."
           />
-        ) : (
-          exercises.map((we) => {
-            const p = progress.get(we.id);
-            return (
-              <SwipeToDelete
-                key={we.id}
-                onDelete={() => removeExercise(we)}
-                accessibilityLabel={`„${we.exercise.name}" aus der Einheit entfernen`}>
-                <ListRow
-                  title={we.exercise.name}
-                  subtitle={p ? `${p.done}/${p.total} Sätze` : we.exercise.muscleGroup}
-                  onPress={() => openExercise(we)}
-                  onLongPress={() => confirmRemove(we)}
-                  right={<Ionicons name="chevron-forward" size={18} color={c.textSecondary} />}
-                />
-              </SwipeToDelete>
-            );
-          })
-        )}
-
-        <Button
-          label="Übung hinzufügen"
-          icon="add"
-          variant="secondary"
-          onPress={() =>
-            router.push({
-              pathname: '/session/add-exercise',
-              params: { workoutId: String(workoutId) },
-            })
-          }
-        />
-      </ScrollView>
+        }
+        ListFooterComponent={
+          <Button
+            label="Übung hinzufügen"
+            icon="add"
+            variant="secondary"
+            onPress={() =>
+              router.push({
+                pathname: '/session/add-exercise',
+                params: { workoutId: String(workoutId) },
+              })
+            }
+          />
+        }
+      />
 
       <SafeAreaView
         edges={['bottom']}
@@ -149,8 +183,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   body: {
     padding: Spacing.four,
-    gap: Spacing.two,
   },
+  rowWrap: { marginBottom: Spacing.two },
   footer: {
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
