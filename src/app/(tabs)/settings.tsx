@@ -1,14 +1,18 @@
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
+import { useCallback, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
+import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { APP_NAME } from '@/constants/app';
 import { Spacing } from '@/constants/theme';
+import { getGyms } from '@/db';
 import type { BackupData } from '@/domain/backup';
-import type { ThemeMode } from '@/domain/types';
+import type { Gym, ThemeMode } from '@/domain/types';
 import { exportBackup, pickBackup, restoreBackup } from '@/lib/backup';
 import { useThemeMode } from '@/theme/theme-provider';
 
@@ -22,7 +26,15 @@ const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e)
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
+  const router = useRouter();
   const { mode, setMode } = useThemeMode();
+  const [gyms, setGyms] = useState<Gym[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      getGyms(db, { includeArchived: true }).then(setGyms);
+    }, [db]),
+  );
 
   const onExport = async () => {
     try {
@@ -74,6 +86,26 @@ export default function SettingsScreen() {
           DARSTELLUNG
         </ThemedText>
         <SegmentedControl options={THEME_OPTIONS} value={mode} onChange={setMode} />
+      </View>
+
+      <View style={styles.block}>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.label}>
+          GYMS
+        </ThemedText>
+        {gyms.map((gym) => (
+          <ListRow
+            key={gym.id}
+            title={gym.name}
+            subtitle={gym.archived ? 'Archiviert' : undefined}
+            onPress={() => router.push({ pathname: '/gym/edit', params: { id: String(gym.id) } })}
+          />
+        ))}
+        <Button
+          label="Neues Gym"
+          icon="add"
+          variant="secondary"
+          onPress={() => router.push('/gym/edit')}
+        />
       </View>
 
       <View style={styles.block}>
