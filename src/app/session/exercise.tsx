@@ -86,6 +86,7 @@ function SetInput({
     <View style={[styles.inputBox, { backgroundColor: c.backgroundElement, borderColor: c.border }]}>
       <Text style={[styles.inputLabel, { color: c.textSecondary }]}>{label}</Text>
       <TextInput
+        accessibilityLabel={label}
         value={value}
         onChangeText={onChangeText}
         onEndEditing={onEndEditing}
@@ -327,7 +328,9 @@ export default function ExerciseSetScreen() {
                 )}
                 <Pressable
                   onPress={() => toggleDone(row)}
-                  accessibilityLabel="Satz erledigt"
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: row.done }}
+                  accessibilityLabel={`Satz ${i + 1} erledigt`}
                   style={[
                     styles.check,
                     {

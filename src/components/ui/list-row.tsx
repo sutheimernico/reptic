@@ -39,6 +39,8 @@ export function ListRow({
       onLongPress={onLongPress}
       delayLongPress={delayLongPress}
       disabled={!interactive}
+      accessibilityRole={interactive ? 'button' : undefined}
+      accessibilityState={selected !== undefined ? { selected } : undefined}
       accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [
         styles.row,

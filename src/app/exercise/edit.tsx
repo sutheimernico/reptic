@@ -132,6 +132,9 @@ export default function ExerciseEditScreen() {
                 <Pressable
                   key={muscleGroup}
                   onPress={() => setGroup(muscleGroup)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={muscleGroup}
                   style={[
                     styles.chip,
                     {

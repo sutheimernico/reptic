@@ -31,6 +31,15 @@ import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
 
 const PLAN_COLORS = ['#6366F1', '#8B5CF6', '#14B8A6', '#F59E0B', '#F43F5E', '#0EA5E9'];
+/** Spoken names for the swatches — color alone is invisible to a screen reader. */
+const PLAN_COLOR_NAMES: Record<string, string> = {
+  '#6366F1': 'Indigo',
+  '#8B5CF6': 'Violett',
+  '#14B8A6': 'Türkis',
+  '#F59E0B': 'Orange',
+  '#F43F5E': 'Rot',
+  '#0EA5E9': 'Blau',
+};
 
 /** A selected exercise in the ordered list: long-press to drag-reorder, X to remove. */
 function PlanExerciseRow({ exercise, onRemove }: { exercise: Exercise; onRemove: () => void }) {
@@ -185,6 +194,9 @@ export default function PlanEditScreen() {
                 <Pressable
                   key={swatch}
                   onPress={() => setColor(swatch)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={`Farbe ${PLAN_COLOR_NAMES[swatch] ?? swatch}`}
                   style={[styles.swatchRing, { borderColor: active ? c.accent : 'transparent' }]}>
                   <View style={[styles.swatch, { backgroundColor: swatch }]} />
                 </Pressable>
