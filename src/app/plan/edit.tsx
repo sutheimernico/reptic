@@ -73,7 +73,13 @@ export default function PlanEditScreen() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   useEffect(() => {
-    getExercises(db).then(setExercises);
+    let active = true;
+    getExercises(db).then((list) => {
+      if (active) setExercises(list);
+    });
+    return () => {
+      active = false;
+    };
   }, [db]);
 
   useEffect(() => {

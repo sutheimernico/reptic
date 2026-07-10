@@ -20,7 +20,13 @@ export default function AddExerciseScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
 
   useEffect(() => {
-    getExercises(db).then(setExercises);
+    let active = true;
+    getExercises(db).then((list) => {
+      if (active) setExercises(list);
+    });
+    return () => {
+      active = false;
+    };
   }, [db]);
 
   const add = async (exerciseId: number) => {
