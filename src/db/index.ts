@@ -275,14 +275,12 @@ export async function getPlansWithExercises(db: SQLiteDatabase): Promise<PlanWit
 }
 
 export async function createPlan(db: SQLiteDatabase, name: string, color: string): Promise<number> {
-  const row = await db.getFirstAsync<{ next: number }>(
-    'SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM plans',
-  );
+  // Single statement so the MAX read and the insert can't interleave.
   const res = await db.runAsync(
-    'INSERT INTO plans (name, color, sort_order) VALUES (?, ?, ?)',
+    `INSERT INTO plans (name, color, sort_order)
+     VALUES (?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM plans))`,
     name,
     color,
-    row?.next ?? 0,
   );
   return res.lastInsertRowId;
 }
@@ -473,15 +471,14 @@ export async function addWorkoutExercise(
   workoutId: number,
   exerciseId: number,
 ): Promise<number> {
-  const row = await db.getFirstAsync<{ next: number }>(
-    'SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM workout_exercises WHERE workout_id = ?',
-    workoutId,
-  );
+  // Single statement so the MAX read and the insert can't interleave.
   const res = await db.runAsync(
-    'INSERT INTO workout_exercises (workout_id, exercise_id, sort_order) VALUES (?, ?, ?)',
+    `INSERT INTO workout_exercises (workout_id, exercise_id, sort_order)
+     VALUES (?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1
+                    FROM workout_exercises WHERE workout_id = ?))`,
     workoutId,
     exerciseId,
-    row?.next ?? 0,
+    workoutId,
   );
   return res.lastInsertRowId;
 }
@@ -785,24 +782,36 @@ export async function setSetting(db: SQLiteDatabase, key: string, value: string)
 
 // ---------- backup ----------
 
+async function selectAll<TRow, T>(
+  db: SQLiteDatabase,
+  sql: string,
+  map: (row: TRow) => T,
+): Promise<T[]> {
+  return (await db.getAllAsync<TRow>(sql)).map(map);
+}
+
 export async function exportAllData(
   db: SQLiteDatabase,
   exportedAt: string,
 ): Promise<BackupPayload> {
-  const gyms = (await db.getAllAsync<GymRow>('SELECT * FROM gyms')).map(mapGym);
-  const exercises = (await db.getAllAsync<ExerciseRow>('SELECT * FROM exercises')).map(mapExercise);
-  const plans = (await db.getAllAsync<PlanRow>('SELECT * FROM plans')).map(mapPlan);
-  const planExercises = await db.getAllAsync<PlanExerciseRow>(
-    `SELECT plan_id AS planId, exercise_id AS exerciseId, sort_order AS sortOrder FROM plan_exercises`,
-  );
-  const workouts = (await db.getAllAsync<WorkoutRow>('SELECT * FROM workouts')).map(mapWorkout);
-  const workoutExercises = (
-    await db.getAllAsync<WorkoutExerciseRow>('SELECT * FROM workout_exercises')
-  ).map(mapWorkoutExercise);
-  const workoutSets = (await db.getAllAsync<WorkoutSetRow>('SELECT * FROM workout_sets')).map(
-    mapWorkoutSet,
-  );
-  return { exportedAt, gyms, exercises, plans, planExercises, workouts, workoutExercises, workoutSets };
+  return {
+    exportedAt,
+    gyms: await selectAll(db, 'SELECT * FROM gyms', mapGym),
+    exercises: await selectAll(db, 'SELECT * FROM exercises', mapExercise),
+    plans: await selectAll(db, 'SELECT * FROM plans', mapPlan),
+    planExercises: await selectAll(
+      db,
+      'SELECT * FROM plan_exercises',
+      (r: { plan_id: number; exercise_id: number; sort_order: number }): PlanExerciseRow => ({
+        planId: r.plan_id,
+        exerciseId: r.exercise_id,
+        sortOrder: r.sort_order,
+      }),
+    ),
+    workouts: await selectAll(db, 'SELECT * FROM workouts', mapWorkout),
+    workoutExercises: await selectAll(db, 'SELECT * FROM workout_exercises', mapWorkoutExercise),
+    workoutSets: await selectAll(db, 'SELECT * FROM workout_sets', mapWorkoutSet),
+  };
 }
 
 /** Replace ALL data with the backup's contents (used by Import). Runs in one transaction. */
@@ -819,6 +828,10 @@ export async function importAllData(db: SQLiteDatabase, data: BackupData): Promi
     ]) {
       await db.runAsync(`DELETE FROM ${table}`);
     }
+    // Gym ids from another device can collide with different actual gyms —
+    // drop the remembered last-gym id so Heute never pre-selects a wrong one.
+    // Other settings (e.g. theme) are device-local and survive an import.
+    await db.runAsync('DELETE FROM settings WHERE key = ?', LAST_GYM_SETTING);
 
     for (const g of data.gyms) {
       await db.runAsync(
