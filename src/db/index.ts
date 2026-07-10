@@ -372,13 +372,6 @@ export async function getWorkout(db: SQLiteDatabase, id: number): Promise<Workou
   return row ? mapWorkout(row) : null;
 }
 
-export async function getFinishedWorkouts(db: SQLiteDatabase): Promise<Workout[]> {
-  const rows = await db.getAllAsync<WorkoutRow>(
-    'SELECT * FROM workouts WHERE finished_at IS NOT NULL ORDER BY finished_at DESC',
-  );
-  return rows.map(mapWorkout);
-}
-
 export interface WorkoutSummary extends Workout {
   /** Distinct exercises with at least one performed set (reps entered). */
   exerciseCount: number;

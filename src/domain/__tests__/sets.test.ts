@@ -1,9 +1,7 @@
 import {
-  addSet,
   createInitialSets,
   type PriorSet,
   referenceLabel,
-  removeSet,
   topCardioMetrics,
   topSetWeight,
   toPriorSets,
@@ -54,45 +52,6 @@ describe('createInitialSets', () => {
     ];
     const out = createInitialSets(cardioPrior);
     expect(out[0]).toMatchObject({ distanceKm: 5, level: 8, durationSec: null });
-  });
-});
-
-describe('addSet', () => {
-  it('inherits weight and reference from last time at that position', () => {
-    const current = createInitialSets(prior).slice(0, 2);
-    const out = addSet(current, prior);
-    expect(out).toHaveLength(3);
-    expect(out[2]).toEqual({
-      setNumber: 3,
-      weightKg: 80,
-      reps: null,
-      ...cardioNulls,
-      done: false,
-      reference: { weightKg: 80, reps: 7 },
-    });
-  });
-
-  it('inherits from the last current set when there is no prior for the new position', () => {
-    const current = createInitialSets(prior); // 3 sets
-    const out = addSet(current, prior); // 4th set has no prior
-    expect(out[3]).toEqual({
-      setNumber: 4,
-      weightKg: 80, // from the last current set
-      reps: null,
-      ...cardioNulls,
-      done: false,
-      reference: null,
-    });
-  });
-});
-
-describe('removeSet', () => {
-  it('renumbers remaining sets and re-maps references by position', () => {
-    const current = createInitialSets(prior);
-    const out = removeSet(current, 2, prior);
-    expect(out.map((s) => s.setNumber)).toEqual([1, 2]);
-    // position 2 now references last time's set index 1 (80 kg × 8)
-    expect(out[1].reference).toEqual({ weightKg: 80, reps: 8 });
   });
 });
 

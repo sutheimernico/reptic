@@ -4,7 +4,7 @@ import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { AnimatedSplashOverlay } from '@/components/splash-overlay';
 import { DATABASE_NAME } from '@/constants/app';
 import { migrateDbIfNeeded } from '@/db';
 import { ThemeProvider, useThemeMode } from '@/theme/theme-provider';

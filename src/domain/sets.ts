@@ -88,36 +88,6 @@ export function createInitialSets(prior: PriorSet[]): DraftSet[] {
 }
 
 /**
- * Append a new set. The carried-over "settings" inherit from last time's set at
- * this position, or failing that from the current last set; performance fields
- * stay empty.
- */
-export function addSet(current: DraftSet[], prior: PriorSet[]): DraftSet[] {
-  const index = current.length; // 0-based position of the new set
-  const priorForIndex = prior[index];
-  const last = current.length > 0 ? current[current.length - 1] : undefined;
-  const next: DraftSet = {
-    ...EMPTY_SET,
-    setNumber: index + 1,
-    weightKg: priorForIndex?.weightKg ?? last?.weightKg ?? null,
-    distanceKm: priorForIndex?.distanceKm ?? last?.distanceKm ?? null,
-    level: priorForIndex?.level ?? last?.level ?? null,
-    reference: referenceFor(priorForIndex),
-  };
-  return [...current, next];
-}
-
-/**
- * Remove a set and renumber the rest sequentially, re-mapping each remaining
- * row's reference to last time's set at its new position.
- */
-export function removeSet(current: DraftSet[], setNumber: number, prior: PriorSet[]): DraftSet[] {
-  return current
-    .filter((s) => s.setNumber !== setNumber)
-    .map((s, i) => ({ ...s, setNumber: i + 1, reference: referenceFor(prior[i]) }));
-}
-
-/**
  * Prefix for the grey reference line. Prior sets come from the same gym by
  * default; when they were pulled from another gym (fallback), name it so the
  * user knows the weights may not match this gym's machines.
