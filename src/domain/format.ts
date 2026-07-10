@@ -86,6 +86,25 @@ export function formatCardioReference(
 }
 
 /**
+ * A compact summary of a cardio set list for history rows: one
+ * `formatCardioReference` segment per set, joined with an em dash
+ * (`5 km · 32:30 · Stufe 8 — 3 km`). Returns "" when no set has a value.
+ */
+export function formatCardioSetSummary(
+  sets: { distanceKm: number | null; durationSec: number | null; level: number | null }[],
+): string {
+  return sets
+    .map((s) => formatCardioReference(s.distanceKm, s.durationSec, s.level))
+    .filter((s): s is string => s !== null)
+    .join(' — ');
+}
+
+/** German count phrase: `plural(1, 'Satz', 'Sätze')` -> "1 Satz". */
+export function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+/**
  * A compact summary of a set list for history rows: `80 kg × 8, 8, 7`.
  * Groups consecutive sets that share the same weight. Returns "" for no sets.
  */

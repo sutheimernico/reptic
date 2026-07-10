@@ -15,7 +15,7 @@ import {
   getWorkoutExercises,
   type WorkoutExerciseWithExercise,
 } from '@/db';
-import { formatSessionDate, formatSetSummary } from '@/domain/format';
+import { formatCardioSetSummary, formatSessionDate, formatSetSummary } from '@/domain/format';
 import type { Workout } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -41,10 +41,16 @@ export default function WorkoutDetailScreen() {
     });
     getWorkoutExercises(db, workoutId).then(async (list) => {
       const withSummary = await Promise.all(
-        list.map(async (we) => ({
-          ...we,
-          summary: formatSetSummary(await getSetsForWorkoutExercise(db, we.id)),
-        })),
+        list.map(async (we) => {
+          const sets = await getSetsForWorkoutExercise(db, we.id);
+          return {
+            ...we,
+            summary:
+              we.exercise.muscleGroup === 'Cardio'
+                ? formatCardioSetSummary(sets)
+                : formatSetSummary(sets),
+          };
+        }),
       );
       setExercises(withSummary);
     });

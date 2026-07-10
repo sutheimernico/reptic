@@ -692,7 +692,14 @@ export interface ExerciseSessionEntry {
   /** finished_at, or started_at as a fallback. */
   date: string;
   gymName: string;
-  sets: { setNumber: number; weightKg: number | null; reps: number | null }[];
+  sets: {
+    setNumber: number;
+    weightKg: number | null;
+    reps: number | null;
+    distanceKm: number | null;
+    durationSec: number | null;
+    level: number | null;
+  }[];
 }
 
 /** The last `limit` finished sessions that logged this exercise, newest first, with its sets. */
@@ -723,9 +730,22 @@ export async function getExerciseSessionHistory(
   );
   const entries: ExerciseSessionEntry[] = [];
   for (const w of workouts) {
-    // Only performed sets (reps entered) — skip carried-over rows left untouched.
-    const rows = await db.getAllAsync<{ set_number: number; weight_kg: number | null; reps: number | null }>(
-      'SELECT set_number, weight_kg, reps FROM workout_sets WHERE workout_id = ? AND exercise_id = ? AND reps IS NOT NULL ORDER BY set_number',
+    // Only performed sets — same rule as the EXISTS filter above (reps for
+    // strength, any cardio metric for cardio); skip carried-over rows left
+    // untouched.
+    const rows = await db.getAllAsync<{
+      set_number: number;
+      weight_kg: number | null;
+      reps: number | null;
+      distance_km: number | null;
+      duration_sec: number | null;
+      level: number | null;
+    }>(
+      `SELECT set_number, weight_kg, reps, distance_km, duration_sec, level
+       FROM workout_sets
+       WHERE workout_id = ? AND exercise_id = ?
+         AND (reps IS NOT NULL OR duration_sec IS NOT NULL OR distance_km IS NOT NULL)
+       ORDER BY set_number`,
       w.id,
       exerciseId,
     );
@@ -733,7 +753,14 @@ export async function getExerciseSessionHistory(
       workoutId: w.id,
       date: w.finished_at ?? w.started_at,
       gymName: w.gym_name,
-      sets: rows.map((r) => ({ setNumber: r.set_number, weightKg: r.weight_kg, reps: r.reps })),
+      sets: rows.map((r) => ({
+        setNumber: r.set_number,
+        weightKg: r.weight_kg,
+        reps: r.reps,
+        distanceKm: r.distance_km,
+        durationSec: r.duration_sec,
+        level: r.level,
+      })),
     });
   }
   return entries;

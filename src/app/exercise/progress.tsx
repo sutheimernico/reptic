@@ -7,9 +7,15 @@ import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
-import { type ExerciseSessionEntry, getExerciseSessionHistory } from '@/db';
-import { formatSessionDate, formatSetSummary, formatWeight } from '@/domain/format';
-import { topSetWeight } from '@/domain/sets';
+import { type ExerciseSessionEntry, getExercise, getExerciseSessionHistory } from '@/db';
+import {
+  formatCardioSetSummary,
+  formatDuration,
+  formatSessionDate,
+  formatSetSummary,
+  formatWeight,
+} from '@/domain/format';
+import { topCardioMetrics, topSetWeight } from '@/domain/sets';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ExerciseProgressScreen() {
@@ -19,15 +25,33 @@ export default function ExerciseProgressScreen() {
   const exerciseId = Number(id);
 
   const [entries, setEntries] = useState<ExerciseSessionEntry[]>([]);
+  const [isCardio, setIsCardio] = useState(false);
 
   const load = useCallback(() => {
+    getExercise(db, exerciseId).then((e) => setIsCardio(e?.muscleGroup === 'Cardio'));
     getExerciseSessionHistory(db, exerciseId).then(setEntries);
   }, [db, exerciseId]);
 
   useFocusEffect(useCallback(() => load(), [load]));
 
-  const tops = entries.map((e) => topSetWeight(e.sets));
+  // Strength progresses by top weight. Cardio has no weight — scale by the
+  // longest distance, or by duration when the user only logs time.
+  const cardioTops = entries.map((e) => topCardioMetrics(e.sets));
+  const cardioByDistance = cardioTops.some((t) => t.distanceKm !== null);
+  const tops = entries.map((e, i) =>
+    isCardio
+      ? cardioByDistance
+        ? cardioTops[i].distanceKm
+        : cardioTops[i].durationSec
+      : topSetWeight(e.sets),
+  );
   const maxTop = tops.reduce<number>((m, t) => (t !== null && t > m ? t : m), 0);
+  const topLabel = (top: number) =>
+    isCardio
+      ? cardioByDistance
+        ? `${formatWeight(top)} km`
+        : formatDuration(top)
+      : `${formatWeight(top)} kg`;
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
@@ -42,7 +66,9 @@ export default function ExerciseProgressScreen() {
         ) : (
           entries.map((entry, i) => {
             const top = tops[i];
-            const summary = formatSetSummary(entry.sets);
+            const summary = isCardio
+              ? formatCardioSetSummary(entry.sets)
+              : formatSetSummary(entry.sets);
             const widthPct = top !== null && maxTop > 0 ? Math.max(top / maxTop, 0.08) : 0;
             return (
               <Card key={entry.workoutId} style={styles.card}>
@@ -52,7 +78,7 @@ export default function ExerciseProgressScreen() {
                   </ThemedText>
                   {top !== null ? (
                     <ThemedText type="small" themeColor="accent">
-                      {formatWeight(top)} kg
+                      {topLabel(top)}
                     </ThemedText>
                   ) : null}
                 </View>

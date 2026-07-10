@@ -1,5 +1,6 @@
 import {
   formatCardioReference,
+  formatCardioSetSummary,
   formatDuration,
   formatReference,
   formatSessionDate,
@@ -9,6 +10,7 @@ import {
   parseDuration,
   parseReps,
   parseWeight,
+  plural,
 } from '@/domain/format';
 
 describe('parseWeight', () => {
@@ -129,6 +131,33 @@ describe('formatSetSummary', () => {
   it('ignores unfinished sets and returns empty for none', () => {
     expect(formatSetSummary([{ weightKg: null, reps: null }])).toBe('');
     expect(formatSetSummary([])).toBe('');
+  });
+});
+
+describe('formatCardioSetSummary', () => {
+  it('renders one segment per set with values', () => {
+    expect(formatCardioSetSummary([{ distanceKm: 5, durationSec: 1950, level: 8 }])).toBe(
+      '5 km · 32:30 · Stufe 8',
+    );
+    expect(
+      formatCardioSetSummary([
+        { distanceKm: 5, durationSec: 1950, level: 8 },
+        { distanceKm: 3, durationSec: null, level: null },
+      ]),
+    ).toBe('5 km · 32:30 · Stufe 8 — 3 km');
+  });
+
+  it('skips value-less sets and returns empty for none', () => {
+    expect(formatCardioSetSummary([{ distanceKm: null, durationSec: null, level: null }])).toBe('');
+    expect(formatCardioSetSummary([])).toBe('');
+  });
+});
+
+describe('plural', () => {
+  it('picks the singular form only for exactly 1', () => {
+    expect(plural(1, 'Übung', 'Übungen')).toBe('1 Übung');
+    expect(plural(3, 'Satz', 'Sätze')).toBe('3 Sätze');
+    expect(plural(0, 'Satz', 'Sätze')).toBe('0 Sätze');
   });
 });
 

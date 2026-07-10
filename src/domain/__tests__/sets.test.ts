@@ -4,6 +4,7 @@ import {
   type PriorSet,
   referenceLabel,
   removeSet,
+  topCardioMetrics,
   topSetWeight,
   toPriorSets,
 } from '@/domain/sets';
@@ -118,6 +119,26 @@ describe('topSetWeight', () => {
   it('returns null when no set was performed with a weight', () => {
     expect(topSetWeight([{ weightKg: 120, reps: null }])).toBeNull();
     expect(topSetWeight([])).toBeNull();
+  });
+});
+
+describe('topCardioMetrics', () => {
+  it('returns max distance and max duration independently', () => {
+    expect(
+      topCardioMetrics([
+        { distanceKm: 5, durationSec: 1800 },
+        { distanceKm: 3, durationSec: 2100 },
+        { distanceKm: null, durationSec: null },
+      ]),
+    ).toEqual({ distanceKm: 5, durationSec: 2100 });
+  });
+
+  it('returns nulls for empty or value-less sets', () => {
+    expect(topCardioMetrics([])).toEqual({ distanceKm: null, durationSec: null });
+    expect(topCardioMetrics([{ distanceKm: null, durationSec: null }])).toEqual({
+      distanceKm: null,
+      durationSec: null,
+    });
   });
 });
 

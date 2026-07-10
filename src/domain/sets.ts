@@ -140,3 +140,26 @@ export function topSetWeight(sets: Pick<WorkoutSet, 'weightKg' | 'reps'>[]): num
   }
   return max;
 }
+
+/**
+ * The best cardio values across a session's sets, per metric: longest distance
+ * and longest duration (they may come from different sets). Cardio has no
+ * single "top set" the way strength does, so the progression screen picks
+ * whichever metric the user actually logs.
+ */
+export function topCardioMetrics(sets: Pick<WorkoutSet, 'distanceKm' | 'durationSec'>[]): {
+  distanceKm: number | null;
+  durationSec: number | null;
+} {
+  let distanceKm: number | null = null;
+  let durationSec: number | null = null;
+  for (const s of sets) {
+    if (s.distanceKm !== null && (distanceKm === null || s.distanceKm > distanceKm)) {
+      distanceKm = s.distanceKm;
+    }
+    if (s.durationSec !== null && (durationSec === null || s.durationSec > durationSec)) {
+      durationSec = s.durationSec;
+    }
+  }
+  return { distanceKm, durationSec };
+}
