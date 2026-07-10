@@ -176,10 +176,16 @@ export async function setExerciseArchived(
   await db.runAsync('UPDATE exercises SET archived = ? WHERE id = ?', archived ? 1 : 0, id);
 }
 
-/** Whether an exercise has ever been logged (used to decide delete vs archive in the UI). */
+/**
+ * Whether an exercise appears in any session (used to decide delete vs archive
+ * in the UI). Checked against workout_exercises, not workout_sets: sets are
+ * created lazily on first open, and workout_exercises.exercise_id has no ON
+ * DELETE CASCADE — deleting an exercise that is merely part of a session would
+ * fail with a raw FK error.
+ */
 export async function exerciseHasHistory(db: SQLiteDatabase, id: number): Promise<boolean> {
   const row = await db.getFirstAsync<{ n: number }>(
-    'SELECT COUNT(*) AS n FROM workout_sets WHERE exercise_id = ?',
+    'SELECT COUNT(*) AS n FROM workout_exercises WHERE exercise_id = ?',
     id,
   );
   return (row?.n ?? 0) > 0;

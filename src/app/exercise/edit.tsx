@@ -71,7 +71,7 @@ export default function ExerciseEditScreen() {
       archive ? 'Übung archivieren?' : 'Übung löschen?',
       archive
         ? 'Diese Übung steckt in deiner Historie. Sie wird archiviert (aus der Auswahl entfernt, Verlauf bleibt erhalten).'
-        : 'Diese Übung wird endgültig gelöscht.',
+        : 'Diese Übung wird endgültig gelöscht. Steckt sie in einem Plan, wird sie auch daraus entfernt.',
       [
         { text: 'Abbrechen', style: 'cancel' },
         {
