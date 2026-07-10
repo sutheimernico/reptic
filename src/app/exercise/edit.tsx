@@ -30,6 +30,7 @@ export default function ExerciseEditScreen() {
   const [name, setName] = useState('');
   const [group, setGroup] = useState<MuscleGroup>('Brust');
   const [hasHistory, setHasHistory] = useState(false);
+  const [archived, setArchived] = useState(false);
 
   useEffect(() => {
     if (editingId === null) return;
@@ -41,6 +42,7 @@ export default function ExerciseEditScreen() {
         setName(exercise.name);
         setGroup(exercise.muscleGroup);
         setHasHistory(history);
+        setArchived(exercise.archived);
       }
     })();
     return () => {
@@ -90,6 +92,17 @@ export default function ExerciseEditScreen() {
         },
       ],
     );
+  };
+
+  const unarchive = async () => {
+    if (editingId === null) return;
+    try {
+      await setExerciseArchived(db, editingId, false);
+    } catch (error) {
+      showSaveError(error);
+      return;
+    }
+    router.back();
   };
 
   return (
@@ -151,7 +164,11 @@ export default function ExerciseEditScreen() {
           />
         ) : null}
 
-        {isEditing ? (
+        {isEditing && archived ? (
+          <Button label="Reaktivieren" icon="refresh" variant="secondary" onPress={unarchive} />
+        ) : null}
+
+        {isEditing && !archived ? (
           <Button
             label={hasHistory ? 'Archivieren' : 'Löschen'}
             icon={hasHistory ? 'archive-outline' : 'trash-outline'}

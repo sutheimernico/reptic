@@ -11,6 +11,7 @@ import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { getExercises } from '@/db';
+import { plural } from '@/domain/format';
 import { MUSCLE_GROUPS, type Exercise } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -21,20 +22,24 @@ export default function ExercisesScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
 
   const load = useCallback(() => {
-    getExercises(db).then(setExercises);
+    // Archived exercises stay reachable here (own section at the bottom) so
+    // they can be reactivated — mirrors the gym list in Einstellungen.
+    getExercises(db, { includeArchived: true }).then(setExercises);
   }, [db]);
 
   useFocusEffect(useCallback(() => load(), [load]));
 
+  const active = exercises.filter((e) => !e.archived);
+  const archived = exercises.filter((e) => e.archived);
   const sections = MUSCLE_GROUPS.map((group) => ({
     group,
-    items: exercises.filter((e) => e.muscleGroup === group),
+    items: active.filter((e) => e.muscleGroup === group),
   })).filter((s) => s.items.length > 0);
 
   return (
     <Screen
       title="Übungen"
-      subtitle={`${exercises.length} Übungen`}
+      subtitle={plural(active.length, 'Übung', 'Übungen')}
       headerRight={
         <IconButton
           name="add"
@@ -66,6 +71,24 @@ export default function ExercisesScreen() {
           </View>
         ))
       )}
+      {archived.length > 0 ? (
+        <View style={styles.section}>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.sectionTitle}>
+            Archiviert
+          </ThemedText>
+          {archived.map((exercise) => (
+            <ListRow
+              key={exercise.id}
+              title={exercise.name}
+              subtitle={exercise.muscleGroup}
+              onPress={() =>
+                router.push({ pathname: '/exercise/edit', params: { id: String(exercise.id) } })
+              }
+              right={<Ionicons name="chevron-forward" size={18} color={c.textSecondary} />}
+            />
+          ))}
+        </View>
+      ) : null}
     </Screen>
   );
 }
