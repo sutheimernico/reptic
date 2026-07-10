@@ -30,6 +30,7 @@ import {
 import { createInitialSets, referenceLabel, type PriorSet } from '@/domain/sets';
 import type { WorkoutSet } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
+import { showSaveError } from '@/lib/alerts';
 
 interface Row {
   id: number;
@@ -42,10 +43,6 @@ interface Row {
 }
 
 type TextField = 'weightText' | 'repsText' | 'distanceText' | 'timeText' | 'levelText';
-
-function showSaveError() {
-  Alert.alert('Speichern fehlgeschlagen', 'Die Änderung konnte nicht gespeichert werden.');
-}
 
 function toRows(sets: WorkoutSet[]): Row[] {
   return sets.map((s) => ({
@@ -181,16 +178,25 @@ export default function ExerciseSetScreen() {
   const flush = useCallback(async () => {
     try {
       await Promise.all(rowsRef.current.map((r) => updateSet(db, r.id, fieldsOf(r))));
-    } catch {
-      showSaveError();
+    } catch (error) {
+      showSaveError(error);
     }
   }, [db]);
 
-  // Header back, swipe-back and Android hardware back all bypass finish();
-  // flush pending edits on any removal so typed values are never lost.
+  // Header back, swipe-back and Android hardware back all bypass finish().
+  // Hold the pop until the flush committed — otherwise the session screen
+  // refocuses (and could even finish the workout) while writes are in flight.
+  const leavingRef = useRef<'idle' | 'flushing' | 'done'>('idle');
   useEffect(() => {
-    return navigation.addListener('beforeRemove', () => {
-      void flush();
+    return navigation.addListener('beforeRemove', (e) => {
+      if (leavingRef.current === 'done') return; // our re-dispatched action — let it pop
+      e.preventDefault();
+      if (leavingRef.current === 'flushing') return; // swallow repeat back presses
+      leavingRef.current = 'flushing';
+      void flush().finally(() => {
+        leavingRef.current = 'done';
+        navigation.dispatch(e.data.action);
+      });
     });
   }, [navigation, flush]);
 
@@ -201,25 +207,29 @@ export default function ExerciseSetScreen() {
   };
 
   const addSet = async () => {
-    await flush();
-    const index = rowsRef.current.length;
-    const prev = rowsRef.current[index - 1];
-    const priorAt = prior[index];
-    await insertSet(db, {
-      workoutId,
-      workoutExerciseId,
-      exerciseId,
-      setNumber: index + 1,
-      // Carry over the "settings" from last time (or the previous set); the
-      // performance fields (reps / time) stay empty.
-      weightKg: priorAt?.weightKg ?? (prev ? parseWeight(prev.weightText) : null),
-      distanceKm: priorAt?.distanceKm ?? (prev ? parseWeight(prev.distanceText) : null),
-      level: priorAt?.level ?? (prev ? parseReps(prev.levelText) : null),
-      reps: null,
-      durationSec: null,
-      done: false,
-    });
-    setRows(toRows(await getSetsForWorkoutExercise(db, workoutExerciseId)));
+    try {
+      await flush();
+      const index = rowsRef.current.length;
+      const prev = rowsRef.current[index - 1];
+      const priorAt = prior[index];
+      await insertSet(db, {
+        workoutId,
+        workoutExerciseId,
+        exerciseId,
+        setNumber: index + 1,
+        // Carry over the "settings" from last time (or the previous set); the
+        // performance fields (reps / time) stay empty.
+        weightKg: priorAt?.weightKg ?? (prev ? parseWeight(prev.weightText) : null),
+        distanceKm: priorAt?.distanceKm ?? (prev ? parseWeight(prev.distanceText) : null),
+        level: priorAt?.level ?? (prev ? parseReps(prev.levelText) : null),
+        reps: null,
+        durationSec: null,
+        done: false,
+      });
+      setRows(toRows(await getSetsForWorkoutExercise(db, workoutExerciseId)));
+    } catch (error) {
+      showSaveError(error);
+    }
   };
 
   const removeSet = (row: Row, setNumber: number) => {
@@ -229,11 +239,15 @@ export default function ExerciseSetScreen() {
         text: 'Löschen',
         style: 'destructive',
         onPress: async () => {
-          await flush();
-          await deleteSet(db, row.id);
-          const remaining = await getSetsForWorkoutExercise(db, workoutExerciseId);
-          await Promise.all(remaining.map((s, i) => updateSetNumber(db, s.id, i + 1)));
-          setRows(toRows(await getSetsForWorkoutExercise(db, workoutExerciseId)));
+          try {
+            await flush();
+            await deleteSet(db, row.id);
+            const remaining = await getSetsForWorkoutExercise(db, workoutExerciseId);
+            await Promise.all(remaining.map((s, i) => updateSetNumber(db, s.id, i + 1)));
+            setRows(toRows(await getSetsForWorkoutExercise(db, workoutExerciseId)));
+          } catch (error) {
+            showSaveError(error);
+          }
         },
       },
     ]);
@@ -241,6 +255,7 @@ export default function ExerciseSetScreen() {
 
   const finish = async () => {
     await flush();
+    leavingRef.current = 'done'; // already flushed — don't hold the pop again
     router.back();
   };
 

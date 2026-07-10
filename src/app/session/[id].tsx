@@ -114,7 +114,10 @@ export default function SessionScreen() {
     reorderWorkoutExercises(
       db,
       next.map((we) => we.id),
-    ).catch(showSaveError);
+    ).catch((error) => {
+      showSaveError(error);
+      load(); // re-sync on failure, same as removeExercise
+    });
   };
 
   const finish = () => {
@@ -123,7 +126,12 @@ export default function SessionScreen() {
       {
         text: 'Beenden',
         onPress: async () => {
-          await finishWorkout(db, workoutId, new Date().toISOString());
+          try {
+            await finishWorkout(db, workoutId, new Date().toISOString());
+          } catch (error) {
+            showSaveError(error);
+            return;
+          }
           router.back();
         },
       },

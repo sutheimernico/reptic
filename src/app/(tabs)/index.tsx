@@ -19,8 +19,10 @@ import {
   LAST_GYM_SETTING,
   startWorkout,
 } from '@/db';
+import { plural } from '@/domain/format';
 import type { Gym, PlanWithExercises, Workout } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
+import { showSaveError } from '@/lib/alerts';
 
 function todayLabel(): string {
   return new Date().toLocaleDateString('de-DE', {
@@ -56,7 +58,13 @@ export default function HeuteScreen() {
 
   const start = async (planIds: number[]) => {
     if (!gym) return;
-    const id = await startWorkout(db, planIds, gym.id, new Date().toISOString());
+    let id: number;
+    try {
+      id = await startWorkout(db, planIds, gym.id, new Date().toISOString());
+    } catch (error) {
+      showSaveError(error);
+      return;
+    }
     setSelected([]);
     router.push({ pathname: '/session/[id]', params: { id: String(id) } });
   };
@@ -103,7 +111,7 @@ export default function HeuteScreen() {
             <ListRow
               key={plan.id}
               title={plan.name}
-              subtitle={`${plan.exerciseIds.length} Übungen`}
+              subtitle={plural(plan.exerciseIds.length, 'Übung', 'Übungen')}
               selected={selected.includes(plan.id)}
               left={<View style={[styles.dot, { backgroundColor: plan.color }]} />}
               onPress={() => toggle(plan.id)}

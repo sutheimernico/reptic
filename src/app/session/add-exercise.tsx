@@ -10,6 +10,7 @@ import { BottomTabInset, Spacing } from '@/constants/theme';
 import { addWorkoutExercise, getExercises } from '@/db';
 import { MUSCLE_GROUPS, type Exercise } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
+import { showSaveError } from '@/lib/alerts';
 
 export default function AddExerciseScreen() {
   const db = useSQLiteContext();
@@ -23,7 +24,12 @@ export default function AddExerciseScreen() {
   }, [db]);
 
   const add = async (exerciseId: number) => {
-    await addWorkoutExercise(db, Number(workoutId), exerciseId);
+    try {
+      await addWorkoutExercise(db, Number(workoutId), exerciseId);
+    } catch (error) {
+      showSaveError(error);
+      return;
+    }
     router.back();
   };
 

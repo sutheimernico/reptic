@@ -18,6 +18,7 @@ import {
 import { formatCardioSetSummary, formatSessionDate, formatSetSummary } from '@/domain/format';
 import type { Workout } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
+import { showSaveError } from '@/lib/alerts';
 
 interface ExerciseWithSummary extends WorkoutExerciseWithExercise {
   summary: string;
@@ -65,7 +66,12 @@ export default function WorkoutDetailScreen() {
         text: 'Löschen',
         style: 'destructive',
         onPress: async () => {
-          await deleteWorkout(db, workoutId);
+          try {
+            await deleteWorkout(db, workoutId);
+          } catch (error) {
+            showSaveError(error);
+            return;
+          }
           router.back();
         },
       },
