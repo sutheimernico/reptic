@@ -9,11 +9,9 @@ import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
 import { getFinishedWorkoutSummaries, getPlans, type WorkoutSummary } from '@/db';
-import { formatSessionDate, formatVolume } from '@/domain/format';
+import { formatSessionDate, formatVolume, plural } from '@/domain/format';
 import type { Plan } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
-
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export default function HistoryScreen() {
   const db = useSQLiteContext();

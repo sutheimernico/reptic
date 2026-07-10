@@ -10,7 +10,7 @@ import { ListRow } from '@/components/ui/list-row';
 import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
 import { getFinishedWorkoutSummaries, getPlans, type WorkoutSummary } from '@/db';
 import { buildMonthGrid, localDayOf, monthTitle, shiftMonth } from '@/domain/calendar';
-import { formatSessionDate, formatVolume } from '@/domain/format';
+import { formatSessionDate, formatVolume, plural } from '@/domain/format';
 import type { Plan } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -122,20 +122,25 @@ export default function HistoryCalendarScreen() {
 
         {selectedDay !== null && selectedSessions.length > 0 ? (
           <View style={styles.dayList}>
-            {selectedSessions.map((s) => (
-              <ListRow
-                key={s.id}
-                title={formatSessionDate(s.finishedAt ?? s.startedAt)}
-                subtitle={
-                  `${s.gymName} · ${s.exerciseCount} Übungen · ${s.setCount} Sätze` +
-                  (s.volume > 0 ? ` · ${formatVolume(s.volume)}` : '')
-                }
-                right={<Ionicons name="chevron-forward" size={18} color={c.textSecondary} />}
-                onPress={() =>
-                  router.push({ pathname: '/workout/[id]', params: { id: String(s.id) } })
-                }
-              />
-            ))}
+            {selectedSessions.map((s) => {
+              const title = formatSessionDate(s.finishedAt ?? s.startedAt);
+              const subtitle =
+                `${s.gymName} · ${plural(s.exerciseCount, 'Übung', 'Übungen')} · ` +
+                plural(s.setCount, 'Satz', 'Sätze') +
+                (s.volume > 0 ? ` · ${formatVolume(s.volume)}` : '');
+              return (
+                <ListRow
+                  key={s.id}
+                  title={title}
+                  subtitle={subtitle}
+                  accessibilityLabel={`${title}. ${subtitle}`}
+                  right={<Ionicons name="chevron-forward" size={18} color={c.textSecondary} />}
+                  onPress={() =>
+                    router.push({ pathname: '/workout/[id]', params: { id: String(s.id) } })
+                  }
+                />
+              );
+            })}
           </View>
         ) : (
           <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
