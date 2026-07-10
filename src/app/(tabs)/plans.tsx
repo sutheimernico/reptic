@@ -9,6 +9,7 @@ import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
 import { getPlansWithExercises } from '@/db';
+import { plural } from '@/domain/format';
 import { type PlanWithExercises } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -27,7 +28,7 @@ export default function PlansScreen() {
   return (
     <Screen
       title="Pläne"
-      subtitle="Deine Trainingsbilder"
+      subtitle="Deine Trainingspläne"
       headerRight={
         <IconButton
           name="add"
@@ -48,7 +49,7 @@ export default function PlansScreen() {
           <ListRow
             key={plan.id}
             title={plan.name}
-            subtitle={`${plan.exerciseIds.length} Übungen`}
+            subtitle={plural(plan.exerciseIds.length, 'Übung', 'Übungen')}
             left={<View style={[styles.dot, { backgroundColor: plan.color }]} />}
             right={<Ionicons name="chevron-forward" size={18} color={c.textSecondary} />}
             onPress={() => router.push({ pathname: '/plan/edit', params: { id: String(plan.id) } })}
