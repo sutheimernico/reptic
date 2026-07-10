@@ -132,3 +132,41 @@ One line per completed loop iteration (newest at bottom).
   Known gap (told Nico): history detail summary + progress bars still strength-only for cardio.
   versionCode 5, EAS build 0981fd79. Feature works for the user's existing exercises via their
   muscle group — the seed does NOT run on an update, so his ~20 APK exercises are untouched.
+- 2026-07-10 — Review-driven hardening + polish (autonomous, Nico away; plan:
+  docs/superpowers/plans/2026-07-10-cardio-history-refactor-polish.md). Two independent
+  code reviews (screens+components, db/domain/lib) → findings triaged and fixed:
+  (1) Cardio gap CLOSED: getExerciseSessionHistory's inner set query was reps-only and
+  never selected the cardio columns → cardio history detail said "Keine Sätze
+  eingetragen", progression cards were empty. Now cardio-aware (same performed-rule as
+  getFinishedWorkoutSummaries); new domain helpers formatCardioSetSummary +
+  topCardioMetrics (tested); progression bars scale by top distance (duration fallback),
+  labels km / m:ss. (2) exerciseHasHistory checked workout_sets (created lazily on first
+  open) — deleting an exercise that sat in a session but was never opened hit the
+  workout_exercises FK (no cascade) with a raw error. Now checks workout_exercises;
+  delete dialog names the plan_exercises cascade. (3) Archived exercises were a dead end
+  (no list, no unarchive — unlike gyms): Übungen tab gained an "Archiviert" section,
+  editor a "Reaktivieren" button. (4) Error-handling: start/finish/delete workout,
+  add-exercise, addSet/removeSet all surfaced nothing on failure; set screen had a local
+  zero-arg showSaveError shadowing lib/alerts (dropping the SQLite message the gym-save
+  fix made visible). All unified on lib/alerts. beforeRemove flush now preventDefaults
+  and re-dispatches after the writes commit (was fire-and-forget → stale-count race).
+  (5) Splash: AnimatedSplashOverlay still rendered the Expo template art — expo-logo.png
+  on Expo-blue #208AEF flashing over the dark barbell native splash on EVERY app start.
+  Rebuilt as components/splash-overlay.tsx mirroring app.json (splash-icon.png, 76px,
+  #0B0D14). (6) Polish: "1 Übungen"→plural() everywhere (calendar had the bug, helper
+  moved to domain/format), "Deine Trainingsbilder"→"Deine Trainingspläne" (dictation
+  artifact — Nico may veto), a11y roles/states/labels on ListRow, TextField, SetInput,
+  chips, swatches, done-toggle. (7) Dead code removed (grep-verified): domain/ordering.ts,
+  domain addSet/removeSet, db getFinishedWorkouts, template components
+  (Collapsible/HintRow/WebBadge/ExternalLink/ThemedView), use-color-scheme hooks,
+  AnimatedIcon+web+css, ThemedText variants (title/subtitle/link/linkPrimary/code, incl.
+  hardcoded #3c87f7), Fonts/MaxContentWidth tokens, template assets (expo/react logos,
+  badges, tabIcons, tutorial-web). (8) db: sort_order now computed inside the INSERT
+  (race-free), exportAllData via selectAll helper + plan_exercises mapper, importAllData
+  clears last_gym_id (cross-device id collision). Skipped consciously: muscle_group CHECK
+  constraint (needs migration; enum edits come with migrations anyway), get*/exists*
+  naming unification (API churn without payoff), swipe-delete's white trash icon (fine
+  contrast on danger-red in both themes). Gate green (tsc + 62 jest + expo lint) after
+  every commit. NO EAS build — versionCode stays 5; per process rule builds only after
+  Nico's live Expo-Go sign-off. Needs Nico: Expo-Go smoke test (esp. splash overlay,
+  cardio progression, back-nav flush feel), then build decision.

@@ -129,6 +129,37 @@ Live-tested via Expo Go before each build (see `AUTOPILOT_LOG.md`).
 - [x] 18 dictated exercises seeded on fresh install (fromVersion 0 only)
 - [x] versionCode 4 APK build (EAS `3eee2904`)
 
+## Phase 13 — Cardio set input (2026-07-08) ✅
+
+Details: `AUTOPILOT_LOG.md` 2026-07-08. Schema v3 (additive, provably non-destructive).
+
+- [x] Cardio exercises log km / Zeit (mm:ss) / Stufe instead of kg × Wdh
+- [x] Same carry-over + reference line semantics as strength
+- [x] History "performed" counts include cardio sets
+- [x] versionCode 5 APK build (EAS `0981fd79`)
+
+## Phase 14 — Review-driven hardening + polish (2026-07-10) ✅
+
+Autonomous session (plan: `docs/superpowers/plans/2026-07-10-cardio-history-refactor-polish.md`);
+two independent code reviews (screens + data layer), findings fixed, dead code removed.
+
+- [x] Cardio shows up in history detail + per-exercise progression (was: "Keine Sätze
+      eingetragen" / empty cards — the known gap from Phase 13)
+- [x] Delete-vs-archive decision based on session membership (raw FK error before when
+      an exercise was in a session but never opened)
+- [x] Archived exercises listed + reactivatable (was a dead end, unlike gyms)
+- [x] Every mutating flow surfaces write errors (start/finish/delete workout, add
+      exercise, add/remove set); set screen uses the shared showSaveError again
+- [x] Back-navigation from the set screen waits for the edit flush (race fixed)
+- [x] Splash overlay shows the real barbell splash (was: Expo-blue template flash)
+- [x] Singular/plural fixed everywhere ("1 Übung", not "1 Übungen"); "Trainingsbilder"
+      → "Trainingspläne"
+- [x] A11y pass: roles/states/labels on rows, inputs, chips, swatches, done-toggle
+- [x] Dead code sweep (ordering.ts, domain addSet/removeSet, getFinishedWorkouts,
+      template components/hooks/assets, unused ThemedText variants + theme tokens)
+- [x] db: race-free sort_order inserts, backup export via mapper, import drops the
+      remembered last-gym id
+
 ## Needs Nico
 
 - [x] On-device verify of the gym-save fix (2026-07-07, Nico via Expo Go tunnel: gyms +

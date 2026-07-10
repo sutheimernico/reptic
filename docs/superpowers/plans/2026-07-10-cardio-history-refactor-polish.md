@@ -52,3 +52,31 @@ feedback round 3). On-device verify stays Needs Nico.
 
 Phase 8b Drive backup (blocked on OAuth clients), Play Store, merge to master (Nico
 reviews), icon art replacement, new features.
+
+## Outcome (2026-07-10)
+
+All four workstreams delivered; gate green after every commit (tsc + 62 jest + expo
+lint), Metro Android bundle check at the end. Commits on `autopilot/work`:
+
+- `e17aa4e` fix(cardio): history detail + progression (Workstream A)
+- `b0039ea` fix(exercises): delete-vs-archive on session membership
+- `43e8e3f` fix(ui): write errors surfaced everywhere, flush race fixed
+- `7b761d9` fix(ui): calendar singular forms + a11y label
+- `e164380` fix(ui): "Deine Trainingspläne" + plural plan counts
+- `4557411` chore(ui): unmount guards aligned
+- `07ef09c` chore: dead-code/template sweep + splash overlay fix (surprise finding:
+  Expo-blue template splash flashed on every start)
+- `96e92ce` feat(a11y): roles/states/labels
+- `81a34e5` refactor(db): race-free sort_order, selectAll, import clears last-gym
+- docs: PROJECT.md refresh (Repz, cardio, seed, gym-aware), PLAN.md phases 13+14,
+  AUTOPILOT_LOG entry
+
+Deviations from the plan: none material. The dead-code sweep additionally surfaced the
+splash-overlay template art (fixed, was user-visible). Consciously skipped (reviewer
+findings judged not worth the churn/risk): muscle_group CHECK constraint, db naming
+unification, existsWhere helper, swipe-delete icon color token.
+
+Deliberately NOT done: EAS build / versionCode bump — process rule since feedback
+round 3 is live Expo-Go validation before any build. Needs Nico: smoke test via Expo Go
+(splash, cardio progression, archived exercises, back-nav flush), veto option on the
+"Trainingspläne" wording, then build.
