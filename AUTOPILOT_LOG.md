@@ -170,3 +170,30 @@ One line per completed loop iteration (newest at bottom).
   every commit. NO EAS build — versionCode stays 5; per process rule builds only after
   Nico's live Expo-Go sign-off. Needs Nico: Expo-Go smoke test (esp. splash overlay,
   cardio progression, back-nav flush feel), then build decision.
+- 2026-08-30 — Daily Gym Companion v1.1: full execution of
+  docs/superpowers/plans/2026-07-21-daily-gym-companion.md (11 tasks, 11 commits,
+  1892fdf…2650922). Phase A: rolling on-device auto-backup (daily on start, newest 7,
+  in Einstellungen with real age + "Jetzt sichern"); 23 query-layer integration tests
+  against real SQLite (the 911-line data layer had none); that file split into 7 domain
+  modules + shared row mappers (max 282 lines now); getExerciseSessionHistory rewritten
+  from 1+N queries to one, pinned by a statement-counting harness. Phase B: rest timer
+  (timestamp-based, survives navigation and backgrounding, 15s steps, off-switch),
+  personal records (weight / Epley e1RM / distance / pace — tie is not a record, an
+  untouched carry-over never fires, silence until 3 sessions of history), haptics via
+  expo-haptics behind one switch, plate calculator (enumerates reachable per-side weights
+  from the configured stock, so "nicht exakt stellbar" is a real answer), weekly volume
+  trends (ISO weeks in the device's local calendar, untrained weeks kept as zero).
+  Phase C: @testing-library/react-native harness that renders screens against real SQLite
+  (db NOT mocked — only router and haptics), 12 screen tests over the mutating flows;
+  Verlauf/Pläne → FlatList, Übungen → SectionList with sticky headers.
+  Tests 62 → 179, all green; tsc + expo lint + expo export clean. Schema untouched
+  (still v3, every new preference is a settings key-value) and app.json byte-identical,
+  so versionCode stays 5 — NO build, per the process rule. Three findings worth keeping:
+  (1) Android's document picker cannot reach the app's own private files, so the planned
+  "restore an auto-backup through the Import button" was impossible — restore had to be
+  built in-app, otherwise the backups would have been unreadable. (2) Long-press on a
+  TextInput is reserved by Android for text selection, so the plate sheet opens on a tap
+  of the "KG" caption instead. (3) src/global.css was dead (its font tokens were removed
+  in the 2026-07-10 sweep) and its import broke every test touching the theme — deleted.
+  Needs Nico: device smoke test (checklist at the end of the plan), feel-veto on timer /
+  haptics / plate defaults, then versionCode 6.
