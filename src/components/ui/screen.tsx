@@ -18,10 +18,23 @@ interface ScreenProps {
   headerRight?: ReactNode;
   /** Set false for screens that manage their own scrolling (e.g. FlatList). */
   scroll?: boolean;
+  /**
+   * Set false when the child is a virtualized list that applies
+   * `SCREEN_BODY_PADDING` itself — otherwise the padding sits outside the
+   * scrollable area and the last row cannot scroll clear of the tab bar.
+   */
+  padded?: boolean;
   children: ReactNode;
 }
 
-export function Screen({ title, subtitle, headerRight, scroll = true, children }: ScreenProps) {
+export function Screen({
+  title,
+  subtitle,
+  headerRight,
+  scroll = true,
+  padded = true,
+  children,
+}: ScreenProps) {
   const c = useTheme();
 
   const body = scroll ? (
@@ -32,7 +45,7 @@ export function Screen({ title, subtitle, headerRight, scroll = true, children }
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.body, styles.flex]}>{children}</View>
+    <View style={[padded && styles.body, styles.flex]}>{children}</View>
   );
 
   return (
@@ -52,6 +65,17 @@ export function Screen({ title, subtitle, headerRight, scroll = true, children }
     </SafeAreaView>
   );
 }
+
+/**
+ * The body's own spacing, so a list rendered with `padded={false}` can apply
+ * exactly the same values to its content container.
+ */
+export const SCREEN_BODY_PADDING = {
+  paddingHorizontal: Spacing.four,
+  paddingTop: Spacing.two,
+  paddingBottom: BottomTabInset + Spacing.four,
+  gap: Spacing.three,
+} as const;
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
@@ -73,10 +97,5 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: 2,
   },
-  body: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.two,
-    paddingBottom: BottomTabInset + Spacing.four,
-    gap: Spacing.three,
-  },
+  body: SCREEN_BODY_PADDING,
 });

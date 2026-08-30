@@ -2,12 +2,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
-import { Screen } from '@/components/ui/screen';
+import { Screen, SCREEN_BODY_PADDING } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
 import { getFinishedWorkoutSummaries, getPlans, type WorkoutSummary } from '@/db';
 import { formatSessionDate, formatVolume, plural } from '@/domain/format';
@@ -45,15 +45,15 @@ export default function HistoryScreen() {
             onPress={() => router.push('/history/calendar')}
           />
         </View>
-      }>
-      {sessions.length === 0 ? (
-        <EmptyState
-          icon="time-outline"
-          title="Noch kein Verlauf"
-          message="Beende eine Einheit, dann erscheint sie hier."
-        />
-      ) : (
-        sessions.map((s) => {
+      }
+      scroll={false}
+      padded={false}>
+      <FlatList
+        data={sessions}
+        keyExtractor={(s) => String(s.id)}
+        contentContainerStyle={SCREEN_BODY_PADDING}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item: s }) => {
           const plans = s.planIds
             .map((id) => plansById.get(id))
             .filter((p): p is Plan => Boolean(p));
@@ -69,7 +69,6 @@ export default function HistoryScreen() {
             summary;
           return (
             <ListRow
-              key={s.id}
               title={dateLabel}
               subtitle={summary}
               accessibilityLabel={a11yLabel}
@@ -86,8 +85,15 @@ export default function HistoryScreen() {
               onPress={() => router.push({ pathname: '/workout/[id]', params: { id: String(s.id) } })}
             />
           );
-        })
-      )}
+        }}
+        ListEmptyComponent={
+          <EmptyState
+            icon="time-outline"
+            title="Noch kein Verlauf"
+            message="Beende eine Einheit, dann erscheint sie hier."
+          />
+        }
+      />
     </Screen>
   );
 }

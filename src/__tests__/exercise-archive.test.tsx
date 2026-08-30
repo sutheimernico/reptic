@@ -96,6 +96,9 @@ describe('exercise editor', () => {
 
 describe('exercise list', () => {
   it('separates archived exercises into their own section so they stay reachable', async () => {
+    // Clear the seeded starter library: the list is virtualized, so with 18
+    // extra rows the archived section below them is not rendered yet.
+    await db.runAsync('DELETE FROM exercises');
     await createExercise(db, 'Aktiv', 'Brust');
     const archivedId = await createExercise(db, 'Stillgelegt', 'Beine');
     await setExerciseArchived(db, archivedId, true);
@@ -105,8 +108,8 @@ describe('exercise list', () => {
     await waitFor(() => expect(view.getByText('Aktiv')).toBeTruthy());
     expect(view.getByText('Archiviert')).toBeTruthy();
     expect(view.getByText('Stillgelegt')).toBeTruthy();
-    // 18 seeded starter exercises + "Aktiv". The archived one is not counted —
-    // 20 here would mean archiving does not remove it from the picker.
-    expect(view.getByText('19 Übungen')).toBeTruthy();
+    // The archived one is not counted — "2 Übungen" would mean archiving does
+    // not remove it from the picker.
+    expect(view.getByText('1 Übung')).toBeTruthy();
   });
 });
