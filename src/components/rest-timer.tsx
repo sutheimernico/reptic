@@ -7,7 +7,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -24,6 +23,7 @@ import {
   remainingSeconds,
 } from '@/domain/rest-timer';
 import { useTheme } from '@/hooks/use-theme';
+import { haptic } from '@/lib/haptics';
 
 interface RestTimerContextValue {
   /** The running timer, or null when none was started (or it was dismissed). */
@@ -78,6 +78,22 @@ export function RestTimerProvider({ children }: { children: ReactNode }) {
     [db],
   );
 
+  // The end signal fires here, not in the banner: the session screen stays
+  // mounted underneath the set screen, so two banners would buzz twice.
+  useEffect(() => {
+    if (!timer) return;
+    const endMs = timer.startedAtMs + timer.durationSec * 1000;
+    const remainingMs = endMs - Date.now();
+    if (remainingMs <= 0) return; // already over (e.g. restored after a long pause)
+    const handle = setTimeout(() => {
+      // Timers are throttled while the app is backgrounded, so this can fire
+      // long after the rest actually ended. A buzz minutes late is noise, not
+      // information — only signal when it is still roughly on time.
+      if (Date.now() - endMs < 5000) haptic('rest-over');
+    }, remainingMs);
+    return () => clearTimeout(handle);
+  }, [timer]);
+
   // Stable identity: consumers put `start` / `dismiss` in effect dependencies.
   const value = useMemo(
     () => ({ timer, durationSec, start, dismiss, setDurationSec }),
@@ -101,11 +117,10 @@ export function useRestTimer(): RestTimerContextValue {
  * coming back from two minutes in the background shows "Pause vorbei" instead
  * of a stale countdown.
  */
-export function RestTimerBanner({ onExpire }: { onExpire?: () => void }) {
+export function RestTimerBanner() {
   const c = useTheme();
   const { timer, dismiss } = useRestTimer();
   const [now, setNow] = useState(() => Date.now());
-  const firedFor = useRef<number | null>(null);
 
   // `now` is a snapshot from the last tick, so right after a timer starts it
   // can still be seconds old and make the countdown read higher than the
@@ -123,14 +138,6 @@ export function RestTimerBanner({ onExpire }: { onExpire?: () => void }) {
     const handle = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(handle);
   }, [timer, expired]);
-
-  // Fire the end signal once per timer, keyed by its start timestamp.
-  useEffect(() => {
-    if (!timer || !expired) return;
-    if (firedFor.current === timer.startedAtMs) return;
-    firedFor.current = timer.startedAtMs;
-    onExpire?.();
-  }, [timer, expired, onExpire]);
 
   if (!timer) return null;
 

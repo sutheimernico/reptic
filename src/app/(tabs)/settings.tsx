@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, Switch, View } from 'react-native';
 
 import { useRestTimer } from '@/components/rest-timer';
 import { ThemedText } from '@/components/themed-text';
@@ -12,7 +12,7 @@ import { Screen } from '@/components/ui/screen';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { APP_NAME } from '@/constants/app';
 import { Spacing } from '@/constants/theme';
-import { getGyms } from '@/db';
+import { getGyms, getSetting, setSetting } from '@/db';
 import { AUTO_BACKUP_KEEP, formatBackupAge } from '@/domain/auto-backup';
 import type { BackupData } from '@/domain/backup';
 import { formatDuration, plural } from '@/domain/format';
@@ -26,6 +26,13 @@ import {
   runAutoBackup,
 } from '@/lib/auto-backup';
 import { exportBackup, pickBackup, restoreBackup } from '@/lib/backup';
+import {
+  HAPTICS_SETTING,
+  haptic,
+  parseHapticsSetting,
+  setHapticsEnabled,
+} from '@/lib/haptics';
+import { useTheme } from '@/hooks/use-theme';
 import { useThemeMode } from '@/theme/theme-provider';
 
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
@@ -45,6 +52,8 @@ export default function SettingsScreen() {
   const [lastAutoBackup, setLastAutoBackup] = useState<string | null>(null);
   const [autoBackups, setAutoBackups] = useState<AutoBackupFile[]>([]);
   const [busy, setBusy] = useState(false);
+  const [haptics, setHaptics] = useState(true);
+  const c = useTheme();
 
   const loadBackupState = useCallback(async () => {
     setLastAutoBackup(await getLastAutoBackupAt(db));
@@ -58,6 +67,7 @@ export default function SettingsScreen() {
   useFocusEffect(
     useCallback(() => {
       getGyms(db, { includeArchived: true }).then(setGyms);
+      getSetting(db, HAPTICS_SETTING).then((v) => setHaptics(parseHapticsSetting(v)));
       void loadBackupState();
     }, [db, loadBackupState]),
   );
@@ -121,6 +131,13 @@ export default function SettingsScreen() {
     }
   };
 
+  const onToggleHaptics = (next: boolean) => {
+    setHaptics(next);
+    setHapticsEnabled(next);
+    void setSetting(db, HAPTICS_SETTING, next ? '1' : '0');
+    if (next) haptic('set-done'); // let the user feel what they just switched on
+  };
+
   const onRestoreAuto = async (file: AutoBackupFile) => {
     try {
       confirmRestore(await readAutoBackup(file.name), `das Backup vom ${file.date}`);
@@ -182,6 +199,18 @@ export default function SettingsScreen() {
                 onPress={() => setRestSeconds(stepRestSeconds(restSeconds, 1))}
               />
             </View>
+          }
+        />
+        <ListRow
+          title="Vibration"
+          subtitle="Beim Abhaken, bei Rekorden und am Ende der Pause"
+          right={
+            <Switch
+              value={haptics}
+              onValueChange={onToggleHaptics}
+              accessibilityLabel="Vibration"
+              trackColor={{ false: c.border, true: c.accent }}
+            />
           }
         />
       </View>

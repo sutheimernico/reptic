@@ -51,6 +51,7 @@ import { createInitialSets, referenceLabel, type PriorSet } from '@/domain/sets'
 import type { WorkoutSet } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
+import { haptic } from '@/lib/haptics';
 
 interface Row {
   id: number;
@@ -235,6 +236,7 @@ export default function ExerciseSetScreen() {
     setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, done: next } : r)));
     void updateSet(db, row.id, { ...fieldsOf(row), done: next }).catch(showSaveError);
     if (!next) return; // un-ticking is a correction: no rest, no record
+    haptic('set-done');
     restTimer.start();
 
     const performed = fieldsOf(row);
@@ -243,6 +245,7 @@ export default function ExerciseSetScreen() {
     if (kinds.length === 0) return;
 
     setRecords((prev) => new Map(prev).set(row.id, kinds));
+    haptic('record');
     if (!toastedRef.current && Platform.OS === 'android') {
       toastedRef.current = true;
       ToastAndroid.show(`Neuer Rekord: ${describeRecords(kinds)}`, ToastAndroid.LONG);

@@ -4,7 +4,7 @@ import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { AutoBackupOnStart } from '@/components/auto-backup-on-start';
+import { AppBootstrap } from '@/components/app-bootstrap';
 import { RestTimerProvider } from '@/components/rest-timer';
 import { AnimatedSplashOverlay } from '@/components/splash-overlay';
 import { DATABASE_NAME } from '@/constants/app';
@@ -21,7 +21,7 @@ export default function RootLayout() {
       <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded}>
         <ThemeProvider>
           <RestTimerProvider>
-            <AutoBackupOnStart />
+            <AppBootstrap />
             <ThemedNavigation />
           </RestTimerProvider>
         </ThemeProvider>
