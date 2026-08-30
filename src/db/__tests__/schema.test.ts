@@ -1,34 +1,12 @@
 /**
- * Migration tests against real SQLite via node:sqlite. The adapter mirrors the
- * semantics of expo-sqlite's native layer: `execAsync` is sqlite3_exec
- * (statement by statement, autocommit, stops at the first error — earlier
- * statements stay committed), `getFirstAsync` is a prepared statement
- * returning the first row. Verified against expo-sqlite@57 sources
- * (android/ios bindings call sqlite3_exec / sqlite3_prepare_v2 directly).
+ * Migration tests against real SQLite via node:sqlite. The `SQLiteDatabase`
+ * adapter and its fidelity notes live in `./sqlite-adapter`, shared with the
+ * query-layer tests.
  */
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync } from 'node:sqlite';
 
-import type { SQLiteDatabase } from 'expo-sqlite';
-
+import { openDb } from '@/db/test-support/sqlite-adapter';
 import { DATABASE_VERSION, migrateDbIfNeeded } from '@/db/schema';
-
-function adapt(db: DatabaseSync): SQLiteDatabase {
-  return {
-    execAsync: async (sql: string) => {
-      db.exec(sql);
-    },
-    getFirstAsync: async (sql: string) => db.prepare(sql).get() ?? null,
-    runAsync: async (sql: string, ...params: unknown[]) => {
-      const res = db.prepare(sql).run(...(params as never[]));
-      return { lastInsertRowId: Number(res.lastInsertRowid), changes: Number(res.changes) };
-    },
-  } as unknown as SQLiteDatabase;
-}
-
-function openDb(): { raw: DatabaseSync; db: SQLiteDatabase } {
-  const raw = new DatabaseSync(':memory:');
-  return { raw, db: adapt(raw) };
-}
 
 const userVersion = (raw: DatabaseSync): number =>
   Number((raw.prepare('PRAGMA user_version').get() as { user_version: number }).user_version);
