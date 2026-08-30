@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
-import { Alert, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { useRestTimer } from '@/components/rest-timer';
 import { ThemedText } from '@/components/themed-text';
@@ -11,11 +11,18 @@ import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { APP_NAME } from '@/constants/app';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { getGyms, getSetting, setSetting } from '@/db';
 import { AUTO_BACKUP_KEEP, formatBackupAge } from '@/domain/auto-backup';
 import type { BackupData } from '@/domain/backup';
-import { formatDuration, plural } from '@/domain/format';
+import { formatDuration, formatWeight, plural } from '@/domain/format';
+import {
+  DEFAULT_PLATE_SETUP,
+  parsePlateSetup,
+  PLATE_SETUP_SETTING,
+  type PlateSetup,
+  serializePlateSetup,
+} from '@/domain/plates';
 import { REST_OFF, stepRestSeconds } from '@/domain/rest-timer';
 import type { Gym, ThemeMode } from '@/domain/types';
 import {
@@ -53,6 +60,7 @@ export default function SettingsScreen() {
   const [autoBackups, setAutoBackups] = useState<AutoBackupFile[]>([]);
   const [busy, setBusy] = useState(false);
   const [haptics, setHaptics] = useState(true);
+  const [plates, setPlates] = useState<PlateSetup>(DEFAULT_PLATE_SETUP);
   const c = useTheme();
 
   const loadBackupState = useCallback(async () => {
@@ -68,6 +76,7 @@ export default function SettingsScreen() {
     useCallback(() => {
       getGyms(db, { includeArchived: true }).then(setGyms);
       getSetting(db, HAPTICS_SETTING).then((v) => setHaptics(parseHapticsSetting(v)));
+      getSetting(db, PLATE_SETUP_SETTING).then((v) => setPlates(parsePlateSetup(v)));
       void loadBackupState();
     }, [db, loadBackupState]),
   );
@@ -138,6 +147,20 @@ export default function SettingsScreen() {
     if (next) haptic('set-done'); // let the user feel what they just switched on
   };
 
+  const savePlates = (next: PlateSetup) => {
+    setPlates(next);
+    void setSetting(db, PLATE_SETUP_SETTING, serializePlateSetup(next));
+  };
+
+  /** Toggle one plate size in or out of the rack. */
+  const togglePlate = (kg: number) => {
+    const owned = plates.stock.some((p) => p.kg === kg);
+    const stock = owned
+      ? plates.stock.filter((p) => p.kg !== kg)
+      : [...plates.stock, { kg, pairs: 2 }].sort((a, b) => b.kg - a.kg);
+    savePlates({ ...plates, stock });
+  };
+
   const onRestoreAuto = async (file: AutoBackupFile) => {
     try {
       confirmRestore(await readAutoBackup(file.name), `das Backup vom ${file.date}`);
@@ -201,6 +224,53 @@ export default function SettingsScreen() {
             </View>
           }
         />
+        <ListRow
+          title="Hantelstange"
+          subtitle={`${formatWeight(plates.barKg)} kg — Basis für den Scheibenrechner`}
+          right={
+            <View style={styles.stepper}>
+              <IconButton
+                name="remove-circle-outline"
+                accessibilityLabel="Stange leichter"
+                onPress={() => savePlates({ ...plates, barKg: Math.max(0, plates.barKg - 2.5) })}
+              />
+              <IconButton
+                name="add-circle-outline"
+                accessibilityLabel="Stange schwerer"
+                onPress={() => savePlates({ ...plates, barKg: plates.barKg + 2.5 })}
+              />
+            </View>
+          }
+        />
+        <View style={styles.plateBlock}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Vorhandene Scheiben (je 2 Paar). Antippen zum An- und Abwählen.
+          </ThemedText>
+          <View style={styles.chips}>
+            {DEFAULT_PLATE_SETUP.stock.map(({ kg }) => {
+              const owned = plates.stock.some((p) => p.kg === kg);
+              return (
+                <Pressable
+                  key={kg}
+                  onPress={() => togglePlate(kg)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: owned }}
+                  accessibilityLabel={`${formatWeight(kg)} Kilo Scheiben`}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: owned ? c.accent : 'transparent',
+                      borderColor: owned ? c.accent : c.border,
+                    },
+                  ]}>
+                  <Text style={[styles.chipText, { color: owned ? c.onAccent : c.textSecondary }]}>
+                    {formatWeight(kg)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
         <ListRow
           title="Vibration"
           subtitle="Beim Abhaken, bei Rekorden und am Ende der Pause"
@@ -267,4 +337,13 @@ const styles = StyleSheet.create({
   label: { textTransform: 'uppercase', letterSpacing: 0.6, marginLeft: Spacing.half },
   footer: { marginTop: Spacing.three, textAlign: 'center' },
   stepper: { flexDirection: 'row', gap: Spacing.three },
+  plateBlock: { gap: Spacing.two, marginLeft: Spacing.half },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  chip: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+  },
+  chipText: { fontSize: 14, fontWeight: '700' },
 });

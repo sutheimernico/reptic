@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PlateSheet } from '@/components/plate-sheet';
 import { RestTimerBanner, useRestTimer } from '@/components/rest-timer';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
@@ -95,17 +96,34 @@ function SetInput({
   onChangeText,
   onEndEditing,
   keyboardType,
+  onLabelPress,
+  labelAccessibilityLabel,
 }: {
   label: string;
   value: string;
   onChangeText: (text: string) => void;
   onEndEditing: () => void;
   keyboardType: 'decimal-pad' | 'number-pad' | 'default';
+  /** Makes the small caption tappable — used by the kg field for the plate sheet. */
+  onLabelPress?: () => void;
+  labelAccessibilityLabel?: string;
 }) {
   const c = useTheme();
   return (
     <View style={[styles.inputBox, { backgroundColor: c.backgroundElement, borderColor: c.border }]}>
-      <Text style={[styles.inputLabel, { color: c.textSecondary }]}>{label}</Text>
+      {onLabelPress ? (
+        <Pressable
+          onPress={onLabelPress}
+          accessibilityRole="button"
+          accessibilityLabel={labelAccessibilityLabel}
+          hitSlop={6}
+          style={styles.labelRow}>
+          <Text style={[styles.inputLabel, { color: c.accent }]}>{label}</Text>
+          <Ionicons name="disc-outline" size={11} color={c.accent} />
+        </Pressable>
+      ) : (
+        <Text style={[styles.inputLabel, { color: c.textSecondary }]}>{label}</Text>
+      )}
       <TextInput
         accessibilityLabel={label}
         value={value}
@@ -149,6 +167,9 @@ export default function ExerciseSetScreen() {
   const [records, setRecords] = useState<Map<number, PrKind[]>>(new Map());
   /** One toast per visit to this exercise — badges stay, the shout does not. */
   const toastedRef = useRef(false);
+  /** Target of the plate sheet; null while it is closed. */
+  const [plateTarget, setPlateTarget] = useState<number | null>(null);
+  const [plateOpen, setPlateOpen] = useState(false);
 
   useEffect(() => {
     rowsRef.current = rows;
@@ -361,6 +382,11 @@ export default function ExerciseSetScreen() {
                       onChangeText={(t) => setField(row.id, 'weightText', t)}
                       onEndEditing={() => persist(row.id)}
                       keyboardType="decimal-pad"
+                      onLabelPress={() => {
+                        setPlateTarget(parseWeight(row.weightText));
+                        setPlateOpen(true);
+                      }}
+                      labelAccessibilityLabel={`Hantelscheiben für Satz ${i + 1} berechnen`}
                     />
                     <SetInput
                       label="WDH"
@@ -417,9 +443,17 @@ export default function ExerciseSetScreen() {
 
         <Button label="Satz" icon="add" variant="secondary" onPress={addSet} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
-          Tipp: Satz-Nummer lange drücken zum Löschen.
+          {isCardio
+            ? 'Tipp: Satz-Nummer lange drücken zum Löschen.'
+            : 'Tipp: Satz-Nummer lange drücken zum Löschen · „KG" antippen zeigt die Scheiben.'}
         </ThemedText>
       </ScrollView>
+
+      <PlateSheet
+        targetKg={plateTarget}
+        visible={plateOpen}
+        onClose={() => setPlateOpen(false)}
+      />
 
       <SafeAreaView
         edges={['bottom']}
@@ -453,6 +487,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   inputLabel: { fontSize: 9, fontWeight: '600', letterSpacing: 0.6 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   input: { fontSize: 17, fontWeight: '700', padding: 0, margin: 0 },
   check: {
     width: 44,
