@@ -2,7 +2,17 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  ToastAndroid,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RestTimerBanner, useRestTimer } from '@/components/rest-timer';
@@ -12,6 +22,7 @@ import { Radius, Spacing } from '@/constants/theme';
 import {
   deleteSet,
   getExercise,
+  getExerciseBests,
   getLastSetsForExercise,
   getSetsForWorkoutExercise,
   getWorkout,
@@ -28,6 +39,14 @@ import {
   parseReps,
   parseWeight,
 } from '@/domain/format';
+import {
+  describeRecords,
+  detectPersonalRecords,
+  type ExerciseBests,
+  NO_BESTS,
+  type PrKind,
+  withSet,
+} from '@/domain/personal-records';
 import { createInitialSets, referenceLabel, type PriorSet } from '@/domain/sets';
 import type { WorkoutSet } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
@@ -123,6 +142,12 @@ export default function ExerciseSetScreen() {
   const [priorGymName, setPriorGymName] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const rowsRef = useRef<Row[]>([]);
+  /** What a set has to beat. Advanced in-memory as sets are ticked done, so
+   *  the second set of a session compares against the first. */
+  const bestsRef = useRef<ExerciseBests>(NO_BESTS);
+  const [records, setRecords] = useState<Map<number, PrKind[]>>(new Map());
+  /** One toast per visit to this exercise — badges stay, the shout does not. */
+  const toastedRef = useRef(false);
 
   useEffect(() => {
     rowsRef.current = rows;
@@ -139,6 +164,7 @@ export default function ExerciseSetScreen() {
         workout?.gymId ?? -1,
         workoutId,
       );
+      const bests = await getExerciseBests(db, exerciseId, workoutId);
       let current = await getSetsForWorkoutExercise(db, workoutExerciseId);
       if (current.length === 0) {
         for (const draft of createInitialSets(priorSets)) {
@@ -158,6 +184,7 @@ export default function ExerciseSetScreen() {
         current = await getSetsForWorkoutExercise(db, workoutExerciseId);
       }
       if (active) {
+        bestsRef.current = bests;
         setIsCardio(exercise?.muscleGroup === 'Cardio');
         setPrior(priorSets);
         setPriorGymName(sourceGymName);
@@ -207,8 +234,19 @@ export default function ExerciseSetScreen() {
     const next = !row.done;
     setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, done: next } : r)));
     void updateSet(db, row.id, { ...fieldsOf(row), done: next }).catch(showSaveError);
-    // Finishing a set starts the rest; un-ticking one is a correction, not a rest.
-    if (next) restTimer.start();
+    if (!next) return; // un-ticking is a correction: no rest, no record
+    restTimer.start();
+
+    const performed = fieldsOf(row);
+    const kinds = detectPersonalRecords(performed, bestsRef.current);
+    bestsRef.current = withSet(bestsRef.current, performed);
+    if (kinds.length === 0) return;
+
+    setRecords((prev) => new Map(prev).set(row.id, kinds));
+    if (!toastedRef.current && Platform.OS === 'android') {
+      toastedRef.current = true;
+      ToastAndroid.show(`Neuer Rekord: ${describeRecords(kinds)}`, ToastAndroid.LONG);
+    }
   };
 
   const addSet = async () => {
@@ -345,11 +383,31 @@ export default function ExerciseSetScreen() {
                   <Ionicons name="checkmark" size={18} color={row.done ? c.onAccent : c.placeholder} />
                 </Pressable>
               </View>
-              {refLabel ? (
-                <ThemedText type="small" themeColor="textSecondary" style={styles.refLine}>
-                  {referenceLabel(priorGymName)}: {refLabel}
-                </ThemedText>
-              ) : null}
+              <View style={styles.subLine}>
+                {refLabel ? (
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.refLine}>
+                    {referenceLabel(priorGymName)}: {refLabel}
+                  </ThemedText>
+                ) : (
+                  <View style={styles.refSpacer} />
+                )}
+                {records.get(row.id) ? (
+                  <Pressable
+                    onPress={() =>
+                      Alert.alert(
+                        'Persönlicher Rekord',
+                        `Satz ${i + 1}: ${describeRecords(records.get(row.id) ?? [])}.`,
+                      )
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`Rekord in Satz ${i + 1}: ${describeRecords(records.get(row.id) ?? [])}`}
+                    hitSlop={6}
+                    style={[styles.prBadge, { backgroundColor: c.success }]}>
+                    <Ionicons name="trophy" size={11} color={c.onAccent} />
+                    <Text style={[styles.prText, { color: c.onAccent }]}>PR</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
           );
         })}
@@ -401,7 +459,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  refLine: { marginLeft: 38 },
+  subLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  refLine: { flex: 1, marginLeft: 38 },
+  refSpacer: { flex: 1 },
+  prBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+  },
+  prText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
   hint: { marginTop: Spacing.one, textAlign: 'center' },
   footer: {
     paddingHorizontal: Spacing.four,

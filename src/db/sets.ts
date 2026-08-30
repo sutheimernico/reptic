@@ -9,6 +9,10 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { mapWorkoutSet, type WorkoutSetRow } from '@/db/rows';
+import {
+  type ExerciseBests,
+  MAX_REPS_FOR_E1RM,
+} from '@/domain/personal-records';
 import { type PriorSet, toPriorSets } from '@/domain/sets';
 import type { WorkoutSet } from '@/domain/types';
 
@@ -187,5 +191,52 @@ export async function getLastSetsForExercise(
       })),
     ),
     sourceGymName,
+  };
+}
+
+/**
+ * Everything a personal record has to beat for one exercise, in a single query:
+ * how many other sessions logged it, plus the best weight, Epley estimate,
+ * distance and speed ever recorded.
+ *
+ * `excludeWorkoutId` only narrows the session *count* — the running session's
+ * own earlier sets still count towards the bests, because a record set an hour
+ * ago is still a record. Aggregates skip carried-over rows the same way the
+ * history does: a weight without reps was never lifted.
+ */
+export async function getExerciseBests(
+  db: SQLiteDatabase,
+  exerciseId: number,
+  excludeWorkoutId?: number,
+): Promise<ExerciseBests> {
+  const row = await db.getFirstAsync<{
+    prior_sessions: number;
+    top_weight: number | null;
+    top_e1rm: number | null;
+    top_distance: number | null;
+    top_pace: number | null;
+  }>(
+    `SELECT
+       COUNT(DISTINCT CASE
+         WHEN workout_id != ?
+          AND (reps IS NOT NULL OR distance_km IS NOT NULL OR duration_sec IS NOT NULL)
+         THEN workout_id END) AS prior_sessions,
+       MAX(CASE WHEN reps >= 1 THEN weight_kg END) AS top_weight,
+       MAX(CASE WHEN reps >= 1 AND reps <= ${MAX_REPS_FOR_E1RM} AND weight_kg > 0
+                THEN weight_kg * (1 + reps / 30.0) END) AS top_e1rm,
+       MAX(distance_km) AS top_distance,
+       MAX(CASE WHEN distance_km > 0 AND duration_sec > 0
+                THEN distance_km / (duration_sec / 3600.0) END) AS top_pace
+     FROM workout_sets
+     WHERE exercise_id = ?`,
+    excludeWorkoutId ?? -1,
+    exerciseId,
+  );
+  return {
+    priorSessions: row?.prior_sessions ?? 0,
+    topWeightKg: row?.top_weight ?? null,
+    topE1rm: row?.top_e1rm ?? null,
+    topDistanceKm: row?.top_distance ?? null,
+    topPaceKmh: row?.top_pace ?? null,
   };
 }

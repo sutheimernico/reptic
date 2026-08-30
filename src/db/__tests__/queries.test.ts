@@ -17,6 +17,7 @@ import {
   exportAllData,
   finishWorkout,
   getExerciseSessionHistory,
+  getExerciseBests,
   getFinishedWorkoutSummaries,
   getLastSetsForExercise,
   getSetProgressForWorkout,
@@ -513,5 +514,85 @@ describe('session helpers', () => {
       });
     }
     expect(await getExerciseSessionHistory(db, ex, 3)).toHaveLength(3);
+  });
+});
+
+describe('getExerciseBests', () => {
+  it('reports the bests to beat and counts only other sessions', async () => {
+    const { db, queries } = await countedDb();
+    const gym = await createGym(db, 'Gym');
+    const bench = await createExercise(db, 'Bankdrücken', 'Brust');
+
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench,
+      startedAt: '2026-08-01T10:00:00.000Z', finishedAt: '2026-08-01T11:00:00.000Z',
+      sets: [{ weightKg: 80, reps: 8 }, { weightKg: 85, reps: 3 }],
+    });
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench,
+      startedAt: '2026-08-03T10:00:00.000Z', finishedAt: '2026-08-03T11:00:00.000Z',
+      // A carried-over row: heavier than anything lifted, but never performed.
+      sets: [{ weightKg: 82.5, reps: 6 }, { weightKg: 200, reps: null }],
+    });
+    const running = await loggedSession(db, {
+      gymId: gym, exerciseId: bench,
+      startedAt: '2026-08-05T10:00:00.000Z', finishedAt: null,
+      sets: [{ weightKg: 90, reps: 2 }],
+    });
+
+    const before = queries.count;
+    const bests = await getExerciseBests(db, bench, running);
+    expect(queries.count - before).toBe(1);
+
+    expect(bests.priorSessions).toBe(2); // the running session does not count itself
+    expect(bests.topWeightKg).toBe(90); // but its sets do count towards the bests
+    // The best estimate is not the heaviest set: 80 × 8 estimates 101.3,
+    // above 90 × 2 (96) — which is exactly why both records are tracked.
+    expect(bests.topE1rm).toBeCloseTo(80 * (1 + 8 / 30), 5);
+    expect(bests.topDistanceKm).toBeNull();
+    expect(bests.topPaceKmh).toBeNull();
+  });
+
+  it('ignores reps above the Epley limit for the estimate but not for the weight', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const ex = await createExercise(db, 'Beinpresse', 'Beine');
+    await loggedSession(db, {
+      gymId: gym, exerciseId: ex,
+      startedAt: '2026-08-01T10:00:00.000Z', finishedAt: '2026-08-01T11:00:00.000Z',
+      sets: [{ weightKg: 100, reps: 20 }],
+    });
+
+    const bests = await getExerciseBests(db, ex);
+    expect(bests.topWeightKg).toBe(100);
+    expect(bests.topE1rm).toBeNull();
+  });
+
+  it('reports cardio bests', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const bike = await createExercise(db, 'Ergometer', 'Cardio');
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bike,
+      startedAt: '2026-08-01T10:00:00.000Z', finishedAt: '2026-08-01T11:00:00.000Z',
+      sets: [{ distanceKm: 10, durationSec: 3600 }, { distanceKm: 5, durationSec: 1200 }],
+    });
+
+    const bests = await getExerciseBests(db, bike);
+    expect(bests.topDistanceKm).toBe(10);
+    expect(bests.topPaceKmh).toBe(15); // 5 km in 20 min beats 10 km in 60 min
+    expect(bests.topWeightKg).toBeNull();
+  });
+
+  it('returns empty bests for an exercise that was never logged', async () => {
+    const db = await freshDb();
+    const ex = await createExercise(db, 'Neu', 'Bauch');
+    expect(await getExerciseBests(db, ex)).toEqual({
+      priorSessions: 0,
+      topWeightKg: null,
+      topE1rm: null,
+      topDistanceKm: null,
+      topPaceKmh: null,
+    });
   });
 });
