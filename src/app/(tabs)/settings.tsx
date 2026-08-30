@@ -3,8 +3,10 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
+import { useRestTimer } from '@/components/rest-timer';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
 import { SegmentedControl } from '@/components/ui/segmented-control';
@@ -13,7 +15,8 @@ import { Spacing } from '@/constants/theme';
 import { getGyms } from '@/db';
 import { AUTO_BACKUP_KEEP, formatBackupAge } from '@/domain/auto-backup';
 import type { BackupData } from '@/domain/backup';
-import { plural } from '@/domain/format';
+import { formatDuration, plural } from '@/domain/format';
+import { REST_OFF, stepRestSeconds } from '@/domain/rest-timer';
 import type { Gym, ThemeMode } from '@/domain/types';
 import {
   type AutoBackupFile,
@@ -37,6 +40,7 @@ export default function SettingsScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const { mode, setMode } = useThemeMode();
+  const { durationSec: restSeconds, setDurationSec: setRestSeconds } = useRestTimer();
   const [gyms, setGyms] = useState<Gym[]>([]);
   const [lastAutoBackup, setLastAutoBackup] = useState<string | null>(null);
   const [autoBackups, setAutoBackups] = useState<AutoBackupFile[]>([]);
@@ -156,6 +160,34 @@ export default function SettingsScreen() {
 
       <View style={styles.block}>
         <ThemedText type="small" themeColor="textSecondary" style={styles.label}>
+          TRAINING
+        </ThemedText>
+        <ListRow
+          title="Pause zwischen Sätzen"
+          subtitle={
+            restSeconds === REST_OFF
+              ? 'Aus — kein Timer nach einem Satz'
+              : `${formatDuration(restSeconds)} min, startet beim Abhaken`
+          }
+          right={
+            <View style={styles.stepper}>
+              <IconButton
+                name="remove-circle-outline"
+                accessibilityLabel="Pause verkürzen"
+                onPress={() => setRestSeconds(stepRestSeconds(restSeconds, -1))}
+              />
+              <IconButton
+                name="add-circle-outline"
+                accessibilityLabel="Pause verlängern"
+                onPress={() => setRestSeconds(stepRestSeconds(restSeconds, 1))}
+              />
+            </View>
+          }
+        />
+      </View>
+
+      <View style={styles.block}>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.label}>
           AUTOMATISCHES BACKUP
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
@@ -205,4 +237,5 @@ const styles = StyleSheet.create({
   block: { gap: Spacing.two },
   label: { textTransform: 'uppercase', letterSpacing: 0.6, marginLeft: Spacing.half },
   footer: { marginTop: Spacing.three, textAlign: 'center' },
+  stepper: { flexDirection: 'row', gap: Spacing.three },
 });

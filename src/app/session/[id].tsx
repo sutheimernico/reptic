@@ -10,6 +10,7 @@ import ReorderableList, {
 } from 'react-native-reorderable-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { RestTimerBanner } from '@/components/rest-timer';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListRow } from '@/components/ui/list-row';
@@ -182,6 +183,7 @@ export default function SessionScreen() {
       <SafeAreaView
         edges={['bottom']}
         style={[styles.footer, { borderTopColor: c.border, backgroundColor: c.background }]}>
+        <RestTimerBanner />
         <Button label="Einheit beenden" icon="checkmark-done" onPress={finish} />
       </SafeAreaView>
     </View>

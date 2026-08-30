@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { RestTimerBanner, useRestTimer } from '@/components/rest-timer';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Radius, Spacing } from '@/constants/theme';
@@ -106,6 +107,7 @@ export default function ExerciseSetScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const c = useTheme();
+  const restTimer = useRestTimer();
   const params = useLocalSearchParams<{
     workoutId: string;
     workoutExerciseId: string;
@@ -205,6 +207,8 @@ export default function ExerciseSetScreen() {
     const next = !row.done;
     setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, done: next } : r)));
     void updateSet(db, row.id, { ...fieldsOf(row), done: next }).catch(showSaveError);
+    // Finishing a set starts the rest; un-ticking one is a correction, not a rest.
+    if (next) restTimer.start();
   };
 
   const addSet = async () => {
@@ -359,6 +363,7 @@ export default function ExerciseSetScreen() {
       <SafeAreaView
         edges={['bottom']}
         style={[styles.footer, { borderTopColor: c.border, backgroundColor: c.background }]}>
+        <RestTimerBanner />
         <Button label="Übung fertig" icon="checkmark-done" onPress={finish} />
       </SafeAreaView>
     </View>
