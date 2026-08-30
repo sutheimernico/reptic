@@ -1,6 +1,6 @@
 # Plan: Daily Gym Companion — Repz v1.1
 
-**Date:** 2026-07-21 · **Status:** awaiting go · **Executor:** any capable agent (self-contained — no session context required)
+**Date:** 2026-07-21 · **Status:** DONE 2026-08-30 (see Outcome at the end) · **Executor:** any capable agent (self-contained — no session context required)
 
 ## Context (verified 2026-07-21 by code review)
 
@@ -115,3 +115,100 @@ Replace `ScrollView`+`.map()` with `FlatList` (sticky section headers where curr
 - Go for this plan. Device smoke test of the 2026-07-10 hardening **plus** this plan's features (checklist comes from the outcome section) — then build versionCode 6.
 - Feel-Veto: timer default (120s?), haptic strength, plate defaults (his gym's plates).
 - Unchanged from before: „Trainingspläne"-wording veto, icon/splash art, Repz-vs-Reptic name, Play Store ($25), Drive-OAuth (8b), merge → master.
+
+---
+
+## Outcome (2026-08-30)
+
+**Status: all 11 tasks built.** 11 commits on `autopilot/work` (`1892fdf` … `2650922`),
+51 files, +5167/−1150. Gate green after every commit and re-run fresh at the end:
+`npx tsc --noEmit` exit 0 · `npx jest` **179 passed / 179** in 15 suites (1.9 s) ·
+`npx expo lint` exit 0 · `npx expo export --platform android` exit 0 (4.3 MB bundle).
+**No build, no versionCode bump** — `app.json` and `src/db/schema.ts` are byte-identical
+to the session start (`git diff 0d8879f` empty for both), so schema stays v3 and the
+migration harness re-run is the required no-op (9/9 green, incl. the explicit no-op case).
+
+Tests went 62 → 179. Everything new is settings key-value, so Nico's device data is
+untouched by design, not by promise.
+
+### What was built
+
+| Task | Result |
+|---|---|
+| 1 Auto-backup | Daily rolling snapshot on app start, newest 7 kept, in Einstellungen with real age + "Jetzt sichern" |
+| 2 Query tests | 23 integration tests against real SQLite; the 900-line data layer had none |
+| 3 db split | 7 domain modules + shared row mappers; largest file 282 lines (was 911) |
+| 4 N+1 | Exercise history is one query regardless of length, pinned by a statement counter |
+| 5 Rest timer | Starts on tick, slim bar across the whole session flow, 15s steps, off-switch |
+| 6 PR detection | Weight / Epley-e1RM / distance / pace, badge + one toast, quiet on new exercises |
+| 7 Haptics | expo-haptics, three moments, one switch, error paths silent |
+| 8 Plate calculator | Tap "KG", exact loading or an honest "not loadable" with neighbours |
+| 9 Weekly trends | Volume per ISO week, per muscle group, cardio distance — 12 weeks, zeros kept |
+| 10 Component tests | RNTL harness rendering screens against real SQLite; 12 screen tests |
+| 11 Virtualization | Verlauf/Pläne → FlatList, Übungen → SectionList with sticky headers |
+
+### Deviations from the plan (and why)
+
+1. **Auto-backup restore is in-app, not through the Import button.** The plan assumed the
+   existing document picker could reach the auto-backup files ("verify"). It cannot:
+   Android's picker browses SAF providers and has no access to an app's own private
+   directory. Without an in-app restore list the backups would have been unreadable —
+   a backup you cannot restore is not a backup. Einstellungen therefore lists the stored
+   snapshots and restores one on tap, through the same confirm + `importAllData` path.
+2. **Plate calculator opens on a tap of the "KG" caption, not a long-press on the input.**
+   Android reserves long-press on a `TextInput` for text selection, so that gesture would
+   have been unreliable. The caption is tinted and carries a plate icon; the hint line
+   under the sets names it.
+3. **Plate stock defaults to two *pairs* per size**, not two plates. One pair each caps
+   the bar at 177.5 kg and would report "not loadable" for ordinary weights. The sizes are
+   togglable in Einstellungen — the actual count is Nico's feel-veto anyway.
+4. **File naming is kebab-case** (`auto-backup.ts`, `rest-timer.ts`), following the repo
+   rather than the plan's camelCase spelling.
+5. **`src/global.css` deleted.** Its only import broke every test that touched the theme,
+   and it defined web font variables whose consumers the 2026-07-10 dead-code sweep had
+   already removed. Not scope creep — it blocked Task 10.
+6. **One extra dev dependency: `test-renderer`.** RNTL v14 requires it as a peer (React
+   19.2 replaced `react-test-renderer`); without it `render` returns nothing usable.
+   Total new deps: `expo-haptics` (runtime), `@testing-library/react-native` +
+   `test-renderer` (dev only).
+
+### Notes for whoever works here next
+
+- RNTL v14 made `render`, `fireEvent` and `act` **async** — every call needs `await`, or
+  assertions run against a tree that has not settled.
+- Screen tests live in `src/__tests__/`, never under `src/app/`: every file in that tree
+  is a route.
+- The expo-router route types are only written by the dev server. After adding a screen,
+  run `npx expo start` once or `tsc` will reject the new path.
+- `src/db/test-support/sqlite-adapter.ts` is deliberately outside `__tests__/`, where
+  every file is picked up as a suite.
+
+### Nico's smoke test (on device, before any build)
+
+1. **Rest timer** — tick a set: does the bar appear, is 2:00 the right default? Leave the
+   app for two minutes, come back: it must say "Pause vorbei", not a frozen number.
+   Try the −/+ stepper in Einstellungen down to "Aus".
+2. **Haptics** — set tick, record, end of rest. Too strong, too weak, or annoying? The
+   switch is in Einstellungen; the exact patterns are easy to change.
+3. **Plate sheet** — tap "KG" on a set. Are the defaults your gym's plates (bar 20 kg,
+   sizes 25/20/15/10/5/2.5/1.25)? Correct them in Einstellungen and check a weight you
+   actually load.
+4. **PR badge** — needs three sessions of history for an exercise before it says anything.
+   Beat an old set and check the badge and the toast read sensibly, and that a repeat of
+   an old best stays quiet.
+5. **Trends** — Verlauf → chart icon. Do the weekly numbers match what you remember?
+   Untrained weeks must show "—", not a gap.
+6. **Auto-backup** — Einstellungen shows "Letztes Auto-Backup" and the stored snapshots.
+   Tap "Jetzt sichern", then tap a snapshot and cancel the restore dialog. (Do not confirm
+   it unless you want to replace your data.)
+7. **Scrolling** — Verlauf, Pläne, Übungen are virtualized now. Watch for a jump or a row
+   that will not scroll clear of the tab bar; the sticky muscle-group headers in Übungen
+   are new.
+
+### Still Needs Nico (unchanged, not agent-executable)
+
+- The smoke test above, then the versionCode 6 build.
+- Feel-veto on timer default, haptic strength, plate stock.
+- "Trainingspläne" wording, icon/splash art, Repz-vs-Reptic name.
+- Play Store ($25), Drive-OAuth (Phase 8b — still blocked on the Google Cloud OAuth
+  client), merge → master.

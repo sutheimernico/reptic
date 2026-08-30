@@ -160,13 +160,43 @@ two independent code reviews (screens + data layer), findings fixed, dead code r
 - [x] db: race-free sort_order inserts, backup export via mapper, import drops the
       remembered last-gym id
 
+## Phase 15 — Daily gym companion v1.1 (2026-08-30) ✅
+
+Full execution of `docs/superpowers/plans/2026-07-21-daily-gym-companion.md` (11 tasks,
+11 commits, tests 62 → 179). Schema untouched (still v3) — every new preference is a
+settings key-value; versionCode stays 5, the build is Nico's step. Outcome section with
+deviations and the device smoke-test checklist lives at the end of that plan.
+
+- [x] Rolling on-device auto-backup (daily on start, newest 7) with **in-app restore** —
+      Android's document picker cannot reach the app's own files, so the Import button
+      alone would never have seen these backups
+- [x] Query-layer integration tests against real SQLite (the 900-line data layer had none)
+- [x] `src/db/index.ts` split into 7 domain modules + shared row mappers (911 → max 282 lines)
+- [x] Exercise history reads in one query instead of one per session, pinned by a
+      statement-counting test
+- [x] Rest timer between sets: starts on tick, slim bar across the session flow,
+      timestamp-based so backgrounding shows "Pause vorbei" instead of a frozen countdown
+- [x] Personal records (weight / Epley e1RM / distance / pace) with badge + toast; quiet
+      until an exercise has 3 sessions, a tie is never a record
+- [x] Haptic feedback for set, record and rest end behind one "Vibration" switch
+- [x] Plate calculator on the kg field: exact loading or an honest "nicht exakt stellbar"
+      with the neighbouring weights; bar and plate sizes configurable
+- [x] Weekly trends: volume per ISO week, per muscle group, cardio distance (12 weeks,
+      untrained weeks shown as zero, not interpolated)
+- [x] Component-test harness (@testing-library/react-native) rendering screens against
+      real SQLite; 12 screen tests over the mutating flows
+- [x] Verlauf/Pläne virtualized as FlatList, Übungen as SectionList with sticky headers
+
 ## Needs Nico
 
 - [x] On-device verify of the gym-save fix (2026-07-07, Nico via Expo Go tunnel: gyms +
       exercises save and survive an app kill; failures would now surface as alerts)
 - [x] APK/EAS build (2026-07-07: EAS project @nico_su2004/reptic linked, cloud keystore,
       preview APK built — build 575c3575; `production` profile ready for a future store release)
-- [ ] Visual / feel sign-off on a real device
+- [ ] Visual / feel sign-off on a real device — the v1.1 smoke-test checklist is at the
+      end of `docs/superpowers/plans/2026-07-21-daily-gym-companion.md`, then versionCode 6
+- [ ] Feel-veto on the v1.1 defaults: rest 2:00, haptic strength, plate stock (bar 20 kg,
+      2 pairs each of 25/20/15/10/5/2.5/1.25)
 - [ ] Confirm product name `Reptic` (or rename via `constants/app.ts`)
 - [ ] Create Google Cloud OAuth client(s) — Web + Android client ID with the signing SHA-1 —
       for the Drive backup sign-in; the login code can't go live without them
