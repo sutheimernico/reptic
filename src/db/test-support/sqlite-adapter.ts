@@ -23,17 +23,31 @@ import { DatabaseSync } from 'node:sqlite';
 
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-export function adapt(db: DatabaseSync): SQLiteDatabase {
+/** Counts the statements the data layer prepares, so N+1 patterns can be pinned. */
+export interface QueryCounter {
+  count: number;
+  /** The SQL of every prepared statement, in order (for debugging a failure). */
+  statements: string[];
+}
+
+export function adapt(db: DatabaseSync, counter?: QueryCounter): SQLiteDatabase {
+  const prepare = (sql: string) => {
+    if (counter) {
+      counter.count += 1;
+      counter.statements.push(sql);
+    }
+    return db.prepare(sql);
+  };
   return {
     execAsync: async (sql: string) => {
       db.exec(sql);
     },
     getFirstAsync: async (sql: string, ...params: unknown[]) =>
-      db.prepare(sql).get(...(params as never[])) ?? null,
+      prepare(sql).get(...(params as never[])) ?? null,
     getAllAsync: async (sql: string, ...params: unknown[]) =>
-      db.prepare(sql).all(...(params as never[])),
+      prepare(sql).all(...(params as never[])),
     runAsync: async (sql: string, ...params: unknown[]) => {
-      const res = db.prepare(sql).run(...(params as never[]));
+      const res = prepare(sql).run(...(params as never[]));
       return { lastInsertRowId: Number(res.lastInsertRowid), changes: Number(res.changes) };
     },
     withTransactionAsync: async (task: () => Promise<void>) => {
@@ -49,8 +63,9 @@ export function adapt(db: DatabaseSync): SQLiteDatabase {
   } as unknown as SQLiteDatabase;
 }
 
-/** A fresh in-memory database plus its adapter. */
-export function openDb(): { raw: DatabaseSync; db: SQLiteDatabase } {
+/** A fresh in-memory database plus its adapter and a statement counter. */
+export function openDb(): { raw: DatabaseSync; db: SQLiteDatabase; queries: QueryCounter } {
   const raw = new DatabaseSync(':memory:');
-  return { raw, db: adapt(raw) };
+  const queries: QueryCounter = { count: 0, statements: [] };
+  return { raw, db: adapt(raw, queries), queries };
 }

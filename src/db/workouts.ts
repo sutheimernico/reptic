@@ -217,65 +217,81 @@ export interface ExerciseSessionEntry {
   }[];
 }
 
-/** The last `limit` finished sessions that logged this exercise, newest first, with its sets. */
+/**
+ * The last `limit` finished sessions that logged this exercise, newest first,
+ * with its sets.
+ *
+ * One query, not one per session: the limited sessions are selected in a
+ * sub-select and joined to their sets, then grouped in JS. `LEFT JOIN gyms`
+ * (not a plain join) so a session whose gym row vanished — possible on
+ * databases that predate foreign-key enforcement — still shows up.
+ *
+ * "Performed" means reps entered (strength) or any cardio metric entered, both
+ * in the EXISTS filter and in the join: opening an exercise pre-fills carried
+ * over settings with empty performance, and those rows are not work done.
+ */
 export async function getExerciseSessionHistory(
   db: SQLiteDatabase,
   exerciseId: number,
   limit = 12,
 ): Promise<ExerciseSessionEntry[]> {
-  const workouts = await db.getAllAsync<{
+  const rows = await db.getAllAsync<{
     id: number;
     started_at: string;
     finished_at: string | null;
     gym_name: string;
+    set_number: number;
+    weight_kg: number | null;
+    reps: number | null;
+    distance_km: number | null;
+    duration_sec: number | null;
+    level: number | null;
   }>(
-    `SELECT w.id, w.started_at, w.finished_at,
-       (SELECT g.name FROM gyms g WHERE g.id = w.gym_id) AS gym_name
-     FROM workouts w
-     WHERE w.finished_at IS NOT NULL
-       AND EXISTS (
-         SELECT 1 FROM workout_sets ws
-         WHERE ws.workout_id = w.id AND ws.exercise_id = ?
-           AND (ws.reps IS NOT NULL OR ws.duration_sec IS NOT NULL OR ws.distance_km IS NOT NULL)
-       )
-     ORDER BY w.finished_at DESC
-     LIMIT ?`,
+    `SELECT w.id, w.started_at, w.finished_at, g.name AS gym_name,
+            s.set_number, s.weight_kg, s.reps, s.distance_km, s.duration_sec, s.level
+     FROM (
+       SELECT id, started_at, finished_at, gym_id
+       FROM workouts
+       WHERE finished_at IS NOT NULL
+         AND EXISTS (
+           SELECT 1 FROM workout_sets ws
+           WHERE ws.workout_id = workouts.id AND ws.exercise_id = ?
+             AND (ws.reps IS NOT NULL OR ws.duration_sec IS NOT NULL OR ws.distance_km IS NOT NULL)
+         )
+       ORDER BY finished_at DESC
+       LIMIT ?
+     ) w
+     LEFT JOIN gyms g ON g.id = w.gym_id
+     JOIN workout_sets s
+       ON s.workout_id = w.id AND s.exercise_id = ?
+          AND (s.reps IS NOT NULL OR s.duration_sec IS NOT NULL OR s.distance_km IS NOT NULL)
+     ORDER BY w.finished_at DESC, s.set_number`,
     exerciseId,
     limit,
+    exerciseId,
   );
+
   const entries: ExerciseSessionEntry[] = [];
-  for (const w of workouts) {
-    // Only performed sets — same rule as the EXISTS filter above (reps for
-    // strength, any cardio metric for cardio); skip carried-over rows left
-    // untouched.
-    const rows = await db.getAllAsync<{
-      set_number: number;
-      weight_kg: number | null;
-      reps: number | null;
-      distance_km: number | null;
-      duration_sec: number | null;
-      level: number | null;
-    }>(
-      `SELECT set_number, weight_kg, reps, distance_km, duration_sec, level
-       FROM workout_sets
-       WHERE workout_id = ? AND exercise_id = ?
-         AND (reps IS NOT NULL OR duration_sec IS NOT NULL OR distance_km IS NOT NULL)
-       ORDER BY set_number`,
-      w.id,
-      exerciseId,
-    );
-    entries.push({
-      workoutId: w.id,
-      date: w.finished_at ?? w.started_at,
-      gymName: w.gym_name,
-      sets: rows.map((r) => ({
-        setNumber: r.set_number,
-        weightKg: r.weight_kg,
-        reps: r.reps,
-        distanceKm: r.distance_km,
-        durationSec: r.duration_sec,
-        level: r.level,
-      })),
+  const byWorkout = new Map<number, ExerciseSessionEntry>();
+  for (const r of rows) {
+    let entry = byWorkout.get(r.id);
+    if (!entry) {
+      entry = {
+        workoutId: r.id,
+        date: r.finished_at ?? r.started_at,
+        gymName: r.gym_name,
+        sets: [],
+      };
+      byWorkout.set(r.id, entry);
+      entries.push(entry); // rows arrive newest-first, so push order is the result order
+    }
+    entry.sets.push({
+      setNumber: r.set_number,
+      weightKg: r.weight_kg,
+      reps: r.reps,
+      distanceKm: r.distance_km,
+      durationSec: r.duration_sec,
+      level: r.level,
     });
   }
   return entries;

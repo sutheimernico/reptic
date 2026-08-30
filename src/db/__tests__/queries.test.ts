@@ -27,13 +27,20 @@ import {
   startWorkout,
 } from '@/db';
 import { migrateDbIfNeeded } from '@/db/schema';
-import { openDb } from '@/db/test-support/sqlite-adapter';
+import { openDb, type QueryCounter } from '@/db/test-support/sqlite-adapter';
 import { parseBackup, serializeBackup } from '@/domain/backup';
 
 async function freshDb(): Promise<SQLiteDatabase> {
   const { db } = openDb();
   await migrateDbIfNeeded(db);
   return db;
+}
+
+/** Like `freshDb`, but hands back the statement counter too. */
+async function countedDb(): Promise<{ db: SQLiteDatabase; queries: QueryCounter }> {
+  const { db, queries } = openDb();
+  await migrateDbIfNeeded(db);
+  return { db, queries };
 }
 
 /** A finished session in `gymId` containing `exerciseId`, with the given sets. */
@@ -419,6 +426,79 @@ describe('session helpers', () => {
     expect(history[0].sets).toHaveLength(1);
     expect(history[1].sets).toHaveLength(1); // the untouched carry-over is skipped
     expect(history[0].gymName).toBe('Gym');
+  });
+
+  it('keeps sets ordered and carries cardio columns through the history', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const bench = await createExercise(db, 'Bankdrücken', 'Brust');
+    const bike = await createExercise(db, 'Ergometer', 'Cardio');
+
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench,
+      startedAt: '2026-08-01T10:00:00.000Z', finishedAt: '2026-08-01T11:00:00.000Z',
+      sets: [
+        { weightKg: 80, reps: 8 },
+        { weightKg: 80, reps: 7 },
+        { weightKg: 82.5, reps: 5 },
+      ],
+    });
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bike,
+      startedAt: '2026-08-02T10:00:00.000Z', finishedAt: '2026-08-02T10:45:00.000Z',
+      sets: [{ distanceKm: 12.5, durationSec: 2700, level: 8 }],
+    });
+
+    const [strength] = await getExerciseSessionHistory(db, bench);
+    expect(strength.sets).toEqual([
+      { setNumber: 1, weightKg: 80, reps: 8, distanceKm: null, durationSec: null, level: null },
+      { setNumber: 2, weightKg: 80, reps: 7, distanceKm: null, durationSec: null, level: null },
+      { setNumber: 3, weightKg: 82.5, reps: 5, distanceKm: null, durationSec: null, level: null },
+    ]);
+
+    const [cardio] = await getExerciseSessionHistory(db, bike);
+    expect(cardio.sets).toEqual([
+      { setNumber: 1, weightKg: null, reps: null, distanceKm: 12.5, durationSec: 2700, level: 8 },
+    ]);
+  });
+
+  it('falls back to started_at and survives a session whose gym row is gone', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const ex = await createExercise(db, 'Bankdrücken', 'Brust');
+    await loggedSession(db, {
+      gymId: gym, exerciseId: ex,
+      startedAt: '2026-08-01T10:00:00.000Z', finishedAt: '2026-08-01T11:00:00.000Z',
+      sets: [{ weightKg: 80, reps: 8 }],
+    });
+    // Foreign keys are ON, so this is only reachable on a database that
+    // predates enforcement — the query must not drop the session either way.
+    await db.execAsync('PRAGMA foreign_keys = OFF');
+    await db.runAsync('DELETE FROM gyms WHERE id = ?', gym);
+    await db.execAsync('PRAGMA foreign_keys = ON');
+
+    const [entry] = await getExerciseSessionHistory(db, ex);
+    expect(entry).toBeDefined();
+    expect(entry.sets).toHaveLength(1);
+  });
+
+  it('reads the history in one query, however long it is (no N+1)', async () => {
+    const { db, queries } = await countedDb();
+    const gym = await createGym(db, 'Gym');
+    const ex = await createExercise(db, 'Bankdrücken', 'Brust');
+    for (let day = 1; day <= 9; day++) {
+      await loggedSession(db, {
+        gymId: gym, exerciseId: ex,
+        startedAt: `2026-08-0${day}T10:00:00.000Z`, finishedAt: `2026-08-0${day}T11:00:00.000Z`,
+        sets: [{ weightKg: 80 + day, reps: 5 }, { weightKg: 80 + day, reps: 4 }],
+      });
+    }
+
+    const before = queries.count;
+    const history = await getExerciseSessionHistory(db, ex);
+    expect(history).toHaveLength(9);
+    expect(history[0].sets).toHaveLength(2);
+    expect(queries.count - before).toBe(1);
   });
 
   it('honors the history limit', async () => {
