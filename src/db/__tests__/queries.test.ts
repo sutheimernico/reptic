@@ -20,6 +20,7 @@ import {
   getExerciseBests,
   getFinishedWorkoutSummaries,
   getLastSetsForExercise,
+  getSessionMuscleTotals,
   getSetProgressForWorkout,
   gymHasWorkouts,
   importAllData,
@@ -594,5 +595,66 @@ describe('getExerciseBests', () => {
       topDistanceKm: null,
       topPaceKmh: null,
     });
+  });
+});
+
+describe('getSessionMuscleTotals', () => {
+  it('aggregates volume and distance per session and muscle group in one query', async () => {
+    const { db, queries } = await countedDb();
+    const gym = await createGym(db, 'Gym');
+    const bench = await createExercise(db, 'Bankdrücken', 'Brust');
+    const squat = await createExercise(db, 'Kniebeuge', 'Beine');
+    const bike = await createExercise(db, 'Ergometer', 'Cardio');
+
+    const workoutId = await startWorkout(db, [], gym, '2026-08-24T10:00:00.000Z');
+    const benchWe = await addWorkoutExercise(db, workoutId, bench);
+    const squatWe = await addWorkoutExercise(db, workoutId, squat);
+    const bikeWe = await addWorkoutExercise(db, workoutId, bike);
+    await insertSet(db, { workoutId, workoutExerciseId: benchWe, exerciseId: bench, setNumber: 1, weightKg: 80, reps: 8, done: true });
+    await insertSet(db, { workoutId, workoutExerciseId: benchWe, exerciseId: bench, setNumber: 2, weightKg: 80, reps: 7, done: true });
+    // Carried over, never performed: contributes nothing.
+    await insertSet(db, { workoutId, workoutExerciseId: benchWe, exerciseId: bench, setNumber: 3, weightKg: 80, reps: null, done: false });
+    await insertSet(db, { workoutId, workoutExerciseId: squatWe, exerciseId: squat, setNumber: 1, weightKg: 100, reps: 5, done: true });
+    await insertSet(db, { workoutId, workoutExerciseId: bikeWe, exerciseId: bike, setNumber: 1, weightKg: null, reps: null, distanceKm: 5, durationSec: 1200, level: 6, done: true });
+    await finishWorkout(db, workoutId, '2026-08-24T11:00:00.000Z');
+
+    const before = queries.count;
+    const totals = await getSessionMuscleTotals(db, '2026-06-01T00:00:00.000Z');
+    expect(queries.count - before).toBe(1);
+
+    expect(totals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ muscleGroup: 'Brust', volumeKg: 80 * 8 + 80 * 7, distanceKm: 0 }),
+        expect.objectContaining({ muscleGroup: 'Beine', volumeKg: 500, distanceKm: 0 }),
+        expect.objectContaining({ muscleGroup: 'Cardio', volumeKg: 0, distanceKm: 5 }),
+      ]),
+    );
+    expect(totals).toHaveLength(3);
+  });
+
+  it('excludes unfinished sessions and anything before the cutoff', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const ex = await createExercise(db, 'Kniebeuge', 'Beine');
+
+    await loggedSession(db, {
+      gymId: gym, exerciseId: ex,
+      startedAt: '2026-05-01T10:00:00.000Z', finishedAt: '2026-05-01T11:00:00.000Z',
+      sets: [{ weightKg: 100, reps: 5 }],
+    });
+    await loggedSession(db, {
+      gymId: gym, exerciseId: ex,
+      startedAt: '2026-08-24T10:00:00.000Z', finishedAt: null,
+      sets: [{ weightKg: 100, reps: 5 }],
+    });
+    await loggedSession(db, {
+      gymId: gym, exerciseId: ex,
+      startedAt: '2026-08-25T10:00:00.000Z', finishedAt: '2026-08-25T11:00:00.000Z',
+      sets: [{ weightKg: 110, reps: 5 }],
+    });
+
+    const totals = await getSessionMuscleTotals(db, '2026-06-01T00:00:00.000Z');
+    expect(totals).toHaveLength(1);
+    expect(totals[0]).toMatchObject({ volumeKg: 550, muscleGroup: 'Beine' });
   });
 });

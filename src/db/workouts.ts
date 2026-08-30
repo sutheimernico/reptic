@@ -19,7 +19,8 @@ import {
 } from '@/db/rows';
 import { LAST_GYM_SETTING, setSetting } from '@/db/settings';
 import { mergePlanExercises, type PlanExercises } from '@/domain/plans';
-import type { Exercise, Workout, WorkoutExercise } from '@/domain/types';
+import type { SessionMuscleTotals } from '@/domain/weeks';
+import type { Exercise, MuscleGroup, Workout, WorkoutExercise } from '@/domain/types';
 
 export async function startWorkout(
   db: SQLiteDatabase,
@@ -295,4 +296,42 @@ export async function getExerciseSessionHistory(
     });
   }
   return entries;
+}
+
+/**
+ * Per-session, per-muscle-group totals for the weekly trends, in one aggregate
+ * query. Bucketing into weeks happens in `@/domain/weeks`, not here: ISO weeks
+ * depend on the device's local calendar, which SQLite has no notion of.
+ *
+ * `since` is an ISO timestamp; pass the start of the oldest week shown. Volume
+ * counts only performed sets — a carried-over weight with no reps multiplies to
+ * NULL and is skipped by SUM anyway, which is the behaviour we want.
+ */
+export async function getSessionMuscleTotals(
+  db: SQLiteDatabase,
+  since: string,
+): Promise<SessionMuscleTotals[]> {
+  const rows = await db.getAllAsync<{
+    finished_at: string;
+    muscle_group: MuscleGroup;
+    volume: number;
+    distance: number;
+  }>(
+    `SELECT w.finished_at, e.muscle_group,
+            COALESCE(SUM(s.weight_kg * s.reps), 0) AS volume,
+            COALESCE(SUM(s.distance_km), 0) AS distance
+     FROM workout_sets s
+     JOIN workouts w ON w.id = s.workout_id
+     JOIN exercises e ON e.id = s.exercise_id
+     WHERE w.finished_at IS NOT NULL AND w.finished_at >= ?
+     GROUP BY w.id, e.muscle_group
+     ORDER BY w.finished_at`,
+    since,
+  );
+  return rows.map((r) => ({
+    finishedAt: r.finished_at,
+    muscleGroup: r.muscle_group,
+    volumeKg: r.volume,
+    distanceKm: r.distance,
+  }));
 }

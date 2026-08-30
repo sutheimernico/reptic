@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
+import { Spacing } from '@/constants/theme';
 import { getFinishedWorkoutSummaries, getPlans, type WorkoutSummary } from '@/db';
 import { formatSessionDate, formatVolume, plural } from '@/domain/format';
 import type { Plan } from '@/domain/types';
@@ -32,11 +33,18 @@ export default function HistoryScreen() {
       title="Verlauf"
       subtitle="Deine vergangenen Einheiten"
       headerRight={
-        <IconButton
-          name="calendar-outline"
-          accessibilityLabel="Kalenderansicht öffnen"
-          onPress={() => router.push('/history/calendar')}
-        />
+        <View style={styles.headerActions}>
+          <IconButton
+            name="stats-chart-outline"
+            accessibilityLabel="Trends öffnen"
+            onPress={() => router.push('/history/trends')}
+          />
+          <IconButton
+            name="calendar-outline"
+            accessibilityLabel="Kalenderansicht öffnen"
+            onPress={() => router.push('/history/calendar')}
+          />
+        </View>
       }>
       {sessions.length === 0 ? (
         <EmptyState
@@ -85,6 +93,7 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerActions: { flexDirection: 'row', gap: Spacing.three },
   dots: { flexDirection: 'row', gap: 3 },
   dot: { width: 12, height: 12, borderRadius: 6 },
 });
