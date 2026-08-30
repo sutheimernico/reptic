@@ -11,8 +11,17 @@ import { SegmentedControl } from '@/components/ui/segmented-control';
 import { APP_NAME } from '@/constants/app';
 import { Spacing } from '@/constants/theme';
 import { getGyms } from '@/db';
+import { AUTO_BACKUP_KEEP, formatBackupAge } from '@/domain/auto-backup';
 import type { BackupData } from '@/domain/backup';
+import { plural } from '@/domain/format';
 import type { Gym, ThemeMode } from '@/domain/types';
+import {
+  type AutoBackupFile,
+  getLastAutoBackupAt,
+  listAutoBackups,
+  readAutoBackup,
+  runAutoBackup,
+} from '@/lib/auto-backup';
 import { exportBackup, pickBackup, restoreBackup } from '@/lib/backup';
 import { useThemeMode } from '@/theme/theme-provider';
 
@@ -29,11 +38,24 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { mode, setMode } = useThemeMode();
   const [gyms, setGyms] = useState<Gym[]>([]);
+  const [lastAutoBackup, setLastAutoBackup] = useState<string | null>(null);
+  const [autoBackups, setAutoBackups] = useState<AutoBackupFile[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const loadBackupState = useCallback(async () => {
+    setLastAutoBackup(await getLastAutoBackupAt(db));
+    try {
+      setAutoBackups(listAutoBackups());
+    } catch {
+      setAutoBackups([]); // a missing directory is not an error worth an alert
+    }
+  }, [db]);
 
   useFocusEffect(
     useCallback(() => {
       getGyms(db, { includeArchived: true }).then(setGyms);
-    }, [db]),
+      void loadBackupState();
+    }, [db, loadBackupState]),
   );
 
   const onExport = async () => {
@@ -47,6 +69,30 @@ export default function SettingsScreen() {
     }
   };
 
+  /** Shared confirm + replace step for both restore paths (file picker and auto-backup). */
+  const confirmRestore = (data: BackupData, source: string) => {
+    Alert.alert(
+      'Backup einspielen?',
+      `Ersetzt alle aktuellen Daten durch ${source}:\n${plural(data.exercises.length, 'Übung', 'Übungen')} · ${plural(data.plans.length, 'Plan', 'Pläne')} · ${plural(data.workouts.length, 'Einheit', 'Einheiten')}.`,
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Einspielen',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await restoreBackup(db, data);
+              await loadBackupState();
+              Alert.alert('Import abgeschlossen', 'Deine Daten wurden ersetzt.');
+            } catch (e) {
+              Alert.alert('Import fehlgeschlagen', errorMessage(e));
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const onImport = async () => {
     let data: BackupData | null;
     try {
@@ -56,27 +102,27 @@ export default function SettingsScreen() {
       return;
     }
     if (!data) return; // canceled
+    confirmRestore(data, 'die gewählte Datei');
+  };
 
-    const picked = data;
-    Alert.alert(
-      'Backup importieren?',
-      `Ersetzt alle aktuellen Daten durch:\n${picked.exercises.length} Übungen · ${picked.plans.length} Pläne · ${picked.workouts.length} Einheiten.`,
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        {
-          text: 'Importieren',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await restoreBackup(db, picked);
-              Alert.alert('Import abgeschlossen', 'Deine Daten wurden ersetzt.');
-            } catch (e) {
-              Alert.alert('Import fehlgeschlagen', errorMessage(e));
-            }
-          },
-        },
-      ],
-    );
+  const onBackupNow = async () => {
+    setBusy(true);
+    try {
+      await runAutoBackup(db, new Date().toISOString());
+      await loadBackupState();
+    } catch (e) {
+      Alert.alert('Backup fehlgeschlagen', errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onRestoreAuto = async (file: AutoBackupFile) => {
+    try {
+      confirmRestore(await readAutoBackup(file.name), `das Backup vom ${file.date}`);
+    } catch (e) {
+      Alert.alert('Backup nicht lesbar', errorMessage(e));
+    }
   };
 
   return (
@@ -106,6 +152,34 @@ export default function SettingsScreen() {
           variant="secondary"
           onPress={() => router.push('/gym/edit')}
         />
+      </View>
+
+      <View style={styles.block}>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.label}>
+          AUTOMATISCHES BACKUP
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {`Beim Start sichert sich ${APP_NAME} einmal täglich selbst; die letzten ${AUTO_BACKUP_KEEP} Sicherungen bleiben erhalten. Sie liegen auf diesem Gerät — sie schützen vor versehentlichem Löschen, nicht vor Geräteverlust. Dafür ist der Export unten da.`}
+        </ThemedText>
+        <ListRow
+          title="Letztes Auto-Backup"
+          subtitle={formatBackupAge(lastAutoBackup, new Date().toISOString())}
+        />
+        <Button
+          label="Jetzt sichern"
+          icon="save-outline"
+          variant="secondary"
+          loading={busy}
+          onPress={onBackupNow}
+        />
+        {autoBackups.map((file) => (
+          <ListRow
+            key={file.name}
+            title={file.date}
+            subtitle={`${Math.max(1, Math.round((file.size ?? 0) / 1024))} KB · tippen zum Einspielen`}
+            onPress={() => onRestoreAuto(file)}
+          />
+        ))}
       </View>
 
       <View style={styles.block}>
