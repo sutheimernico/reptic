@@ -199,6 +199,47 @@ describe('getFinishedWorkoutSummaries', () => {
   });
 });
 
+describe('getFinishedWorkoutSummaries at scale', () => {
+  it('reports zero totals for a finished session without any sets', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const workoutId = await startWorkout(db, [], gym, '2026-08-01T10:00:00.000Z');
+    await finishWorkout(db, workoutId, '2026-08-01T10:05:00.000Z');
+
+    const [summary] = await getFinishedWorkoutSummaries(db);
+    expect(summary).toMatchObject({ exerciseCount: 0, setCount: 0, volume: 0, distanceKm: 0 });
+  });
+
+  it('sums the cardio distance per session', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const bike = await createExercise(db, 'Ergometer', 'Cardio');
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bike,
+      startedAt: '2026-08-02T10:00:00.000Z', finishedAt: '2026-08-02T10:40:00.000Z',
+      sets: [{ distanceKm: 5 }, { distanceKm: 2.5, durationSec: 600 }],
+    });
+
+    const [summary] = await getFinishedWorkoutSummaries(db);
+    expect(summary.distanceKm).toBe(7.5);
+  });
+
+  it('aggregates the sets in one pass instead of re-scanning them per session', async () => {
+    // Regression guard for the 2.3 s Verlauf query: SQLite reports a scalar
+    // sub-select that re-runs per history row as CORRELATED. Without an index
+    // on workout_id each of those runs scanned the whole set table.
+    const { raw, db, queries } = openDb();
+    await migrateDbIfNeeded(db);
+    const before = queries.count;
+    await getFinishedWorkoutSummaries(db);
+    expect(queries.count - before).toBe(1);
+
+    const sql = queries.statements.at(-1) as string;
+    const plan = raw.prepare(`EXPLAIN QUERY PLAN ${sql}`).all() as { detail: string }[];
+    expect(plan.map((row) => row.detail).join('\n')).not.toMatch(/CORRELATED/);
+  });
+});
+
 describe('getLastSetsForExercise', () => {
   it('prefers the same gym over a more recent session elsewhere', async () => {
     const db = await freshDb();

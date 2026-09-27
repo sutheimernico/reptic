@@ -77,5 +77,17 @@ export interface WorkoutSet {
   done: boolean;
 }
 
+/** What one session added up to — performed work only. */
+export interface SessionTotals {
+  /** Distinct exercises with at least one performed set. */
+  exerciseCount: number;
+  /** Performed sets; carried-over-but-untouched rows don't count. */
+  setCount: number;
+  /** Σ weight_kg × reps (kg). */
+  volume: number;
+  /** Σ distance_km across cardio sets. */
+  distanceKm: number;
+}
+
 /** How the app resolves which color scheme to show. */
 export type ThemeMode = 'system' | 'light' | 'dark';

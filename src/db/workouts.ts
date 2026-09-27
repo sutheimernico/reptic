@@ -18,9 +18,16 @@ import {
   type WorkoutRow,
 } from '@/db/rows';
 import { LAST_GYM_SETTING, setSetting } from '@/db/settings';
+import { mapSessionTotals, sessionTotalsSql, type SessionTotalsRow } from '@/db/totals';
 import { mergePlanExercises, type PlanExercises } from '@/domain/plans';
 import type { SessionMuscleTotals } from '@/domain/weeks';
-import type { Exercise, MuscleGroup, Workout, WorkoutExercise } from '@/domain/types';
+import type {
+  Exercise,
+  MuscleGroup,
+  SessionTotals,
+  Workout,
+  WorkoutExercise,
+} from '@/domain/types';
 
 export async function startWorkout(
   db: SQLiteDatabase,
@@ -70,45 +77,28 @@ export async function getWorkout(db: SQLiteDatabase, id: number): Promise<Workou
   return row ? mapWorkout(row) : null;
 }
 
-export interface WorkoutSummary extends Workout {
-  /** Distinct exercises with at least one performed set (reps entered). */
-  exerciseCount: number;
-  /** Performed sets (reps entered); carried-over-but-untouched rows don't count. */
-  setCount: number;
-  /** Σ weight_kg × reps across the session's sets (kg). */
-  volume: number;
+export interface WorkoutSummary extends Workout, SessionTotals {
   gymName: string;
 }
 
 /**
- * Finished sessions with per-session counts for the history list, newest first.
+ * Finished sessions with per-session totals for the history list, newest first.
  * Pass `range` to restrict to finished_at ∈ [from, to) — used by the calendar.
+ *
+ * The totals come from one grouped pass over the sets (see `./totals`), joined
+ * once — joining workout_exercises AND workout_sets directly would
+ * cross-multiply the rows and inflate the counts.
  */
 export async function getFinishedWorkoutSummaries(
   db: SQLiteDatabase,
   range?: { from: string; to: string },
 ): Promise<WorkoutSummary[]> {
-  // Correlated subqueries, not joins: joining workout_exercises AND workout_sets
-  // at once would cross-multiply the rows and inflate the counts.
-  // "Performed" = reps IS NOT NULL: opening an exercise pre-fills carried-over
-  // weights with empty reps, so those unfilled rows must not count as done work.
-  const rows = await db.getAllAsync<
-    WorkoutRow & { exercise_count: number; set_count: number; volume: number; gym_name: string }
-  >(
-    // "Performed" = reps entered (strength) OR a cardio metric entered, so a
-    // cardio-only session still counts. Opening an exercise pre-fills settings
-    // with empty performance, so those untouched rows must not count.
-    `SELECT w.*,
-       (SELECT COUNT(DISTINCT ws.exercise_id) FROM workout_sets ws
-          WHERE ws.workout_id = w.id
-            AND (ws.reps IS NOT NULL OR ws.duration_sec IS NOT NULL OR ws.distance_km IS NOT NULL)) AS exercise_count,
-       (SELECT COUNT(*) FROM workout_sets ws
-          WHERE ws.workout_id = w.id
-            AND (ws.reps IS NOT NULL OR ws.duration_sec IS NOT NULL OR ws.distance_km IS NOT NULL)) AS set_count,
-       (SELECT COALESCE(SUM(ws.weight_kg * ws.reps), 0) FROM workout_sets ws
-          WHERE ws.workout_id = w.id) AS volume,
-       (SELECT g.name FROM gyms g WHERE g.id = w.gym_id) AS gym_name
+  const rows = await db.getAllAsync<WorkoutRow & SessionTotalsRow & { gym_name: string }>(
+    `SELECT w.*, g.name AS gym_name,
+            t.exercise_count, t.set_count, t.volume, t.distance
      FROM workouts w
+     LEFT JOIN gyms g ON g.id = w.gym_id
+     LEFT JOIN (${sessionTotalsSql()}) t ON t.workout_id = w.id
      WHERE w.finished_at IS NOT NULL
        ${range ? 'AND w.finished_at >= ? AND w.finished_at < ?' : ''}
      ORDER BY w.finished_at DESC`,
@@ -116,9 +106,7 @@ export async function getFinishedWorkoutSummaries(
   );
   return rows.map((r) => ({
     ...mapWorkout(r),
-    exerciseCount: r.exercise_count,
-    setCount: r.set_count,
-    volume: r.volume,
+    ...mapSessionTotals(r),
     gymName: r.gym_name,
   }));
 }
