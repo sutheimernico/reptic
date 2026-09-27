@@ -197,3 +197,13 @@ One line per completed loop iteration (newest at bottom).
   in the 2026-07-10 sweep) and its import broke every test touching the theme — deleted.
   Needs Nico: device smoke test (checklist at the end of the plan), feel-veto on timer /
   haptics / plate defaults, then versionCode 6.
+- 2026-09-27 — v1.2 "Trainingsbegleiter" (plan: docs/superpowers/plans/2026-09-27-v1.2-trainingsbegleiter.md).
+  Double-progression hint per exercise (global rep target 12 / step 2.5 kg as settings,
+  plate-aware rounding, quiet without history or in another gym, explicit "Übernehmen"),
+  session summary after finishing (+ from history detail) with records and delta vs the
+  last same-plan session, live session clock in both session headers. Perf: Verlauf query
+  was O(sessions × sets) via correlated sub-selects — 2,281 ms → 24 ms on a 3-year dataset,
+  no index/migration. Icon task dropped: art is already real since Phase 12 (stale
+  Needs-Nico line fixed). Tests 179 → 240; tsc + lint + expo export (4.3 MB) clean; schema
+  v3 and app.json untouched, versionCode stays 5, NO build. Needs Nico: v1.1 + v1.2 smoke
+  tests, feel-vetoes, then versionCode 6.

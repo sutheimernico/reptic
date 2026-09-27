@@ -187,17 +187,40 @@ deviations and the device smoke-test checklist lives at the end of that plan.
       real SQLite; 12 screen tests over the mutating flows
 - [x] Verlauf/Pläne virtualized as FlatList, Übungen as SectionList with sticky headers
 
+## Phase 16 — Trainingsbegleiter v1.2 (2026-09-27) ✅
+
+Plan + Outcome: `docs/superpowers/plans/2026-09-27-v1.2-trainingsbegleiter.md` (4 feature/perf
+commits, tests 179 → 240). Schema untouched (still v3), no new dependency, `app.json`
+untouched — versionCode stays 5, the build is Nico's step.
+
+- [x] Double-progression hint per exercise ("Vorschlag: 62.5 kg" / "bei 60 kg bleiben"),
+      rounded to loadable plates, quiet without history / in another gym; explicit
+      "Übernehmen"; rep target + step in Einstellungen
+- [x] Verlauf query as one grouped pass — 2.3 s → 24 ms on a 3-year dataset (it was
+      O(sessions × sets)); query-plan regression test
+- [x] Session summary after "Einheit beenden" (duration, sets, volume, distance, records,
+      delta vs the last session with the same plans), reachable from the history detail
+- [x] Live session clock in the session and set-screen headers (timestamp-based)
+- [x] ~~Icon/splash art~~ — dropped: already real since Phase 12 (Nico's design D); the
+      stale Needs-Nico line below is corrected
+
 ## Needs Nico
 
 - [x] On-device verify of the gym-save fix (2026-07-07, Nico via Expo Go tunnel: gyms +
       exercises save and survive an app kill; failures would now surface as alerts)
 - [x] APK/EAS build (2026-07-07: EAS project @nico_su2004/reptic linked, cloud keystore,
       preview APK built — build 575c3575; `production` profile ready for a future store release)
-- [ ] Visual / feel sign-off on a real device — the v1.1 smoke-test checklist is at the
-      end of `docs/superpowers/plans/2026-07-21-daily-gym-companion.md`, then versionCode 6
+- [ ] Visual / feel sign-off on a real device — two smoke-test checklists, both at the end
+      of their plans: v1.1 in `docs/superpowers/plans/2026-07-21-daily-gym-companion.md`,
+      v1.2 in `docs/superpowers/plans/2026-09-27-v1.2-trainingsbegleiter.md`; then build
+      versionCode 6
 - [ ] Feel-veto on the v1.1 defaults: rest 2:00, haptic strength, plate stock (bar 20 kg,
       2 pairs each of 25/20/15/10/5/2.5/1.25)
+- [ ] Feel-veto on the v1.2 defaults: rep target 12 (one global value — say if single
+      exercises need their own), progression step 2.5 kg, only "more than last time" is
+      coloured green in the summary, clock with seconds
 - [ ] Confirm product name `Reptic` (or rename via `constants/app.ts`)
 - [ ] Create Google Cloud OAuth client(s) — Web + Android client ID with the signing SHA-1 —
       for the Drive backup sign-in; the login code can't go live without them
-- [ ] Replace the Expo-template icon/splash art (foreground PNGs) with real Reptic art
+- [x] ~~Replace the Expo-template icon/splash art~~ — stale: the barbell art (design D,
+      Nico's pick) has been live since Phase 12 (`9b0739d`, 2026-07-07)

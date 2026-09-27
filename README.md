@@ -10,7 +10,15 @@ typed fresh, and a grey `↳ letztes Mal: 80 kg × 8` line shows the target to b
 ## Features
 
 - **Heute** — pick one or more plans (or an empty session), then log each exercise
-  set by set with last-time carry-over. Resume an in-progress session.
+  set by set with last-time carry-over. Resume an in-progress session; a live clock in
+  the header shows how long it has been running.
+- **Progression** — per exercise, a double-progression hint from last time: once every
+  working set reached the rep target (default 12), "Vorschlag: +2.5 kg" (rounded to what
+  the plates can load), otherwise "bei X kg bleiben". Advice only; "Übernehmen" applies
+  it on tap. Quiet without history or when last time was in another gym.
+- **Zusammenfassung** — finishing a session shows duration, sets, volume, cardio
+  distance, the records it set and the change against the last session with the same
+  plans; reachable again from the history detail.
 - **Pause & Rekorde** — ticking a set done starts a rest timer (configurable, off-switch)
   that keeps counting across the whole session flow, and flags a personal record:
   heaviest weight, best Epley 1RM estimate, longest distance or fastest pace. A record
@@ -26,7 +34,8 @@ typed fresh, and a grey `↳ letztes Mal: 80 kg × 8` line shows the target to b
   bars), a month calendar, and **Trends**: volume per ISO week, per muscle group and
   weekly cardio distance over the last 12 weeks (untrained weeks shown as zero, never
   interpolated).
-- **Einstellungen** — system/light/dark theme, rest duration, vibration, plate setup,
+- **Einstellungen** — system/light/dark theme, rest duration, rep target + progression
+  step, vibration, plate setup,
   gyms, an **automatic daily on-device backup** (newest 7, restorable in-app) and JSON
   **backup export/import** (share to Drive/Files, restore on a new device).
 
@@ -85,8 +94,6 @@ The build environment here has no Java/Android SDK, so the following are done by
   user's own Google Drive (`appDataFolder`) — no backend. It needs a Google Cloud OAuth
   client (Web + Android client ID with the signing SHA-1) and a dev build (native module,
   not Expo Go). Until then, local JSON export/import covers device migration.
-- **Icon/splash art**: the foreground images are still the Expo template; only the
-  colors are branded.
 
 ## Data & privacy
 
