@@ -12,6 +12,7 @@ import {
   parseWeight,
   plural,
   formatDistance,
+  formatElapsed,
   formatSessionDuration,
   formatSigned,
 } from '@/domain/format';
@@ -214,5 +215,19 @@ describe('formatDistance', () => {
   it('drops trailing zeros', () => {
     expect(formatDistance(5)).toBe('5 km');
     expect(formatDistance(7.5)).toBe('7.5 km');
+  });
+});
+
+describe('formatElapsed', () => {
+  it('shows minutes and seconds in the first hour, then hours', () => {
+    expect(formatElapsed(0)).toBe('0:00');
+    expect(formatElapsed(7)).toBe('0:07');
+    expect(formatElapsed(42 * 60 + 7)).toBe('42:07');
+    expect(formatElapsed(3600 + 2 * 60 + 7)).toBe('1:02:07');
+  });
+
+  it('never shows a negative or broken clock', () => {
+    expect(formatElapsed(-3)).toBe('0:00');
+    expect(formatElapsed(Number.NaN)).toBe('0:00');
   });
 });

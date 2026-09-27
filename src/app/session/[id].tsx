@@ -11,6 +11,7 @@ import ReorderableList, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RestTimerBanner, useRestTimer } from '@/components/rest-timer';
+import { SessionClock } from '@/components/session-clock';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListRow } from '@/components/ui/list-row';
@@ -77,12 +78,16 @@ export default function SessionScreen() {
   const [exercises, setExercises] = useState<WorkoutExerciseWithExercise[]>([]);
   const [progress, setProgress] = useState<Map<number, SetProgress>>(new Map());
   const [gymName, setGymName] = useState<string | null>(null);
+  const [startedAt, setStartedAt] = useState<string | null>(null);
 
   const load = useCallback(() => {
     getWorkoutExercises(db, workoutId).then(setExercises);
     getSetProgressForWorkout(db, workoutId).then(setProgress);
     getWorkout(db, workoutId)
-      .then((w) => (w ? getGym(db, w.gymId) : null))
+      .then((w) => {
+        setStartedAt(w?.startedAt ?? null);
+        return w ? getGym(db, w.gymId) : null;
+      })
       .then((g) => setGymName(g?.name ?? null));
   }, [db, workoutId]);
 
@@ -149,7 +154,11 @@ export default function SessionScreen() {
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
       <Stack.Screen
-        options={{ headerShown: true, title: gymName ? `Einheit · ${gymName}` : 'Einheit' }}
+        options={{
+          headerShown: true,
+          title: gymName ? `Einheit · ${gymName}` : 'Einheit',
+          headerRight: () => <SessionClock startedAt={startedAt} />,
+        }}
       />
       <ReorderableList
         data={exercises}

@@ -1,7 +1,8 @@
 /**
- * Pure logic behind the session summary: how long a session took, which
- * earlier session it is fairly compared with, the deltas, and the records it
- * set. The data layer supplies the raw numbers; the screen only renders.
+ * Pure logic behind the session summary and the live session clock: how long a
+ * session took (or has been running), which earlier session it is fairly
+ * compared with, the deltas, and the records it set. The data layer supplies
+ * the raw numbers; the screens only render.
  */
 
 import {
@@ -20,6 +21,16 @@ export function sessionDurationSec(startedAt: string, finishedAt: string | null)
   const ms = Date.parse(finishedAt) - Date.parse(startedAt);
   if (!Number.isFinite(ms)) return null;
   return Math.max(0, Math.round(ms / 1000));
+}
+
+/**
+ * Seconds a running session has lasted at `nowMs`. Derived from the start
+ * timestamp on every call — like the rest timer — so time spent in the
+ * background counts instead of freezing the clock. Never negative.
+ */
+export function elapsedSeconds(startedAt: string, nowMs: number): number {
+  const ms = nowMs - Date.parse(startedAt);
+  return Number.isFinite(ms) ? Math.max(0, Math.floor(ms / 1000)) : 0;
 }
 
 /**

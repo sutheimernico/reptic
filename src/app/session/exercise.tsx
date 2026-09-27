@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PlateSheet } from '@/components/plate-sheet';
 import { RestTimerBanner, useRestTimer } from '@/components/rest-timer';
+import { SessionClock } from '@/components/session-clock';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Radius, Spacing } from '@/constants/theme';
@@ -184,6 +185,7 @@ export default function ExerciseSetScreen() {
   const [plateOpen, setPlateOpen] = useState(false);
   /** Double-progression advice from last time; null when there is nothing honest to say. */
   const [hint, setHint] = useState<ProgressionHint | null>(null);
+  const [startedAt, setStartedAt] = useState<string | null>(null);
 
   useEffect(() => {
     rowsRef.current = rows;
@@ -237,6 +239,7 @@ export default function ExerciseSetScreen() {
         bestsRef.current = bests;
         setIsCardio(cardio);
         setHint(nextHint);
+        setStartedAt(workout?.startedAt ?? null);
         setPrior(priorSets);
         setPriorGymName(sourceGymName);
         setRows(toRows(current));
@@ -388,7 +391,13 @@ export default function ExerciseSetScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
-      <Stack.Screen options={{ headerShown: true, title: params.name ?? 'Übung' }} />
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: params.name ?? 'Übung',
+          headerRight: () => <SessionClock startedAt={startedAt} />,
+        }}
+      />
       <ScrollView
         contentContainerStyle={styles.body}
         keyboardShouldPersistTaps="handled"

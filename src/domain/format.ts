@@ -181,3 +181,15 @@ export function formatSigned(delta: number, format: (abs: number) => string): st
   if (delta === 0) return `±${format(0)}`;
   return `${delta > 0 ? '+' : '−'}${format(Math.abs(delta))}`;
 }
+
+/**
+ * A running clock: `42:07` within the first hour, `1:02:07` after. Seconds are
+ * shown because the clock ticks live in the session header.
+ */
+export function formatElapsed(sec: number): string {
+  const total = Math.max(0, Math.floor(Number.isFinite(sec) ? sec : 0));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+}

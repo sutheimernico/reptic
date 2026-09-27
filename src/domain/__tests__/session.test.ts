@@ -1,6 +1,7 @@
 import { MIN_SESSIONS_FOR_PR, NO_BESTS } from '@/domain/personal-records';
 import {
   compareSessions,
+  elapsedSeconds,
   NO_TOTALS,
   samePlanSet,
   sessionDurationSec,
@@ -109,5 +110,21 @@ describe('summarizeSession', () => {
       recordInputs: [],
     });
     expect(summary.comparison?.setCount).toBe(-2);
+  });
+});
+
+describe('elapsedSeconds', () => {
+  const start = '2026-09-27T10:00:00.000Z';
+  const at = (iso: string) => Date.parse(iso);
+
+  it('is the whole seconds since the start, recomputed from the clock', () => {
+    expect(elapsedSeconds(start, at('2026-09-27T10:00:59.900Z'))).toBe(59);
+    // Two hours in the background are simply two hours later — nothing froze.
+    expect(elapsedSeconds(start, at('2026-09-27T12:00:00.000Z'))).toBe(7200);
+  });
+
+  it('never runs backwards or breaks on a bad timestamp', () => {
+    expect(elapsedSeconds(start, at('2026-09-27T09:59:00.000Z'))).toBe(0);
+    expect(elapsedSeconds('garbage', Date.now())).toBe(0);
   });
 });
