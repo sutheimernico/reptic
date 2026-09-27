@@ -147,6 +147,53 @@ describe('set screen', () => {
     });
   });
 
+  it('suggests going heavier once last time hit the rep target, and applies it only on tap', async () => {
+    await pastSession(1, 80, 12);
+    const { view, workoutExerciseId } = await openExercise();
+
+    expect(view.getByText('Vorschlag: 82.5 kg')).toBeTruthy();
+    // Advice, not an edit: the field still carries last time's weight.
+    expect(view.getByLabelText('KG').props.value).toBe('80');
+
+    await fireEvent.press(view.getByLabelText('Vorschlag übernehmen: 82.5 kg'));
+
+    expect(view.getByLabelText('KG').props.value).toBe('82.5');
+    await waitFor(async () => {
+      const [saved] = await getSetsForWorkoutExercise(db, workoutExerciseId);
+      expect(saved).toMatchObject({ weightKg: 82.5, reps: null, done: false });
+    });
+    expect(view.queryByText('Übernehmen')).toBeNull(); // nothing left to move
+  });
+
+  it('says to stay at the weight while the reps are short, with nothing to apply', async () => {
+    await pastSession(1, 80, 9);
+    const { view } = await openExercise();
+
+    expect(view.getByText('Vorschlag: bei 80 kg bleiben')).toBeTruthy();
+    expect(view.queryByText('Übernehmen')).toBeNull();
+  });
+
+  it('gives no progression advice built on another gym', async () => {
+    const otherGym = await createGym(db, 'Bersenbrück');
+    const workoutId = await startWorkout(db, [], otherGym, '2026-08-01T10:00:00.000Z');
+    const we = await addWorkoutExercise(db, workoutId, exerciseId);
+    await insertSet(db, {
+      workoutId,
+      workoutExerciseId: we,
+      exerciseId,
+      setNumber: 1,
+      weightKg: 80,
+      reps: 12,
+      done: true,
+    });
+    await finishWorkout(db, workoutId, '2026-08-01T11:00:00.000Z');
+
+    const { view } = await openExercise();
+
+    expect(view.getByText(/letztes Mal im Bersenbrück/)).toBeTruthy();
+    expect(view.queryByText(/^Vorschlag/)).toBeNull();
+  });
+
   it('starts the rest timer when a set is ticked, not when it is un-ticked', async () => {
     const { view } = await openExercise();
 

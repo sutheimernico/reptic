@@ -25,6 +25,7 @@ import {
   getExercise,
   getExerciseBests,
   getLastSetsForExercise,
+  getSetting,
   getSetsForWorkoutExercise,
   getWorkout,
   insertSet,
@@ -48,6 +49,17 @@ import {
   type PrKind,
   withSet,
 } from '@/domain/personal-records';
+import { parsePlateSetup, PLATE_SETUP_SETTING } from '@/domain/plates';
+import {
+  describeHint,
+  INCREMENT_SETTING,
+  parseIncrement,
+  parseRepTarget,
+  type ProgressionHint,
+  REP_TARGET_SETTING,
+  rowsToBump,
+  suggestProgression,
+} from '@/domain/progression';
 import { createInitialSets, referenceLabel, type PriorSet } from '@/domain/sets';
 import type { WorkoutSet } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
@@ -170,6 +182,8 @@ export default function ExerciseSetScreen() {
   /** Target of the plate sheet; null while it is closed. */
   const [plateTarget, setPlateTarget] = useState<number | null>(null);
   const [plateOpen, setPlateOpen] = useState(false);
+  /** Double-progression advice from last time; null when there is nothing honest to say. */
+  const [hint, setHint] = useState<ProgressionHint | null>(null);
 
   useEffect(() => {
     rowsRef.current = rows;
@@ -187,6 +201,20 @@ export default function ExerciseSetScreen() {
         workoutId,
       );
       const bests = await getExerciseBests(db, exerciseId, workoutId);
+      const cardio = exercise?.muscleGroup === 'Cardio';
+      // Sets from another gym were lifted on other machines — advice built on
+      // them would be confidently wrong, so the hint stays quiet there.
+      const nextHint =
+        cardio || sourceGymName !== null
+          ? null
+          : suggestProgression(
+              priorSets,
+              {
+                repTarget: parseRepTarget(await getSetting(db, REP_TARGET_SETTING)),
+                incrementKg: parseIncrement(await getSetting(db, INCREMENT_SETTING)),
+              },
+              parsePlateSetup(await getSetting(db, PLATE_SETUP_SETTING)),
+            );
       let current = await getSetsForWorkoutExercise(db, workoutExerciseId);
       if (current.length === 0) {
         for (const draft of createInitialSets(priorSets)) {
@@ -207,7 +235,8 @@ export default function ExerciseSetScreen() {
       }
       if (active) {
         bestsRef.current = bests;
-        setIsCardio(exercise?.muscleGroup === 'Cardio');
+        setIsCardio(cardio);
+        setHint(nextHint);
         setPrior(priorSets);
         setPriorGymName(sourceGymName);
         setRows(toRows(current));
@@ -320,6 +349,30 @@ export default function ExerciseSetScreen() {
     ]);
   };
 
+  /** Rows the "Übernehmen" tap would move — open sets still at last time's working weight. */
+  const bumpable = (list: Row[]): number[] =>
+    hint?.kind === 'increase'
+      ? rowsToBump(
+          list.map((r) => ({ weightKg: parseWeight(r.weightText), done: r.done })),
+          hint.fromKg,
+        )
+      : [];
+
+  // Explicit only: the hint never edits a field on its own.
+  const applyHint = () => {
+    if (hint?.kind !== 'increase') return;
+    const current = rowsRef.current;
+    const indices = bumpable(current);
+    if (indices.length === 0) return;
+    const weightText = formatWeight(hint.toKg);
+    const next = current.map((r, i) => (indices.includes(i) ? { ...r, weightText } : r));
+    rowsRef.current = next;
+    setRows(next);
+    void Promise.all(indices.map((i) => updateSet(db, next[i].id, fieldsOf(next[i])))).catch(
+      showSaveError,
+    );
+  };
+
   const finish = async () => {
     await flush();
     leavingRef.current = 'done'; // already flushed — don't hold the pop again
@@ -340,6 +393,37 @@ export default function ExerciseSetScreen() {
         contentContainerStyle={styles.body}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
+        {hint ? (
+          <View
+            style={[
+              styles.progression,
+              { backgroundColor: c.backgroundElement, borderColor: c.border },
+            ]}>
+            <Ionicons
+              name={hint.kind === 'increase' ? 'trending-up' : 'repeat'}
+              size={18}
+              color={c.accent}
+            />
+            <View style={styles.progressionTexts}>
+              <Text style={[styles.progressionTitle, { color: c.text }]}>
+                {describeHint(hint).title}
+              </Text>
+              <ThemedText type="small" themeColor="textSecondary">
+                {describeHint(hint).detail}
+              </ThemedText>
+            </View>
+            {hint.kind === 'increase' && bumpable(rows).length > 0 ? (
+              <Pressable
+                onPress={applyHint}
+                accessibilityRole="button"
+                accessibilityLabel={`Vorschlag übernehmen: ${formatWeight(hint.toKg)} kg`}
+                hitSlop={8}>
+                <Text style={[styles.progressionAction, { color: c.accent }]}>Übernehmen</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+
         {rows.map((row, i) => {
           const refLabel = referenceFor(prior[i]);
           return (
@@ -510,6 +594,19 @@ const styles = StyleSheet.create({
   },
   prText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
   hint: { marginTop: Spacing.one, textAlign: 'center' },
+  progression: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    padding: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    marginBottom: Spacing.one,
+  },
+  progressionTexts: { flex: 1 },
+  progressionTitle: { fontSize: 15, fontWeight: '700' },
+  progressionAction: { fontSize: 14, fontWeight: '700' },
   footer: {
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,

@@ -23,6 +23,16 @@ import {
   type PlateSetup,
   serializePlateSetup,
 } from '@/domain/plates';
+import {
+  DEFAULT_INCREMENT_KG,
+  DEFAULT_REP_TARGET,
+  INCREMENT_SETTING,
+  parseIncrement,
+  parseRepTarget,
+  REP_TARGET_SETTING,
+  stepIncrement,
+  stepRepTarget,
+} from '@/domain/progression';
 import { REST_OFF, stepRestSeconds } from '@/domain/rest-timer';
 import type { Gym, ThemeMode } from '@/domain/types';
 import {
@@ -61,6 +71,8 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState(false);
   const [haptics, setHaptics] = useState(true);
   const [plates, setPlates] = useState<PlateSetup>(DEFAULT_PLATE_SETUP);
+  const [repTarget, setRepTarget] = useState(DEFAULT_REP_TARGET);
+  const [increment, setIncrement] = useState(DEFAULT_INCREMENT_KG);
   const c = useTheme();
 
   const loadBackupState = useCallback(async () => {
@@ -77,6 +89,8 @@ export default function SettingsScreen() {
       getGyms(db, { includeArchived: true }).then(setGyms);
       getSetting(db, HAPTICS_SETTING).then((v) => setHaptics(parseHapticsSetting(v)));
       getSetting(db, PLATE_SETUP_SETTING).then((v) => setPlates(parsePlateSetup(v)));
+      getSetting(db, REP_TARGET_SETTING).then((v) => setRepTarget(parseRepTarget(v)));
+      getSetting(db, INCREMENT_SETTING).then((v) => setIncrement(parseIncrement(v)));
       void loadBackupState();
     }, [db, loadBackupState]),
   );
@@ -145,6 +159,16 @@ export default function SettingsScreen() {
     setHapticsEnabled(next);
     void setSetting(db, HAPTICS_SETTING, next ? '1' : '0');
     if (next) haptic('set-done'); // let the user feel what they just switched on
+  };
+
+  const saveRepTarget = (next: number) => {
+    setRepTarget(next);
+    void setSetting(db, REP_TARGET_SETTING, String(next));
+  };
+
+  const saveIncrement = (next: number) => {
+    setIncrement(next);
+    void setSetting(db, INCREMENT_SETTING, String(next));
   };
 
   const savePlates = (next: PlateSetup) => {
@@ -220,6 +244,42 @@ export default function SettingsScreen() {
                 name="add-circle-outline"
                 accessibilityLabel="Pause verlängern"
                 onPress={() => setRestSeconds(stepRestSeconds(restSeconds, 1))}
+              />
+            </View>
+          }
+        />
+        <ListRow
+          title="Wdh.-Ziel für Steigerung"
+          subtitle={`${repTarget} Wdh. in jedem Satz → nächstes Mal schwerer`}
+          right={
+            <View style={styles.stepper}>
+              <IconButton
+                name="remove-circle-outline"
+                accessibilityLabel="Wiederholungsziel senken"
+                onPress={() => saveRepTarget(stepRepTarget(repTarget, -1))}
+              />
+              <IconButton
+                name="add-circle-outline"
+                accessibilityLabel="Wiederholungsziel erhöhen"
+                onPress={() => saveRepTarget(stepRepTarget(repTarget, 1))}
+              />
+            </View>
+          }
+        />
+        <ListRow
+          title="Steigerung"
+          subtitle={`+${formatWeight(increment)} kg pro Schritt, auf ladbare Scheiben gerundet`}
+          right={
+            <View style={styles.stepper}>
+              <IconButton
+                name="remove-circle-outline"
+                accessibilityLabel="Steigerung verkleinern"
+                onPress={() => saveIncrement(stepIncrement(increment, -1))}
+              />
+              <IconButton
+                name="add-circle-outline"
+                accessibilityLabel="Steigerung vergrößern"
+                onPress={() => saveIncrement(stepIncrement(increment, 1))}
               />
             </View>
           }
