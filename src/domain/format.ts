@@ -153,3 +153,31 @@ function groupThousands(n: number): string {
 export function formatVolume(kg: number): string {
   return `${groupThousands(Math.round(kg))} kg`;
 }
+
+/** A distance for summaries: `5.5 km`. */
+export function formatDistance(km: number): string {
+  return `${formatWeight(km)} km`;
+}
+
+/**
+ * How long a session took, for the summary: `42 min`, `1 h 5 min`, `2 h`.
+ * `—` when unknown (a session without an end).
+ */
+export function formatSessionDuration(sec: number | null): string {
+  if (sec === null || !Number.isFinite(sec) || sec < 0) return '—';
+  if (sec < 60) return '< 1 min';
+  const minutes = Math.round(sec / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}
+
+/**
+ * A change with its sign, formatted by `format` on the absolute value:
+ * `+320 kg`, `−2`, `±0 min`. Uses the real minus sign so it lines up with plus.
+ */
+export function formatSigned(delta: number, format: (abs: number) => string): string {
+  if (delta === 0) return `±${format(0)}`;
+  return `${delta > 0 ? '+' : '−'}${format(Math.abs(delta))}`;
+}

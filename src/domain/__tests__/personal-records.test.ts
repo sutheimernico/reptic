@@ -6,6 +6,7 @@ import {
   MIN_SESSIONS_FOR_PR,
   NO_BESTS,
   paceKmh,
+  sessionRecords,
   withSet,
 } from '@/domain/personal-records';
 
@@ -144,5 +145,40 @@ describe('describeRecords', () => {
   it('names the records in German', () => {
     expect(describeRecords(['weight'])).toBe('schwerstes Gewicht');
     expect(describeRecords(['distance', 'pace'])).toBe('weiteste Strecke · höchstes Tempo');
+  });
+});
+
+describe('sessionRecords', () => {
+  const tops = (over: Partial<ExerciseBests> = {}) => ({
+    topWeightKg: null,
+    topE1rm: null,
+    topDistanceKm: null,
+    topPaceKmh: null,
+    ...over,
+  });
+
+  it('names every measure the session beat', () => {
+    const before = seasoned({ topWeightKg: 80, topE1rm: 100 });
+    expect(sessionRecords(tops({ topWeightKg: 82.5, topE1rm: 104 }), before)).toEqual([
+      'weight',
+      'e1rm',
+    ]);
+  });
+
+  it('treats a tie as no record', () => {
+    const before = seasoned({ topWeightKg: 80, topDistanceKm: 5 });
+    expect(sessionRecords(tops({ topWeightKg: 80, topDistanceKm: 5 }), before)).toEqual([]);
+  });
+
+  it('stays quiet while the exercise is new, like the live badge', () => {
+    const before = { ...seasoned({ topWeightKg: 80 }), priorSessions: MIN_SESSIONS_FOR_PR - 1 };
+    expect(sessionRecords(tops({ topWeightKg: 200 }), before)).toEqual([]);
+  });
+
+  it('covers the cardio measures', () => {
+    const before = seasoned({ topDistanceKm: 5, topPaceKmh: 10 });
+    expect(sessionRecords(tops({ topDistanceKm: 6, topPaceKmh: 9 }), before)).toEqual([
+      'distance',
+    ]);
   });
 });

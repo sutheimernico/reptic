@@ -11,6 +11,9 @@ import {
   parseReps,
   parseWeight,
   plural,
+  formatDistance,
+  formatSessionDuration,
+  formatSigned,
 } from '@/domain/format';
 
 describe('parseWeight', () => {
@@ -181,5 +184,35 @@ describe('formatVolume', () => {
     expect(formatVolume(4180)).toBe('4.180 kg');
     expect(formatVolume(1234567)).toBe('1.234.567 kg');
     expect(formatVolume(4179.6)).toBe('4.180 kg');
+  });
+});
+
+describe('formatSessionDuration', () => {
+  it('reads as minutes, then hours and minutes', () => {
+    expect(formatSessionDuration(30)).toBe('< 1 min');
+    expect(formatSessionDuration(42 * 60 + 20)).toBe('42 min');
+    expect(formatSessionDuration(59 * 60 + 40)).toBe('1 h'); // rounds to the minute first
+    expect(formatSessionDuration(65 * 60)).toBe('1 h 5 min');
+    expect(formatSessionDuration(120 * 60)).toBe('2 h');
+  });
+
+  it('shows a dash when the duration is unknown', () => {
+    expect(formatSessionDuration(null)).toBe('—');
+    expect(formatSessionDuration(-5)).toBe('—');
+  });
+});
+
+describe('formatSigned', () => {
+  it('prefixes plus, a real minus sign, or ±0', () => {
+    expect(formatSigned(320, formatVolume)).toBe('+320 kg');
+    expect(formatSigned(-2, String)).toBe('−2');
+    expect(formatSigned(0, (m) => `${m} min`)).toBe('±0 min');
+  });
+});
+
+describe('formatDistance', () => {
+  it('drops trailing zeros', () => {
+    expect(formatDistance(5)).toBe('5 km');
+    expect(formatDistance(7.5)).toBe('7.5 km');
   });
 });

@@ -10,7 +10,7 @@ import ReorderableList, {
 } from 'react-native-reorderable-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { RestTimerBanner } from '@/components/rest-timer';
+import { RestTimerBanner, useRestTimer } from '@/components/rest-timer';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListRow } from '@/components/ui/list-row';
@@ -70,6 +70,7 @@ export default function SessionScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const c = useTheme();
+  const restTimer = useRestTimer();
   const { id } = useLocalSearchParams<{ id: string }>();
   const workoutId = Number(id);
 
@@ -133,7 +134,13 @@ export default function SessionScreen() {
             showSaveError(error);
             return;
           }
-          router.back();
+          restTimer.dismiss(); // no "Pause vorbei" buzz after the session is over
+          // Replace, not push: the summary takes the session's place, so its
+          // "Fertig" (and the back gesture) lands on Heute, not on a closed session.
+          router.replace({
+            pathname: '/workout/summary',
+            params: { id: String(workoutId), fresh: '1' },
+          });
         },
       },
     ]);

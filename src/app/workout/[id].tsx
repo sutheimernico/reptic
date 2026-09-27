@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
@@ -98,6 +99,15 @@ export default function WorkoutDetailScreen() {
         }}
       />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <ListRow
+          title="Zusammenfassung"
+          subtitle="Dauer, Volumen, Rekorde und der Vergleich zum letzten Mal"
+          left={<Ionicons name="stats-chart-outline" size={20} color={c.accent} />}
+          right={<Ionicons name="chevron-forward" size={18} color={c.textSecondary} />}
+          onPress={() =>
+            router.push({ pathname: '/workout/summary', params: { id: String(workoutId) } })
+          }
+        />
         {exercises.length === 0 ? (
           <EmptyState
             icon="barbell-outline"

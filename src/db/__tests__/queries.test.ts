@@ -20,8 +20,12 @@ import {
   getExerciseBests,
   getFinishedWorkoutSummaries,
   getLastSetsForExercise,
+  getPreviousSamePlanWorkout,
   getSessionMuscleTotals,
+  getSessionRecordInputs,
+  getSessionTotals,
   getSetProgressForWorkout,
+  getWorkout,
   gymHasWorkouts,
   importAllData,
   insertSet,
@@ -697,5 +701,99 @@ describe('getSessionMuscleTotals', () => {
     const totals = await getSessionMuscleTotals(db, '2026-06-01T00:00:00.000Z');
     expect(totals).toHaveLength(1);
     expect(totals[0]).toMatchObject({ volumeKg: 550, muscleGroup: 'Beine' });
+  });
+});
+
+describe('session summary queries', () => {
+  /** A finished session on the given plans with one exercise logged at weight × reps. */
+  async function planSession(
+    db: SQLiteDatabase,
+    opts: { gym: number; plans: number[]; exercise: number; day: string; sets: [number, number][] },
+  ): Promise<number> {
+    const workoutId = await startWorkout(db, opts.plans, opts.gym, `${opts.day}T10:00:00.000Z`);
+    const we = await addWorkoutExercise(db, workoutId, opts.exercise);
+    let n = 1;
+    for (const [weightKg, reps] of opts.sets) {
+      await insertSet(db, {
+        workoutId, workoutExerciseId: we, exerciseId: opts.exercise,
+        setNumber: n++, weightKg, reps, done: true,
+      });
+    }
+    await finishWorkout(db, workoutId, `${opts.day}T11:00:00.000Z`);
+    return workoutId;
+  }
+
+  it('reads the totals of several sessions in one query', async () => {
+    const { db, queries } = await countedDb();
+    const gym = await createGym(db, 'Gym');
+    const ex = await createExercise(db, 'Brustpresse', 'Brust');
+    const a = await planSession(db, { gym, plans: [], exercise: ex, day: '2026-09-01', sets: [[50, 10], [50, 8]] });
+    const b = await planSession(db, { gym, plans: [], exercise: ex, day: '2026-09-02', sets: [[60, 5]] });
+
+    const before = queries.count;
+    const totals = await getSessionTotals(db, [a, b]);
+    expect(queries.count - before).toBe(1);
+    expect(totals.get(a)).toEqual({ exerciseCount: 1, setCount: 2, volume: 900, distanceKm: 0 });
+    expect(totals.get(b)?.volume).toBe(300);
+    expect(await getSessionTotals(db, [])).toEqual(new Map());
+  });
+
+  it('finds the latest earlier session with exactly the same plans', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const ex = await createExercise(db, 'Brustpresse', 'Brust');
+    const push = await createPlan(db, 'Push', '#f00');
+    const legs = await createPlan(db, 'Beine', '#0f0');
+
+    const older = await planSession(db, { gym, plans: [legs, push], exercise: ex, day: '2026-09-01', sets: [[50, 10]] });
+    await planSession(db, { gym, plans: [push], exercise: ex, day: '2026-09-03', sets: [[50, 10]] }); // subset
+    const current = await planSession(db, { gym, plans: [push, legs], exercise: ex, day: '2026-09-05', sets: [[50, 10]] });
+    await planSession(db, { gym, plans: [push, legs], exercise: ex, day: '2026-09-07', sets: [[50, 10]] }); // later
+
+    const workout = await getWorkout(db, current);
+    const previous = await getPreviousSamePlanWorkout(db, workout!);
+    expect(previous?.id).toBe(older);
+  });
+
+  it('has no previous session for an empty session or a first-time plan set', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const ex = await createExercise(db, 'Brustpresse', 'Brust');
+    const push = await createPlan(db, 'Push', '#f00');
+    await planSession(db, { gym, plans: [], exercise: ex, day: '2026-09-01', sets: [[50, 10]] });
+    const empty = await planSession(db, { gym, plans: [], exercise: ex, day: '2026-09-02', sets: [[50, 10]] });
+    const first = await planSession(db, { gym, plans: [push], exercise: ex, day: '2026-09-03', sets: [[50, 10]] });
+
+    expect(await getPreviousSamePlanWorkout(db, (await getWorkout(db, empty))!)).toBeNull();
+    expect(await getPreviousSamePlanWorkout(db, (await getWorkout(db, first))!)).toBeNull();
+  });
+
+  it('reports session bests against only the sessions that came before', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const press = await createExercise(db, 'Brustpresse', 'Brust');
+    const row = await createExercise(db, 'Rudern', 'Rücken');
+    for (const day of ['2026-09-01', '2026-09-02', '2026-09-03']) {
+      await planSession(db, { gym, plans: [], exercise: press, day, sets: [[80, 8]] });
+    }
+    // The session under review: Brustpresse beats 80 kg; Rudern only opened, never lifted.
+    const workoutId = await startWorkout(db, [], gym, '2026-09-04T10:00:00.000Z');
+    const pressWe = await addWorkoutExercise(db, workoutId, press);
+    const rowWe = await addWorkoutExercise(db, workoutId, row);
+    await insertSet(db, { workoutId, workoutExerciseId: pressWe, exerciseId: press, setNumber: 1, weightKg: 85, reps: 6, done: true });
+    await insertSet(db, { workoutId, workoutExerciseId: rowWe, exerciseId: row, setNumber: 1, weightKg: 60, reps: null, done: false });
+    await finishWorkout(db, workoutId, '2026-09-04T11:00:00.000Z');
+    // A later, heavier session must not un-record the one under review.
+    await planSession(db, { gym, plans: [], exercise: press, day: '2026-09-05', sets: [[100, 5]] });
+
+    const inputs = await getSessionRecordInputs(db, (await getWorkout(db, workoutId))!);
+    expect(inputs).toHaveLength(1); // Rudern had no performed set
+    expect(inputs[0]).toMatchObject({
+      exerciseId: press,
+      name: 'Brustpresse',
+      session: { topWeightKg: 85 },
+      before: { priorSessions: 3, topWeightKg: 80 },
+    });
+    expect(inputs[0].session.topE1rm).toBeCloseTo(85 * (1 + 6 / 30), 6);
   });
 });

@@ -12,4 +12,5 @@ export * from '@/db/gyms';
 export * from '@/db/plans';
 export * from '@/db/sets';
 export * from '@/db/settings';
+export * from '@/db/summary';
 export * from '@/db/workouts';

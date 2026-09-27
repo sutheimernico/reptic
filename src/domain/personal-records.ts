@@ -84,6 +84,25 @@ export function detectPersonalRecords(set: PerformedSet, bests: ExerciseBests): 
   return kinds;
 }
 
+/** One session's best values for an exercise — the same measures as `ExerciseBests`. */
+export type ExerciseTops = Omit<ExerciseBests, 'priorSessions'>;
+
+/**
+ * The records a whole session set for one exercise: its best values against
+ * everything logged in the sessions before it. Same rules as the live badge —
+ * quiet while the exercise is new, a tie is not a record — so the summary never
+ * claims a record the set screen stayed quiet about.
+ */
+export function sessionRecords(session: ExerciseTops, before: ExerciseBests): PrKind[] {
+  if (before.priorSessions < MIN_SESSIONS_FOR_PR) return [];
+  const kinds: PrKind[] = [];
+  if (beats(session.topWeightKg, before.topWeightKg)) kinds.push('weight');
+  if (beats(session.topE1rm, before.topE1rm)) kinds.push('e1rm');
+  if (beats(session.topDistanceKm, before.topDistanceKm)) kinds.push('distance');
+  if (beats(session.topPaceKmh, before.topPaceKmh)) kinds.push('pace');
+  return kinds;
+}
+
 /** Fold a performed set into the bests, so the next set of the session compares fairly. */
 export function withSet(bests: ExerciseBests, set: PerformedSet): ExerciseBests {
   const e1rm = epleyE1rm(set.weightKg, set.reps);

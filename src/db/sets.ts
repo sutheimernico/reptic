@@ -9,10 +9,8 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { mapWorkoutSet, type WorkoutSetRow } from '@/db/rows';
-import {
-  type ExerciseBests,
-  MAX_REPS_FOR_E1RM,
-} from '@/domain/personal-records';
+import { bestColumnsSql, performedSql } from '@/db/totals';
+import type { ExerciseBests } from '@/domain/personal-records';
 import { type PriorSet, toPriorSets } from '@/domain/sets';
 import type { WorkoutSet } from '@/domain/types';
 
@@ -217,16 +215,9 @@ export async function getExerciseBests(
     top_pace: number | null;
   }>(
     `SELECT
-       COUNT(DISTINCT CASE
-         WHEN workout_id != ?
-          AND (reps IS NOT NULL OR distance_km IS NOT NULL OR duration_sec IS NOT NULL)
-         THEN workout_id END) AS prior_sessions,
-       MAX(CASE WHEN reps >= 1 THEN weight_kg END) AS top_weight,
-       MAX(CASE WHEN reps >= 1 AND reps <= ${MAX_REPS_FOR_E1RM} AND weight_kg > 0
-                THEN weight_kg * (1 + reps / 30.0) END) AS top_e1rm,
-       MAX(distance_km) AS top_distance,
-       MAX(CASE WHEN distance_km > 0 AND duration_sec > 0
-                THEN distance_km / (duration_sec / 3600.0) END) AS top_pace
+       COUNT(DISTINCT CASE WHEN workout_id != ? AND ${performedSql()} THEN workout_id END)
+         AS prior_sessions,
+       ${bestColumnsSql()}
      FROM workout_sets
      WHERE exercise_id = ?`,
     excludeWorkoutId ?? -1,
