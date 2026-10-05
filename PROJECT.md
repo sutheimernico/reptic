@@ -59,4 +59,4 @@ in plain Node/Jest.
 
 ## Branch
 
-Autonomous work lands on `autopilot/work`. Nico reviews and merges to `master`.
+Autonomous work lands on `autopilot/work`. Nico reviews and merges to `main`.

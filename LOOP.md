@@ -2,11 +2,11 @@
 
 You are one fresh iteration of the autonomous build loop for **Reptic**, a private
 local-first Android gym-tracking app (Expo SDK 57 + RN + TS). Read `AUTOPILOT.md` (repo
-root of `~/private`) for the global rules, then this file, then `PLAN.md`.
+root of the workspace) for the global rules, then this file, then `PLAN.md`.
 
 ## Do exactly one thing
 
-1. You are on `autopilot/work`. Never commit to `master`; never merge.
+1. You are on `autopilot/work`. Never commit to `main`; never merge.
 2. Pick the SINGLE highest-value open `- [ ]` in `PLAN.md` (top-to-bottom).
 3. Implement it with a small, reviewable diff. Match existing repo conventions
    (`src/domain` pure + tested; `src/db` thin; screens thin). Read before writing.

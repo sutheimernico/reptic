@@ -1,11 +1,10 @@
-# Reptic
+# Reptic (Repz)
 
-A private, self-tailored **gym tracking** app — a local-first replacement for an
-ad-hoc Notes workflow. Installable Android app, fully offline, single user.
-
-Its core value over notes: every session is stored, and while training you see
-**"letztes Mal" per set** — last time's weight is pre-filled (editable), reps are
-typed fresh, and a grey `↳ letztes Mal: 80 kg × 8` line shows the target to beat.
+An offline-first **gym tracking app** for Android, built with Expo / React Native.
+Every session is stored locally; while training you see **"letztes Mal" per set**:
+last time's weight is pre-filled (editable), reps are typed fresh, and a grey
+`↳ letztes Mal: 80 kg × 8` line shows the target to beat. Single user, no backend,
+no account. The UI is in German.
 
 ## Features
 
@@ -104,3 +103,7 @@ The automatic backup writes into the app's own document directory. It protects a
 accidental deletes and corrupted app data — **not** against losing the device, since it
 dies with the app. That case is what the manual export (and later the Drive backup) is
 for, and the app says so in Einstellungen rather than implying more safety than it has.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
