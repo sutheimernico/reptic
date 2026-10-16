@@ -63,31 +63,38 @@ function ExerciseRow({
       <SwipeToDelete
         onDelete={onRemove}
         accessibilityLabel={`„${we.exercise.name}" aus der Einheit entfernen`}>
-        <ListRow
-          title={we.exercise.name}
-          subtitle={progress ? `${progress.done}/${progress.total} Sätze` : we.exercise.muscleGroup}
-          onPress={onToggle}
-          onLongPress={drag}
-          delayLongPress={400}
-          selected={expanded}
-          accessibilityLabel={`${we.exercise.name}, Sätze ${expanded ? 'zuklappen' : 'aufklappen'}`}
-          right={
-            <View style={styles.rowIcons}>
-              <Ionicons
-                name={expanded ? 'chevron-up' : 'chevron-down'}
-                size={20}
-                color={c.textSecondary}
-              />
-              <Pressable
-                onPressIn={drag}
-                hitSlop={10}
-                accessibilityRole="button"
-                accessibilityLabel={`„${we.exercise.name}" verschieben`}>
-                <Ionicons name="reorder-three-outline" size={22} color={c.textSecondary} />
-              </Pressable>
-            </View>
-          }
-        />
+        {/* The grip sits beside the row, not inside it: a pressable inside the
+            row's pressable is a <button> in a <button> on web, which is invalid
+            and swallowed the clicks around it. */}
+        <View>
+          <ListRow
+            title={we.exercise.name}
+            subtitle={progress ? `${progress.done}/${progress.total} Sätze` : we.exercise.muscleGroup}
+            onPress={onToggle}
+            onLongPress={drag}
+            delayLongPress={400}
+            selected={expanded}
+            accessibilityLabel={`${we.exercise.name}, Sätze ${expanded ? 'zuklappen' : 'aufklappen'}`}
+            right={
+              <View style={styles.rowIcons}>
+                <Ionicons
+                  name={expanded ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color={c.textSecondary}
+                />
+                <View style={styles.gripSpace} />
+              </View>
+            }
+          />
+          <Pressable
+            onPressIn={drag}
+            hitSlop={6}
+            style={styles.grip}
+            accessibilityRole="button"
+            accessibilityLabel={`„${we.exercise.name}" verschieben`}>
+            <Ionicons name="reorder-three-outline" size={22} color={c.textSecondary} />
+          </Pressable>
+        </View>
       </SwipeToDelete>
       {expanded ? (
         <View style={[styles.sets, { backgroundColor: c.card, borderColor: c.border }]}>
@@ -247,6 +254,15 @@ const styles = StyleSheet.create({
   },
   rowWrap: { marginBottom: Spacing.two },
   rowIcons: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  gripSpace: { width: 22 },
+  grip: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: Spacing.three,
+    width: 22,
+    justifyContent: 'center',
+  },
   sets: {
     marginTop: Spacing.one,
     padding: Spacing.three,

@@ -9,9 +9,11 @@ import { RestTimerProvider } from '@/components/rest-timer';
 import { AnimatedSplashOverlay } from '@/components/splash-overlay';
 import { DATABASE_NAME } from '@/constants/app';
 import { migrateDbIfNeeded } from '@/db';
+import { installWebAlert } from '@/lib/web-alert';
 import { ThemeProvider, useThemeMode } from '@/theme/theme-provider';
 
 SplashScreen.preventAutoHideAsync();
+installWebAlert();
 
 export default function RootLayout() {
   return (

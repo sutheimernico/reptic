@@ -155,7 +155,18 @@
       fit();
       window.addEventListener('resize', fit);
 
-      document.getElementById('back').onclick = () => app.contentWindow.history.back();
+      // Press the app's own header back arrow, like Android's back key does.
+      // history.back() could step past the app's first page and unload it.
+      document.getElementById('back').onclick = () => {
+        const doc = app.contentDocument;
+        const arrows = [...doc.querySelectorAll('[aria-label$=", back"]')].filter((el) => {
+          const r = el.getBoundingClientRect();
+          if (r.width === 0) return false;
+          const hit = doc.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return hit !== null && (el === hit || el.contains(hit));
+        });
+        arrows.at(-1)?.click();
+      };
       document.getElementById('reload').onclick = () => app.contentWindow.location.reload();
       document.getElementById('home').onclick = () => { app.src = '/'; };
     </script>
