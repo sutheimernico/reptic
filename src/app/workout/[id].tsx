@@ -121,6 +121,14 @@ export default function WorkoutDetailScreen() {
               key={we.id}
               title={we.exercise.name}
               subtitle={we.summary || 'Keine Sätze eingetragen'}
+              right={<Ionicons name="trending-up" size={18} color={c.textSecondary} />}
+              accessibilityLabel={`${we.exercise.name}: Fortschritt ansehen`}
+              onPress={() =>
+                router.push({
+                  pathname: '/exercise/progress',
+                  params: { id: String(we.exerciseId), name: we.exercise.name },
+                })
+              }
             />
           ))
         )}
