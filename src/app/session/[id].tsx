@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import ReorderableList, {
   reorderItems,
   useReorderableDrag,
@@ -34,8 +34,10 @@ import { showSaveError } from '@/lib/alerts';
 
 /**
  * One exercise row. Rendered inside ReorderableList, so it can call
- * useReorderableDrag: long-press starts a drag-to-reorder, swipe deletes,
- * tap folds its sets open right underneath.
+ * useReorderableDrag: the grip starts a drag at once (a long press on the row
+ * too, but only after 400 ms), swipe deletes, tap folds the sets open right
+ * underneath. The long press waits that long because a mouse click or a firm
+ * tap is often held past 150 ms — that swallowed the tap and opened nothing.
  */
 function ExerciseRow({
   we,
@@ -66,7 +68,7 @@ function ExerciseRow({
           subtitle={progress ? `${progress.done}/${progress.total} Sätze` : we.exercise.muscleGroup}
           onPress={onToggle}
           onLongPress={drag}
-          delayLongPress={150}
+          delayLongPress={400}
           selected={expanded}
           accessibilityLabel={`${we.exercise.name}, Sätze ${expanded ? 'zuklappen' : 'aufklappen'}`}
           right={
@@ -76,7 +78,13 @@ function ExerciseRow({
                 size={20}
                 color={c.textSecondary}
               />
-              <Ionicons name="reorder-three-outline" size={22} color={c.textSecondary} />
+              <Pressable
+                onPressIn={drag}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={`„${we.exercise.name}" verschieben`}>
+                <Ionicons name="reorder-three-outline" size={22} color={c.textSecondary} />
+              </Pressable>
             </View>
           }
         />
