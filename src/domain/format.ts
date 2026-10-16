@@ -3,14 +3,15 @@
  */
 
 /**
- * Render a weight without trailing zeros: 80 -> "80", 82.5 -> "82.5".
- * Returns "" for null so inputs can bind to it directly.
+ * Render a weight without trailing zeros, German decimal comma: 80 -> "80",
+ * 82.5 -> "82,5". Returns "" for null so inputs can bind to it directly —
+ * `parseWeight` reads the comma back.
  */
 export function formatWeight(weightKg: number | null): string {
   if (weightKg === null || Number.isNaN(weightKg)) return '';
   // Avoid "80.0"; keep up to one useful decimal (gym plates are .25 steps at most,
   // but we don't force precision here — just drop trailing zeros).
-  return String(Number(weightKg.toFixed(2)));
+  return String(Number(weightKg.toFixed(2))).replace('.', ',');
 }
 
 /**
@@ -154,7 +155,7 @@ export function formatVolume(kg: number): string {
   return `${groupThousands(Math.round(kg))} kg`;
 }
 
-/** A distance for summaries: `5.5 km`. */
+/** A distance for summaries: `5,5 km`. */
 export function formatDistance(km: number): string {
   return `${formatWeight(km)} km`;
 }

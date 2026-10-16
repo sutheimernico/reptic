@@ -151,13 +151,13 @@ describe('set screen', () => {
     await pastSession(1, 80, 12);
     const { view, workoutExerciseId } = await openExercise();
 
-    expect(view.getByText('Vorschlag: 82.5 kg')).toBeTruthy();
+    expect(view.getByText('Vorschlag: 82,5 kg')).toBeTruthy();
     // Advice, not an edit: the field still carries last time's weight.
     expect(view.getByLabelText('KG').props.value).toBe('80');
 
-    await fireEvent.press(view.getByLabelText('Vorschlag übernehmen: 82.5 kg'));
+    await fireEvent.press(view.getByLabelText('Vorschlag übernehmen: 82,5 kg'));
 
-    expect(view.getByLabelText('KG').props.value).toBe('82.5');
+    expect(view.getByLabelText('KG').props.value).toBe('82,5');
     await waitFor(async () => {
       const [saved] = await getSetsForWorkoutExercise(db, workoutExerciseId);
       expect(saved).toMatchObject({ weightKg: 82.5, reps: null, done: false });

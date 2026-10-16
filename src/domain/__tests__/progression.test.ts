@@ -119,7 +119,7 @@ describe('describeHint', () => {
     expect(
       describeHint({ kind: 'increase', fromKg: 60, toKg: 62.5, repTarget: 12, workingSets: 3 }),
     ).toEqual({
-      title: 'Vorschlag: 62.5 kg',
+      title: 'Vorschlag: 62,5 kg',
       detail: 'Letztes Mal 3 Sätze mit 60 kg × 12+ geschafft',
     });
     expect(

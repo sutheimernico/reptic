@@ -48,8 +48,13 @@ describe('formatWeight', () => {
   it('drops trailing zeros and keeps useful decimals', () => {
     expect(formatWeight(80)).toBe('80');
     expect(formatWeight(80.0)).toBe('80');
-    expect(formatWeight(82.5)).toBe('82.5');
-    expect(formatWeight(82.25)).toBe('82.25');
+    expect(formatWeight(82.5)).toBe('82,5');
+    expect(formatWeight(82.25)).toBe('82,25');
+  });
+
+  it('round-trips through parseWeight, since inputs bind to it', () => {
+    expect(parseWeight(formatWeight(82.5))).toBe(82.5);
+    expect(parseWeight(formatWeight(1.25))).toBe(1.25);
   });
 
   it('returns empty string for null', () => {
@@ -60,7 +65,7 @@ describe('formatWeight', () => {
 describe('formatReference', () => {
   it('renders weight × reps', () => {
     expect(formatReference(80, 8)).toBe('80 kg × 8');
-    expect(formatReference(82.5, 6)).toBe('82.5 kg × 6');
+    expect(formatReference(82.5, 6)).toBe('82,5 kg × 6');
   });
 
   it('returns null when either value is missing', () => {
@@ -129,7 +134,7 @@ describe('formatSetSummary', () => {
         { weightKg: 80, reps: 8 },
         { weightKg: 82.5, reps: 6 },
       ]),
-    ).toBe('80 kg × 8 · 82.5 kg × 6');
+    ).toBe('80 kg × 8 · 82,5 kg × 6');
   });
 
   it('ignores unfinished sets and returns empty for none', () => {
@@ -214,7 +219,7 @@ describe('formatSigned', () => {
 describe('formatDistance', () => {
   it('drops trailing zeros', () => {
     expect(formatDistance(5)).toBe('5 km');
-    expect(formatDistance(7.5)).toBe('7.5 km');
+    expect(formatDistance(7.5)).toBe('7,5 km');
   });
 });
 
