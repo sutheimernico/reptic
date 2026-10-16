@@ -1,6 +1,6 @@
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 import { getSetting } from '@/db';
 import { maybeRunAutoBackup } from '@/lib/auto-backup';
@@ -28,6 +28,9 @@ export function AppBootstrap() {
     void getSetting(db, HAPTICS_SETTING).then((value) =>
       setHapticsEnabled(parseHapticsSetting(value)),
     );
+
+    // The browser preview has no file system to back up into.
+    if (Platform.OS === 'web') return;
 
     void maybeRunAutoBackup(db, new Date().toISOString()).catch((error: unknown) => {
       console.error('[backup] auto-backup failed', error);
