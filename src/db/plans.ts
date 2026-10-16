@@ -21,9 +21,16 @@ export async function getPlan(db: SQLiteDatabase, id: number): Promise<Plan | nu
   return row ? mapPlan(row) : null;
 }
 
+/**
+ * A plan's active exercises in order. Archived ones are left out everywhere —
+ * the archive dialog promises they leave the selection, so they must not seed
+ * a session or count towards "3 Übungen" either.
+ */
 export async function getPlanExerciseIds(db: SQLiteDatabase, planId: number): Promise<number[]> {
   const rows = await db.getAllAsync<{ exercise_id: number }>(
-    'SELECT exercise_id FROM plan_exercises WHERE plan_id = ? ORDER BY sort_order',
+    `SELECT pe.exercise_id FROM plan_exercises pe
+     JOIN exercises e ON e.id = pe.exercise_id AND e.archived = 0
+     WHERE pe.plan_id = ? ORDER BY pe.sort_order`,
     planId,
   );
   return rows.map((r) => r.exercise_id);

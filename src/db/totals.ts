@@ -16,13 +16,15 @@ import { MAX_REPS_FOR_E1RM } from '@/domain/personal-records';
 import type { SessionTotals } from '@/domain/types';
 
 /**
- * "Performed" = reps entered (strength) or a cardio metric entered. Opening an
- * exercise pre-fills carried-over settings with empty performance, and those
- * untouched rows are not work done. `p` is an optional table alias prefix
- * (e.g. `'s.'`).
+ * "Performed" = reps entered (strength), a time entered (cardio), or a cardio
+ * distance on a set ticked done. Opening an exercise pre-fills carried-over
+ * settings — weight, and for cardio distance and level — with empty
+ * performance, and those untouched rows are not work done. Distance alone is
+ * exactly such a carried setting, so it only counts once the set is ticked.
+ * `p` is an optional table alias prefix (e.g. `'s.'`).
  */
 export function performedSql(p = ''): string {
-  return `(${p}reps IS NOT NULL OR ${p}duration_sec IS NOT NULL OR ${p}distance_km IS NOT NULL)`;
+  return `(${p}reps IS NOT NULL OR ${p}duration_sec IS NOT NULL OR (${p}done = 1 AND ${p}distance_km IS NOT NULL))`;
 }
 
 /**
@@ -35,7 +37,7 @@ export function bestColumnsSql(p = ''): string {
   return `MAX(CASE WHEN ${p}reps >= 1 THEN ${p}weight_kg END) AS top_weight,
        MAX(CASE WHEN ${p}reps >= 1 AND ${p}reps <= ${MAX_REPS_FOR_E1RM} AND ${p}weight_kg > 0
                 THEN ${p}weight_kg * (1 + ${p}reps / 30.0) END) AS top_e1rm,
-       MAX(${p}distance_km) AS top_distance,
+       MAX(CASE WHEN ${performedSql(p)} THEN ${p}distance_km END) AS top_distance,
        MAX(CASE WHEN ${p}distance_km > 0 AND ${p}duration_sec > 0
                 THEN ${p}distance_km / (${p}duration_sec / 3600.0) END) AS top_pace`;
 }
@@ -51,7 +53,7 @@ export function sessionTotalsSql(where?: string): string {
        COUNT(DISTINCT CASE WHEN ${performedSql()} THEN exercise_id END) AS exercise_count,
        SUM(CASE WHEN ${performedSql()} THEN 1 ELSE 0 END) AS set_count,
        COALESCE(SUM(weight_kg * reps), 0) AS volume,
-       COALESCE(SUM(distance_km), 0) AS distance
+       COALESCE(SUM(CASE WHEN ${performedSql()} THEN distance_km END), 0) AS distance
      FROM workout_sets
      ${where ? `WHERE ${where}` : ''}
      GROUP BY workout_id`;

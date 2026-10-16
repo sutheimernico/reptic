@@ -99,7 +99,7 @@ export async function getSessionRecordInputs(
               ${bestColumnsSql('s.')}
        FROM workout_sets s
        JOIN workouts w ON w.id = s.workout_id
-       WHERE w.started_at < ? AND w.id != ?
+       WHERE w.started_at < ? AND w.id != ? AND w.finished_at IS NOT NULL
          AND s.exercise_id IN (SELECT exercise_id FROM cur)
        GROUP BY s.exercise_id
      )

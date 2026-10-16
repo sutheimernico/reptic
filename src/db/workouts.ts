@@ -18,7 +18,12 @@ import {
   type WorkoutRow,
 } from '@/db/rows';
 import { LAST_GYM_SETTING, setSetting } from '@/db/settings';
-import { mapSessionTotals, sessionTotalsSql, type SessionTotalsRow } from '@/db/totals';
+import {
+  mapSessionTotals,
+  performedSql,
+  sessionTotalsSql,
+  type SessionTotalsRow,
+} from '@/db/totals';
 import { mergePlanExercises, type PlanExercises } from '@/domain/plans';
 import type { SessionMuscleTotals } from '@/domain/weeks';
 import type {
@@ -245,7 +250,7 @@ export async function getExerciseSessionHistory(
          AND EXISTS (
            SELECT 1 FROM workout_sets ws
            WHERE ws.workout_id = workouts.id AND ws.exercise_id = ?
-             AND (ws.reps IS NOT NULL OR ws.duration_sec IS NOT NULL OR ws.distance_km IS NOT NULL)
+             AND ${performedSql('ws.')}
          )
        ORDER BY finished_at DESC
        LIMIT ?
@@ -253,7 +258,7 @@ export async function getExerciseSessionHistory(
      LEFT JOIN gyms g ON g.id = w.gym_id
      JOIN workout_sets s
        ON s.workout_id = w.id AND s.exercise_id = ?
-          AND (s.reps IS NOT NULL OR s.duration_sec IS NOT NULL OR s.distance_km IS NOT NULL)
+          AND ${performedSql('s.')}
      ORDER BY w.finished_at DESC, s.set_number`,
     exerciseId,
     limit,
@@ -307,7 +312,7 @@ export async function getSessionMuscleTotals(
   }>(
     `SELECT w.finished_at, e.muscle_group,
             COALESCE(SUM(s.weight_kg * s.reps), 0) AS volume,
-            COALESCE(SUM(s.distance_km), 0) AS distance
+            COALESCE(SUM(CASE WHEN ${performedSql('s.')} THEN s.distance_km END), 0) AS distance
      FROM workout_sets s
      JOIN workouts w ON w.id = s.workout_id
      JOIN exercises e ON e.id = s.exercise_id

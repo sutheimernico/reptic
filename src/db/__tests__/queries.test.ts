@@ -29,6 +29,7 @@ import {
   gymHasWorkouts,
   importAllData,
   insertSet,
+  setExerciseArchived,
   setPlanExercises,
   startWorkout,
 } from '@/db';
@@ -795,5 +796,82 @@ describe('session summary queries', () => {
       before: { priorSessions: 3, topWeightKg: 80 },
     });
     expect(inputs[0].session.topE1rm).toBeCloseTo(85 * (1 + 6 / 30), 6);
+  });
+});
+
+describe('carried-over and abandoned rows (2026-10-16 bug sweep)', () => {
+  it('does not count an untouched cardio row with a carried-over distance as work', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const treadmill = await createExercise(db, 'Laufband', 'Cardio');
+    // Opened, distance + level carried over from last time, never run.
+    await loggedSession(db, {
+      gymId: gym, exerciseId: treadmill,
+      startedAt: '2026-08-02T10:00:00.000Z', finishedAt: '2026-08-02T10:40:00.000Z',
+      sets: [{ distanceKm: 5, level: 8, done: false }],
+    });
+
+    const [summary] = await getFinishedWorkoutSummaries(db);
+    expect(summary).toMatchObject({ setCount: 0, exerciseCount: 0, distanceKm: 0 });
+    expect((await getExerciseBests(db, treadmill)).topDistanceKm).toBeNull();
+    expect(await getExerciseSessionHistory(db, treadmill)).toEqual([]);
+  });
+
+  it('takes "last time" from the session where the exercise was done, not merely opened', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const bench = await createExercise(db, 'Bankdrücken', 'Brust');
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench,
+      startedAt: '2026-08-01T10:00:00.000Z', finishedAt: '2026-08-01T11:00:00.000Z',
+      sets: [{ weightKg: 80, reps: 8 }],
+    });
+    // Opened next time, weight carried over, skipped.
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench,
+      startedAt: '2026-08-03T10:00:00.000Z', finishedAt: '2026-08-03T11:00:00.000Z',
+      sets: [{ weightKg: 80, reps: null, done: false }],
+    });
+
+    const { sets } = await getLastSetsForExercise(db, bench, gym);
+    expect(sets).toEqual([expect.objectContaining({ weightKg: 80, reps: 8 })]);
+  });
+
+  it('leaves an abandoned session out of the bests to beat', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const bench = await createExercise(db, 'Bankdrücken', 'Brust');
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench,
+      startedAt: '2026-08-01T10:00:00.000Z', finishedAt: '2026-08-01T11:00:00.000Z',
+      sets: [{ weightKg: 80, reps: 8 }],
+    });
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench,
+      startedAt: '2026-08-02T10:00:00.000Z', finishedAt: null, // never finished
+      sets: [{ weightKg: 140, reps: 8 }],
+    });
+
+    const bests = await getExerciseBests(db, bench);
+    expect(bests).toMatchObject({ priorSessions: 1, topWeightKg: 80 });
+  });
+
+  it('keeps archived exercises out of plans and the sessions they seed', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const bench = await createExercise(db, 'Bankdrücken', 'Brust');
+    const flys = await createExercise(db, 'Butterfly', 'Brust');
+    const plan = await createPlan(db, 'Push', '#6366F1');
+    await setPlanExercises(db, plan, [bench, flys]);
+    await setExerciseArchived(db, flys, true);
+
+    const workoutId = await startWorkout(db, [plan], gym, '2026-08-01T10:00:00.000Z');
+    const progress = await getSetProgressForWorkout(db, workoutId);
+    const rows = await db.getAllAsync<{ exercise_id: number }>(
+      'SELECT exercise_id FROM workout_exercises WHERE workout_id = ?',
+      workoutId,
+    );
+    expect(rows.map((r) => r.exercise_id)).toEqual([bench]);
+    expect(progress.size).toBe(0);
   });
 });

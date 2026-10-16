@@ -141,6 +141,7 @@ export async function getLastSetsForExercise(
     `SELECT w.id FROM workouts w
      JOIN workout_sets s ON s.workout_id = w.id
      WHERE s.exercise_id = ? AND w.finished_at IS NOT NULL AND w.id != ? AND w.gym_id = ?
+       AND ${performedSql('s.')}
      ORDER BY w.finished_at DESC
      LIMIT 1`,
     exerciseId,
@@ -155,6 +156,7 @@ export async function getLastSetsForExercise(
        JOIN gyms g ON g.id = w.gym_id
        JOIN workout_sets s ON s.workout_id = w.id
        WHERE s.exercise_id = ? AND w.finished_at IS NOT NULL AND w.id != ?
+         AND ${performedSql('s.')}
        ORDER BY w.finished_at DESC
        LIMIT 1`,
       exerciseId,
@@ -199,8 +201,10 @@ export async function getLastSetsForExercise(
  *
  * `excludeWorkoutId` only narrows the session *count* — the running session's
  * own earlier sets still count towards the bests, because a record set an hour
- * ago is still a record. Aggregates skip carried-over rows the same way the
- * history does: a weight without reps was never lifted.
+ * ago is still a record. Other unfinished sessions (abandoned ones) count for
+ * nothing — they are invisible in the history, so they can't set the bar.
+ * Aggregates skip carried-over rows the same way the history does: a weight
+ * without reps was never lifted.
  */
 export async function getExerciseBests(
   db: SQLiteDatabase,
@@ -215,13 +219,15 @@ export async function getExerciseBests(
     top_pace: number | null;
   }>(
     `SELECT
-       COUNT(DISTINCT CASE WHEN workout_id != ? AND ${performedSql()} THEN workout_id END)
+       COUNT(DISTINCT CASE WHEN s.workout_id != ? AND ${performedSql('s.')} THEN s.workout_id END)
          AS prior_sessions,
-       ${bestColumnsSql()}
-     FROM workout_sets
-     WHERE exercise_id = ?`,
+       ${bestColumnsSql('s.')}
+     FROM workout_sets s
+     JOIN workouts w ON w.id = s.workout_id
+     WHERE s.exercise_id = ? AND (w.finished_at IS NOT NULL OR w.id = ?)`,
     excludeWorkoutId ?? -1,
     exerciseId,
+    excludeWorkoutId ?? -1,
   );
   return {
     priorSessions: row?.prior_sessions ?? 0,
