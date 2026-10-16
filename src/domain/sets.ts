@@ -97,6 +97,26 @@ export function referenceLabel(sourceGymName: string | null): string {
 }
 
 /**
+ * Whether a set was actually done — the same rule as `performedSql` in the data
+ * layer: reps or a time entered, or a cardio distance on a set ticked done.
+ * Carried-over settings alone (weight, distance, level) are not work.
+ */
+export function isPerformed(
+  s: Pick<WorkoutSet, 'reps' | 'durationSec' | 'distanceKm' | 'done'>,
+): boolean {
+  return s.reps !== null || s.durationSec !== null || (s.done && s.distanceKm !== null);
+}
+
+/** Most reps in one performed set — the progress measure for bodyweight work. */
+export function topSetReps(sets: Pick<WorkoutSet, 'reps'>[]): number | null {
+  let max: number | null = null;
+  for (const s of sets) {
+    if (s.reps !== null && (max === null || s.reps > max)) max = s.reps;
+  }
+  return max;
+}
+
+/**
  * The heaviest weight among *performed* sets. A set counts only when reps were
  * entered (`reps !== null`): opening an exercise pre-fills carried-over weights
  * with empty reps, so those untouched rows must not be read as real lifts.

@@ -62,6 +62,9 @@ export function paceKmh(distanceKm: number | null, durationSec: number | null): 
   return distanceKm / (durationSec / 3600);
 }
 
+/** A weight that counts as a load — 0 kg (bodyweight) never sets a weight record. */
+const positive = (kg: number | null): number | null => (kg !== null && kg > 0 ? kg : null);
+
 /** Strictly greater — matching a best is not a record. */
 const beats = (value: number | null, best: number | null): boolean =>
   value !== null && (best === null || value > best);
@@ -74,8 +77,8 @@ export function detectPersonalRecords(set: PerformedSet, bests: ExerciseBests): 
   if (bests.priorSessions < MIN_SESSIONS_FOR_PR) return [];
 
   const kinds: PrKind[] = [];
-  // A weight without reps is a carried-over setting, not a lift.
-  if (set.reps !== null && set.reps >= 1 && beats(set.weightKg, bests.topWeightKg)) {
+  // A weight without reps is a carried-over setting, not a lift; 0 kg is bodyweight.
+  if (set.reps !== null && set.reps >= 1 && beats(positive(set.weightKg), bests.topWeightKg)) {
     kinds.push('weight');
   }
   if (beats(epleyE1rm(set.weightKg, set.reps), bests.topE1rm)) kinds.push('e1rm');
@@ -107,7 +110,7 @@ export function sessionRecords(session: ExerciseTops, before: ExerciseBests): Pr
 export function withSet(bests: ExerciseBests, set: PerformedSet): ExerciseBests {
   const e1rm = epleyE1rm(set.weightKg, set.reps);
   const pace = paceKmh(set.distanceKm, set.durationSec);
-  const lifted = set.reps !== null && set.reps >= 1 ? set.weightKg : null;
+  const lifted = set.reps !== null && set.reps >= 1 ? positive(set.weightKg) : null;
   return {
     priorSessions: bests.priorSessions,
     topWeightKg: beats(lifted, bests.topWeightKg) ? lifted : bests.topWeightKg,

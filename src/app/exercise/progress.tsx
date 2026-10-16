@@ -15,7 +15,7 @@ import {
   formatSetSummary,
   formatWeight,
 } from '@/domain/format';
-import { topCardioMetrics, topSetWeight } from '@/domain/sets';
+import { topCardioMetrics, topSetReps, topSetWeight } from '@/domain/sets';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ExerciseProgressScreen() {
@@ -34,16 +34,20 @@ export default function ExerciseProgressScreen() {
 
   useFocusEffect(useCallback(() => load(), [load]));
 
-  // Strength progresses by top weight. Cardio has no weight — scale by the
-  // longest distance, or by duration when the user only logs time.
+  // Strength progresses by top weight; bodyweight work (never a weight entered)
+  // by the most reps. Cardio has no weight — scale by the longest distance, or
+  // by duration when the user only logs time.
   const cardioTops = entries.map((e) => topCardioMetrics(e.sets));
   const cardioByDistance = cardioTops.some((t) => t.distanceKm !== null);
+  const byReps = !isCardio && entries.every((e) => topSetWeight(e.sets) === null);
   const tops = entries.map((e, i) =>
     isCardio
       ? cardioByDistance
         ? cardioTops[i].distanceKm
         : cardioTops[i].durationSec
-      : topSetWeight(e.sets),
+      : byReps
+        ? topSetReps(e.sets)
+        : topSetWeight(e.sets),
   );
   const maxTop = tops.reduce<number>((m, t) => (t !== null && t > m ? t : m), 0);
   const topLabel = (top: number) =>
@@ -51,7 +55,9 @@ export default function ExerciseProgressScreen() {
       ? cardioByDistance
         ? `${formatWeight(top)} km`
         : formatDuration(top)
-      : `${formatWeight(top)} kg`;
+      : byReps
+        ? `${top} Wdh.`
+        : `${formatWeight(top)} kg`;
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>

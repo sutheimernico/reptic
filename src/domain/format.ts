@@ -33,13 +33,19 @@ export function parseReps(text: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+/** How a set's load reads: `80 kg`, or `Eigengewicht` when no weight was entered. */
+function formatLoad(weightKg: number | null): string {
+  return weightKg === null ? 'Eigengewicht' : `${formatWeight(weightKg)} kg`;
+}
+
 /**
- * The grey per-set reference: `80 kg × 8`. Returns null when either value is
- * missing (so the caller can omit the line entirely).
+ * The grey per-set reference: `80 kg × 8`, `Eigengewicht × 12` for a set
+ * logged without a weight (pull-ups). Returns null without reps — then the
+ * set was never done and the caller omits the line.
  */
 export function formatReference(weightKg: number | null, reps: number | null): string | null {
-  if (weightKg === null || reps === null) return null;
-  return `${formatWeight(weightKg)} kg × ${reps}`;
+  if (reps === null) return null;
+  return `${formatLoad(weightKg)} × ${reps}`;
 }
 
 /**
@@ -107,25 +113,24 @@ export function plural(n: number, one: string, many: string): string {
 
 /**
  * A compact summary of a set list for history rows: `80 kg × 8, 8, 7`.
- * Groups consecutive sets that share the same weight. Returns "" for no sets.
+ * Groups consecutive sets that share the same weight; sets without a weight
+ * read `Eigengewicht × 12, 10`. Only sets with reps count. "" for none.
  */
 export function formatSetSummary(sets: { weightKg: number | null; reps: number | null }[]): string {
-  const usable = sets.filter((s) => s.weightKg !== null && s.reps !== null);
+  const usable = sets.filter((s) => s.reps !== null);
   if (usable.length === 0) return '';
 
-  const groups: { weightKg: number; reps: number[] }[] = [];
+  const groups: { weightKg: number | null; reps: number[] }[] = [];
   for (const set of usable) {
     const last = groups[groups.length - 1];
     if (last && last.weightKg === set.weightKg) {
       last.reps.push(set.reps as number);
     } else {
-      groups.push({ weightKg: set.weightKg as number, reps: [set.reps as number] });
+      groups.push({ weightKg: set.weightKg, reps: [set.reps as number] });
     }
   }
 
-  return groups
-    .map((g) => `${formatWeight(g.weightKg)} kg × ${g.reps.join(', ')}`)
-    .join(' · ');
+  return groups.map((g) => `${formatLoad(g.weightKg)} × ${g.reps.join(', ')}`).join(' · ');
 }
 
 const WEEKDAYS_DE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];

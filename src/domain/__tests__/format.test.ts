@@ -68,8 +68,7 @@ describe('formatReference', () => {
     expect(formatReference(82.5, 6)).toBe('82,5 kg × 6');
   });
 
-  it('returns null when either value is missing', () => {
-    expect(formatReference(null, 8)).toBeNull();
+  it('returns null without reps — the set was never done', () => {
     expect(formatReference(80, null)).toBeNull();
   });
 });
@@ -236,3 +235,21 @@ describe('formatElapsed', () => {
     expect(formatElapsed(Number.NaN)).toBe('0:00');
   });
 });
+
+describe('sets without a weight (bodyweight)', () => {
+  it('shows them as Eigengewicht in the summary instead of dropping them', () => {
+    expect(
+      formatSetSummary([
+        { weightKg: null, reps: 12 },
+        { weightKg: null, reps: 10 },
+        { weightKg: 10, reps: 6 },
+      ]),
+    ).toBe('Eigengewicht × 12, 10 · 10 kg × 6');
+  });
+
+  it('gives them a reference line', () => {
+    expect(formatReference(null, 12)).toBe('Eigengewicht × 12');
+    expect(formatReference(80, null)).toBeNull();
+  });
+});
+

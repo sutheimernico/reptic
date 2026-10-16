@@ -17,6 +17,7 @@ import {
   type WorkoutExerciseWithExercise,
 } from '@/db';
 import { formatCardioSetSummary, formatSessionDate, formatSetSummary } from '@/domain/format';
+import { isPerformed } from '@/domain/sets';
 import type { Workout } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
@@ -49,7 +50,7 @@ export default function WorkoutDetailScreen() {
             ...we,
             summary:
               we.exercise.muscleGroup === 'Cardio'
-                ? formatCardioSetSummary(sets)
+                ? formatCardioSetSummary(sets.filter(isPerformed))
                 : formatSetSummary(sets),
           };
         }),

@@ -34,7 +34,7 @@ export function performedSql(p = ''): string {
  * what counts as a record. A weight without reps was never lifted.
  */
 export function bestColumnsSql(p = ''): string {
-  return `MAX(CASE WHEN ${p}reps >= 1 THEN ${p}weight_kg END) AS top_weight,
+  return `MAX(CASE WHEN ${p}reps >= 1 AND ${p}weight_kg > 0 THEN ${p}weight_kg END) AS top_weight,
        MAX(CASE WHEN ${p}reps >= 1 AND ${p}reps <= ${MAX_REPS_FOR_E1RM} AND ${p}weight_kg > 0
                 THEN ${p}weight_kg * (1 + ${p}reps / 30.0) END) AS top_e1rm,
        MAX(CASE WHEN ${performedSql(p)} THEN ${p}distance_km END) AS top_distance,

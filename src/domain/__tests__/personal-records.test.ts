@@ -113,6 +113,12 @@ describe('detectPersonalRecords', () => {
       'e1rm',
     ]);
   });
+
+  it('never calls 0 kg (bodyweight) a weight record', () => {
+    const bests = seasoned(); // only bodyweight sets so far: no top weight
+    expect(detectPersonalRecords(set({ weightKg: 0, reps: 12 }), bests)).toEqual([]);
+    expect(withSet(bests, set({ weightKg: 0, reps: 12 })).topWeightKg).toBeNull();
+  });
 });
 
 describe('withSet', () => {
