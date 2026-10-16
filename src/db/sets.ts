@@ -199,10 +199,10 @@ export async function getLastSetsForExercise(
  * how many other sessions logged it, plus the best weight, Epley estimate,
  * distance and speed ever recorded.
  *
- * `excludeWorkoutId` only narrows the session *count* — the running session's
- * own earlier sets still count towards the bests, because a record set an hour
- * ago is still a record. Other unfinished sessions (abandoned ones) count for
- * nothing — they are invisible in the history, so they can't set the bar.
+ * Only *finished* sessions other than `excludeWorkoutId` count. The running
+ * session's own sets are left to the caller: the set editor folds in the sets
+ * that are ticked right now, so un-ticking one takes it back out again.
+ * Abandoned sessions are invisible in the history, so they can't set the bar.
  * Aggregates skip carried-over rows the same way the history does: a weight
  * without reps was never lifted.
  */
@@ -224,7 +224,7 @@ export async function getExerciseBests(
        ${bestColumnsSql('s.')}
      FROM workout_sets s
      JOIN workouts w ON w.id = s.workout_id
-     WHERE s.exercise_id = ? AND (w.finished_at IS NOT NULL OR w.id = ?)`,
+     WHERE s.exercise_id = ? AND w.finished_at IS NOT NULL AND w.id != ?`,
     excludeWorkoutId ?? -1,
     exerciseId,
     excludeWorkoutId ?? -1,

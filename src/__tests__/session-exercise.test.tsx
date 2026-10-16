@@ -31,6 +31,7 @@ import {
   insertSet,
   startWorkout,
 } from '@/db';
+import { spyOnAlert } from '@/test-support/alert';
 import { createTestDb } from '@/test-support/db';
 import { fireEvent, renderWithProviders, waitFor } from '@/test-support/render';
 import { resetRouter, setRouteParams } from '@/test-support/router';
@@ -265,4 +266,68 @@ describe('sets in the session', () => {
     expect(view.getByLabelText('Rudern, Sätze zuklappen')).toBeTruthy();
     await waitFor(() => expect(view.getAllByLabelText('Satz 1 erledigt')).toHaveLength(1));
   });
+
+  it('takes the record badge back when the set is un-ticked, and gives it again on re-tick', async () => {
+    await pastSession(1, 80, 8);
+    await pastSession(2, 80, 8);
+    await pastSession(3, 80, 8);
+    const { view } = await openExercise();
+
+    await fireEvent.changeText(view.getByLabelText('KG'), '100');
+    await fireEvent.changeText(view.getByLabelText('WDH'), '5');
+    await fireEvent.press(view.getByLabelText('Satz 1 erledigt'));
+    await waitFor(() => expect(view.getByText('PR')).toBeTruthy());
+
+    await fireEvent.press(view.getByLabelText('Satz 1 erledigt'));
+    expect(view.queryByText('PR')).toBeNull();
+
+    await fireEvent.press(view.getByLabelText('Satz 1 erledigt'));
+    await waitFor(() => expect(view.getByText('PR')).toBeTruthy());
+  });
+
+  it('keeps the last set — deleting it would re-seed it on the next open', async () => {
+    const alert = spyOnAlert();
+    const { view, workoutExerciseId } = await openExercise();
+
+    await fireEvent(view.getByText('1'), 'longPress');
+
+    expect(alert).toHaveBeenCalledWith('Letzter Satz', expect.any(String));
+    expect(await getSetsForWorkoutExercise(db, workoutExerciseId)).toHaveLength(1);
+    alert.mockRestore();
+  });
+
+  it('keeps what was typed in a set when another one is added', async () => {
+    const { view, workoutExerciseId } = await openExercise();
+
+    await fireEvent.changeText(view.getByLabelText('WDH'), '7');
+    await fireEvent.press(view.getByText('Satz'));
+
+    await waitFor(() => expect(view.getAllByLabelText('WDH')).toHaveLength(2));
+    expect(view.getAllByLabelText('WDH')[0].props.value).toBe('7');
+    await waitFor(async () => {
+      const saved = await getSetsForWorkoutExercise(db, workoutExerciseId);
+      expect(saved.map((x) => x.reps)).toEqual([7, null]);
+    });
+  });
 });
+
+describe('cardio time input', () => {
+  it('shows the time the way it was stored once the field is left', async () => {
+    const treadmill = await createExercise(db, 'Laufband', 'Cardio');
+    const workoutId = await startWorkout(db, [], gymId, '2026-08-09T10:00:00.000Z');
+    await addWorkoutExercise(db, workoutId, treadmill);
+    setRouteParams({ id: String(workoutId) });
+    const view = await renderWithProviders(<SessionScreen />);
+    await fireEvent.press(await view.findByLabelText('Laufband, Sätze aufklappen'));
+    const time = await view.findByLabelText('ZEIT (min:s)');
+
+    await fireEvent.changeText(time, '32');
+    await fireEvent(time, 'blur');
+    expect(view.getByLabelText('ZEIT (min:s)').props.value).toBe('32:00');
+
+    await fireEvent.changeText(view.getByLabelText('ZEIT (min:s)'), '1:75');
+    await fireEvent(view.getByLabelText('ZEIT (min:s)'), 'blur');
+    expect(view.getByLabelText('ZEIT (min:s)').props.value).toBe('');
+  });
+});
+

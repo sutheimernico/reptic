@@ -20,7 +20,14 @@ jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => ({
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import SessionScreen from '@/app/session/[id]';
-import { createGym, getWorkout, startWorkout } from '@/db';
+import {
+  addWorkoutExercise,
+  createExercise,
+  createGym,
+  getWorkout,
+  insertSet,
+  startWorkout,
+} from '@/db';
 import { pressAlertButton, spyOnAlert } from '@/test-support/alert';
 import { createTestDb } from '@/test-support/db';
 import { fireEvent, renderWithProviders, waitFor } from '@/test-support/render';
@@ -36,10 +43,22 @@ beforeEach(async () => {
 it('finishes the session and replaces it with the fresh summary', async () => {
   const gymId = await createGym(db, 'Quakenbrück');
   const workoutId = await startWorkout(db, [], gymId, new Date().toISOString());
+  const exerciseId = await createExercise(db, 'Bankdrücken', 'Brust');
+  const workoutExerciseId = await addWorkoutExercise(db, workoutId, exerciseId);
+  await insertSet(db, {
+    workoutId,
+    workoutExerciseId,
+    exerciseId,
+    setNumber: 1,
+    weightKg: 60,
+    reps: 10,
+    done: true,
+  });
   setRouteParams({ id: String(workoutId) });
   const alert = spyOnAlert();
 
   const view = await renderWithProviders(<SessionScreen />);
+  await view.findByText('1/1 Sätze'); // progress loaded, so finishing knows a set is done
   await fireEvent.press(view.getByText('Einheit beenden'));
   await pressAlertButton(alert, 'Beenden');
 
@@ -52,4 +71,44 @@ it('finishes the session and replaces it with the fresh summary', async () => {
   expect((await getWorkout(db, workoutId))?.finishedAt).not.toBeNull();
   expect(routerMock.back).not.toHaveBeenCalled();
   alert.mockRestore();
+});
+
+describe('a session without a single ticked set', () => {
+  async function emptySession() {
+    const gymId = await createGym(db, 'Quakenbrück');
+    const workoutId = await startWorkout(db, [], gymId, new Date().toISOString());
+    setRouteParams({ id: String(workoutId) });
+    return workoutId;
+  }
+
+  it('can be discarded instead of landing in the history', async () => {
+    const workoutId = await emptySession();
+    const alert = spyOnAlert();
+
+    const view = await renderWithProviders(<SessionScreen />);
+    await fireEvent.press(view.getByText('Einheit beenden'));
+    expect(alert).toHaveBeenCalledWith(
+      'Noch kein Satz abgehakt',
+      expect.any(String),
+      expect.any(Array),
+    );
+    await pressAlertButton(alert, 'Verwerfen');
+
+    await waitFor(() => expect(routerMock.back).toHaveBeenCalled());
+    expect(await getWorkout(db, workoutId)).toBeNull();
+    alert.mockRestore();
+  });
+
+  it('can still be saved on purpose', async () => {
+    const workoutId = await emptySession();
+    const alert = spyOnAlert();
+
+    const view = await renderWithProviders(<SessionScreen />);
+    await fireEvent.press(view.getByText('Einheit beenden'));
+    await pressAlertButton(alert, 'Speichern');
+
+    await waitFor(() => expect(routerMock.replace).toHaveBeenCalled());
+    expect((await getWorkout(db, workoutId))?.finishedAt).not.toBeNull();
+    alert.mockRestore();
+  });
 });

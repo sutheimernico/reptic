@@ -592,9 +592,10 @@ describe('getExerciseBests', () => {
     expect(queries.count - before).toBe(1);
 
     expect(bests.priorSessions).toBe(2); // the running session does not count itself
-    expect(bests.topWeightKg).toBe(90); // but its sets do count towards the bests
+    // Nor do its sets — the set editor folds in the ones ticked right now.
+    expect(bests.topWeightKg).toBe(85);
     // The best estimate is not the heaviest set: 80 × 8 estimates 101.3,
-    // above 90 × 2 (96) — which is exactly why both records are tracked.
+    // above 85 × 3 (93.5) — which is exactly why both records are tracked.
     expect(bests.topE1rm).toBeCloseTo(80 * (1 + 8 / 30), 5);
     expect(bests.topDistanceKm).toBeNull();
     expect(bests.topPaceKmh).toBeNull();

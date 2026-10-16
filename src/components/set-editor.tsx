@@ -104,6 +104,7 @@ function SetInput({
   value,
   onChangeText,
   keyboardType,
+  onBlur,
   onLabelPress,
   labelAccessibilityLabel,
 }: {
@@ -111,6 +112,7 @@ function SetInput({
   value: string;
   onChangeText: (text: string) => void;
   keyboardType: 'decimal-pad' | 'number-pad' | 'default';
+  onBlur?: () => void;
   /** Makes the small caption tappable — used by the kg field for the plate sheet. */
   onLabelPress?: () => void;
   labelAccessibilityLabel?: string;
@@ -135,6 +137,7 @@ function SetInput({
         accessibilityLabel={label}
         value={value}
         onChangeText={onChangeText}
+        onBlur={onBlur}
         keyboardType={keyboardType}
         placeholder="—"
         placeholderTextColor={c.placeholder}
@@ -144,6 +147,22 @@ function SetInput({
       />
     </View>
   );
+}
+
+/**
+ * First-open seeding in flight, per workout exercise. Folding a row shut and
+ * open again while its first load still runs mounts a second editor; without
+ * this both would find no sets and both would seed — doubled rows.
+ */
+const seeding = new Map<number, Promise<void>>();
+
+function seedOnce(workoutExerciseId: number, seed: () => Promise<void>): Promise<void> {
+  let pending = seeding.get(workoutExerciseId);
+  if (!pending) {
+    pending = seed().finally(() => seeding.delete(workoutExerciseId));
+    seeding.set(workoutExerciseId, pending);
+  }
+  return pending;
 }
 
 /**
@@ -176,9 +195,9 @@ export function SetEditor({
   const [priorGymName, setPriorGymName] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const rowsRef = useRef<Row[]>([]);
-  /** What a set has to beat. Advanced in-memory as sets are ticked done, so
-   *  the second set of a session compares against the first. */
-  const bestsRef = useRef<ExerciseBests>(NO_BESTS);
+  /** Bests from the other, finished sessions. The sets ticked in this one are
+   *  folded in on every tick, so un-ticking one takes it back out. */
+  const baseBestsRef = useRef<ExerciseBests>(NO_BESTS);
   const [records, setRecords] = useState<Map<number, PrKind[]>>(new Map());
   /** One toast per visit to this exercise — badges stay, the shout does not. */
   const toastedRef = useRef(false);
@@ -238,8 +257,9 @@ export function SetEditor({
               },
               parsePlateSetup(await getSetting(db, PLATE_SETUP_SETTING)),
             );
-      let current = await getSetsForWorkoutExercise(db, workoutExerciseId);
-      if (current.length === 0) {
+      await seedOnce(workoutExerciseId, async () => {
+        // Re-checked inside the guard: an earlier editor may have seeded already.
+        if ((await getSetsForWorkoutExercise(db, workoutExerciseId)).length > 0) return;
         for (const draft of createInitialSets(priorSets)) {
           await insertSet(db, {
             workoutId,
@@ -254,10 +274,10 @@ export function SetEditor({
             done: draft.done,
           });
         }
-        current = await getSetsForWorkoutExercise(db, workoutExerciseId);
-      }
+      });
+      const current = await getSetsForWorkoutExercise(db, workoutExerciseId);
       if (active) {
-        bestsRef.current = bests;
+        baseBestsRef.current = bests;
         setIsCardio(cardio);
         setHint(nextHint);
         setPrior(priorSets);
@@ -279,19 +299,39 @@ export function SetEditor({
     void save(id).catch(showSaveError);
   };
 
+  /** Show the time as it was stored: "32" becomes "32:00", "1:75" (not a time) clears. */
+  const normalizeTime = (id: number) => {
+    const row = rowsRef.current.find((r) => r.id === id);
+    if (!row || row.timeText.trim() === '') return;
+    const stored = formatDuration(parseDuration(row.timeText));
+    if (stored !== row.timeText) setField(id, 'timeText', stored);
+  };
+
   const toggleDone = (row: Row) => {
-    const next = !row.done;
+    const latest = rowsRef.current.find((r) => r.id === row.id) ?? row;
+    const next = !latest.done;
     commitRows(rowsRef.current.map((r) => (r.id === row.id ? { ...r, done: next } : r)));
     void save(row.id)
       .then(() => onChangedRef.current?.())
       .catch(showSaveError);
-    if (!next) return; // un-ticking is a correction: no rest, no record
+    if (!next) {
+      // Un-ticking is a correction: no rest, and its record badge goes with it.
+      setRecords((prev) => {
+        const without = new Map(prev);
+        without.delete(row.id);
+        return without;
+      });
+      return;
+    }
     haptic('set-done');
     restTimer.start();
 
-    const performed = fieldsOf(row);
-    const kinds = detectPersonalRecords(performed, bestsRef.current);
-    bestsRef.current = withSet(bestsRef.current, performed);
+    // The bar is everything before plus the other sets ticked right now, so the
+    // second set of a session compares against the first.
+    const bar = rowsRef.current
+      .filter((r) => r.done && r.id !== row.id)
+      .reduce((bests, r) => withSet(bests, fieldsOf(r)), baseBestsRef.current);
+    const kinds = detectPersonalRecords(fieldsOf(latest), bar);
     if (kinds.length === 0) return;
 
     setRecords((prev) => new Map(prev).set(row.id, kinds));
@@ -304,11 +344,10 @@ export function SetEditor({
 
   const addSet = async () => {
     try {
-      await writesRef.current; // the reload below must not read a value still in flight
       const index = rowsRef.current.length;
       const prev = rowsRef.current[index - 1];
       const priorAt = prior[index];
-      await insertSet(db, {
+      const draft = {
         workoutId,
         workoutExerciseId,
         exerciseId,
@@ -321,8 +360,12 @@ export function SetEditor({
         reps: null,
         durationSec: null,
         done: false,
-      });
-      commitRows(toRows(await getSetsForWorkoutExercise(db, workoutExerciseId)));
+      };
+      const id = await insertSet(db, draft);
+      // Appended in memory, not reloaded: a reload would overwrite whatever was
+      // typed into the other sets while the insert ran.
+      const [added] = toRows([{ ...draft, id } as WorkoutSet]);
+      commitRows([...rowsRef.current, added]);
       onChangedRef.current?.();
     } catch (error) {
       showSaveError(error);
@@ -330,6 +373,15 @@ export function SetEditor({
   };
 
   const removeSet = (row: Row, setNumber: number) => {
+    if (rowsRef.current.length === 1) {
+      // An exercise with no sets at all would be re-seeded from last time the
+      // next time it opens — the delete would quietly undo itself.
+      Alert.alert(
+        'Letzter Satz',
+        'Eine Übung behält mindestens einen Satz. Zum Entfernen der ganzen Übung die Zeile zur Seite wischen.',
+      );
+      return;
+    }
     Alert.alert('Satz löschen?', `Satz ${setNumber} entfernen.`, [
       { text: 'Abbrechen', style: 'cancel' },
       {
@@ -339,9 +391,14 @@ export function SetEditor({
           try {
             await writesRef.current;
             await deleteSet(db, row.id);
-            const remaining = await getSetsForWorkoutExercise(db, workoutExerciseId);
-            await Promise.all(remaining.map((s, i) => updateSetNumber(db, s.id, i + 1)));
-            commitRows(toRows(await getSetsForWorkoutExercise(db, workoutExerciseId)));
+            const remaining = rowsRef.current.filter((r) => r.id !== row.id);
+            await Promise.all(remaining.map((r, i) => updateSetNumber(db, r.id, i + 1)));
+            commitRows(rowsRef.current.filter((r) => r.id !== row.id));
+            setRecords((prev) => {
+              const without = new Map(prev);
+              without.delete(row.id);
+              return without;
+            });
             onChangedRef.current?.();
           } catch (error) {
             showSaveError(error);
@@ -434,6 +491,7 @@ export function SetEditor({
                       label="ZEIT (min:s)"
                       value={row.timeText}
                       onChangeText={(t) => setField(row.id, 'timeText', t)}
+                      onBlur={() => normalizeTime(row.id)}
                                             keyboardType="default"
                     />
                     <SetInput

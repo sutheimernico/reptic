@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { type ReactNode } from 'react';
+import { type ReactNode, useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import ReanimatedSwipeable, {
   type SwipeableMethods,
@@ -10,7 +10,8 @@ import { useTheme } from '@/hooks/use-theme';
 
 interface SwipeToDeleteProps {
   children: ReactNode;
-  onDelete: () => void;
+  /** `close` springs the row back — for a delete the caller decided against. */
+  onDelete: (close: () => void) => void;
   /** Spoken by screen readers on the revealed delete button. */
   accessibilityLabel?: string;
 }
@@ -22,6 +23,8 @@ interface SwipeToDeleteProps {
  */
 export function SwipeToDelete({ children, onDelete, accessibilityLabel }: SwipeToDeleteProps) {
   const c = useTheme();
+  const swipeable = useRef<SwipeableMethods>(null);
+  const close = () => swipeable.current?.close();
 
   const renderLeftActions = (
     _progress: unknown,
@@ -34,7 +37,7 @@ export function SwipeToDelete({ children, onDelete, accessibilityLabel }: SwipeT
       style={[styles.action, { backgroundColor: c.danger }]}
       onPress={() => {
         methods.close();
-        onDelete();
+        onDelete(close);
       }}>
       <View style={styles.iconBox}>
         <Ionicons name="trash" size={22} color="#FFFFFF" />
@@ -47,10 +50,11 @@ export function SwipeToDelete({ children, onDelete, accessibilityLabel }: SwipeT
     // check needed. Low friction + a modest threshold make a normal swipe
     // settle open (and thus delete) instead of springing back.
     <ReanimatedSwipeable
+      ref={swipeable}
       friction={1}
       leftThreshold={40}
       renderLeftActions={renderLeftActions}
-      onSwipeableOpen={() => onDelete()}>
+      onSwipeableOpen={() => onDelete(close)}>
       {children}
     </ReanimatedSwipeable>
   );

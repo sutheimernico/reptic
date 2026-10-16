@@ -19,6 +19,7 @@ import { ListRow } from '@/components/ui/list-row';
 import { SwipeToDelete } from '@/components/ui/swipe-to-delete';
 import { Radius, Spacing } from '@/constants/theme';
 import {
+  deleteWorkout,
   finishWorkout,
   getGym,
   getSetProgressForWorkout,
@@ -29,6 +30,7 @@ import {
   type SetProgress,
   type WorkoutExerciseWithExercise,
 } from '@/db';
+import { plural } from '@/domain/format';
 import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
 
@@ -53,7 +55,7 @@ function ExerciseRow({
   progress?: SetProgress;
   expanded: boolean;
   onToggle: () => void;
-  onRemove: () => void;
+  onRemove: (close: () => void) => void;
   onSetsChanged: () => void;
 }) {
   const c = useTheme();
@@ -144,12 +146,31 @@ export default function SessionScreen() {
 
   const removeExercise = async (we: WorkoutExerciseWithExercise) => {
     setExercises((prev) => prev.filter((x) => x.id !== we.id)); // reflow immediately
+    if (openId === we.id) setOpenId(null);
     try {
       await removeWorkoutExercise(db, we.id);
     } catch (error) {
       showSaveError(error);
       load(); // re-sync on failure
     }
+  };
+
+  // An empty exercise goes on the swipe, as before. Once sets are ticked the
+  // swipe would throw away real work in one brush of the thumb — ask first.
+  const askRemoveExercise = (we: WorkoutExerciseWithExercise, close: () => void) => {
+    const done = progress.get(we.id)?.done ?? 0;
+    if (done === 0) {
+      void removeExercise(we);
+      return;
+    }
+    Alert.alert(
+      'Übung entfernen?',
+      `„${we.exercise.name}" und ${plural(done, 'erledigter Satz', 'erledigte Sätze')} werden aus der Einheit gelöscht.`,
+      [
+        { text: 'Abbrechen', style: 'cancel', onPress: close },
+        { text: 'Entfernen', style: 'destructive', onPress: () => void removeExercise(we) },
+      ],
+    );
   };
 
   const onReorder = ({ from, to }: ReorderableListReorderEvent) => {
@@ -164,27 +185,48 @@ export default function SessionScreen() {
     });
   };
 
+  const save = async () => {
+    try {
+      await finishWorkout(db, workoutId, new Date().toISOString());
+    } catch (error) {
+      showSaveError(error);
+      return;
+    }
+    restTimer.dismiss(); // no "Pause vorbei" buzz after the session is over
+    // Replace, not push: the summary takes the session's place, so its
+    // "Fertig" (and the back gesture) lands on Heute, not on a closed session.
+    router.replace({
+      pathname: '/workout/summary',
+      params: { id: String(workoutId), fresh: '1' },
+    });
+  };
+
+  const discard = async () => {
+    try {
+      await deleteWorkout(db, workoutId);
+    } catch (error) {
+      showSaveError(error);
+      return;
+    }
+    restTimer.dismiss();
+    router.back();
+  };
+
   const finish = () => {
+    const doneSets = [...progress.values()].reduce((sum, p) => sum + p.done, 0);
+    if (doneSets === 0) {
+      // A session started by mistake would otherwise land in Verlauf and the
+      // calendar as an empty entry, deletable only from its detail screen.
+      Alert.alert('Noch kein Satz abgehakt', 'Einheit verwerfen oder trotzdem speichern?', [
+        { text: 'Abbrechen', style: 'cancel' },
+        { text: 'Verwerfen', style: 'destructive', onPress: () => void discard() },
+        { text: 'Speichern', onPress: () => void save() },
+      ]);
+      return;
+    }
     Alert.alert('Einheit beenden?', 'Die Einheit wird abgeschlossen und im Verlauf gespeichert.', [
       { text: 'Abbrechen', style: 'cancel' },
-      {
-        text: 'Beenden',
-        onPress: async () => {
-          try {
-            await finishWorkout(db, workoutId, new Date().toISOString());
-          } catch (error) {
-            showSaveError(error);
-            return;
-          }
-          restTimer.dismiss(); // no "Pause vorbei" buzz after the session is over
-          // Replace, not push: the summary takes the session's place, so its
-          // "Fertig" (and the back gesture) lands on Heute, not on a closed session.
-          router.replace({
-            pathname: '/workout/summary',
-            params: { id: String(workoutId), fresh: '1' },
-          });
-        },
-      },
+      { text: 'Beenden', onPress: () => void save() },
     ]);
   };
 
@@ -211,7 +253,7 @@ export default function SessionScreen() {
             progress={progress.get(item.id)}
             expanded={openId === item.id}
             onToggle={() => setOpenId((prev) => (prev === item.id ? null : item.id))}
-            onRemove={() => removeExercise(item)}
+            onRemove={(close) => askRemoveExercise(item, close)}
             onSetsChanged={refreshProgress}
           />
         )}
