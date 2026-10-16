@@ -12,11 +12,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RestTimerBanner, useRestTimer } from '@/components/rest-timer';
 import { SessionClock } from '@/components/session-clock';
+import { SetEditor } from '@/components/set-editor';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListRow } from '@/components/ui/list-row';
 import { SwipeToDelete } from '@/components/ui/swipe-to-delete';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import {
   finishWorkout,
   getGym,
@@ -34,18 +35,24 @@ import { showSaveError } from '@/lib/alerts';
 /**
  * One exercise row. Rendered inside ReorderableList, so it can call
  * useReorderableDrag: long-press starts a drag-to-reorder, swipe deletes,
- * tap opens the set screen.
+ * tap folds its sets open right underneath.
  */
 function ExerciseRow({
   we,
+  workoutId,
   progress,
-  onOpen,
+  expanded,
+  onToggle,
   onRemove,
+  onSetsChanged,
 }: {
   we: WorkoutExerciseWithExercise;
+  workoutId: number;
   progress?: SetProgress;
-  onOpen: () => void;
+  expanded: boolean;
+  onToggle: () => void;
   onRemove: () => void;
+  onSetsChanged: () => void;
 }) {
   const c = useTheme();
   const drag = useReorderableDrag();
@@ -57,12 +64,33 @@ function ExerciseRow({
         <ListRow
           title={we.exercise.name}
           subtitle={progress ? `${progress.done}/${progress.total} Sätze` : we.exercise.muscleGroup}
-          onPress={onOpen}
+          onPress={onToggle}
           onLongPress={drag}
           delayLongPress={150}
-          right={<Ionicons name="reorder-three-outline" size={22} color={c.textSecondary} />}
+          selected={expanded}
+          accessibilityLabel={`${we.exercise.name}, Sätze ${expanded ? 'zuklappen' : 'aufklappen'}`}
+          right={
+            <View style={styles.rowIcons}>
+              <Ionicons
+                name={expanded ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={c.textSecondary}
+              />
+              <Ionicons name="reorder-three-outline" size={22} color={c.textSecondary} />
+            </View>
+          }
         />
       </SwipeToDelete>
+      {expanded ? (
+        <View style={[styles.sets, { backgroundColor: c.card, borderColor: c.border }]}>
+          <SetEditor
+            workoutId={workoutId}
+            workoutExerciseId={we.id}
+            exerciseId={we.exerciseId}
+            onChanged={onSetsChanged}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -79,6 +107,8 @@ export default function SessionScreen() {
   const [progress, setProgress] = useState<Map<number, SetProgress>>(new Map());
   const [gymName, setGymName] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<string | null>(null);
+  /** The one exercise whose sets are folded open; opening another closes it. */
+  const [openId, setOpenId] = useState<number | null>(null);
 
   const load = useCallback(() => {
     getWorkoutExercises(db, workoutId).then(setExercises);
@@ -93,17 +123,9 @@ export default function SessionScreen() {
 
   useFocusEffect(useCallback(() => load(), [load]));
 
-  const openExercise = (we: WorkoutExerciseWithExercise) => {
-    router.push({
-      pathname: '/session/exercise',
-      params: {
-        workoutId: String(workoutId),
-        workoutExerciseId: String(we.id),
-        exerciseId: String(we.exerciseId),
-        name: we.exercise.name,
-      },
-    });
-  };
+  const refreshProgress = useCallback(() => {
+    getSetProgressForWorkout(db, workoutId).then(setProgress);
+  }, [db, workoutId]);
 
   const removeExercise = async (we: WorkoutExerciseWithExercise) => {
     setExercises((prev) => prev.filter((x) => x.id !== we.id)); // reflow immediately
@@ -165,13 +187,17 @@ export default function SessionScreen() {
         keyExtractor={(we) => String(we.id)}
         onReorder={onReorder}
         contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
           <ExerciseRow
             we={item}
+            workoutId={workoutId}
             progress={progress.get(item.id)}
-            onOpen={() => openExercise(item)}
+            expanded={openId === item.id}
+            onToggle={() => setOpenId((prev) => (prev === item.id ? null : item.id))}
             onRemove={() => removeExercise(item)}
+            onSetsChanged={refreshProgress}
           />
         )}
         ListEmptyComponent={
@@ -212,6 +238,13 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
   },
   rowWrap: { marginBottom: Spacing.two },
+  rowIcons: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  sets: {
+    marginTop: Spacing.one,
+    padding: Spacing.three,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+  },
   footer: {
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,

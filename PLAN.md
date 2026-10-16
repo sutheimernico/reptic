@@ -204,6 +204,21 @@ untouched — versionCode stays 5, the build is Nico's step.
 - [x] ~~Icon/splash art~~ — dropped: already real since Phase 12 (Nico's design D); the
       stale Needs-Nico line below is corrected
 
+## Phase 17 — Sets inline in the session (2026-10-16) ✅
+
+Nico's call after the browser preview: tapping an exercise in the session should fold
+its sets open right there instead of opening a separate screen (the accordion deferred
+in the v1.1 plan until he asked for it).
+
+- [x] `components/set-editor.tsx` carries the whole set logic (carry-over, reference line,
+      progression hint, records, plate sheet, + Satz); `session/exercise.tsx` route removed
+- [x] Tap folds open / closed, one exercise open at a time, "x/y Sätze" updates live
+- [x] Every keystroke is written at once through a serial queue (expo-sqlite does not
+      order concurrent async writes) — the flush-on-back machinery is gone with the screen
+- [x] Weights and distances shown with a German decimal comma
+- [x] Browser preview in a phone frame: `npx expo start`, then `localhost:8081/phone.html`
+      (metro.config.js serves the sqlite wasm + COOP/COEP; no auto-backup on web)
+
 ## Needs Nico
 
 - [x] On-device verify of the gym-save fix (2026-07-07, Nico via Expo Go tunnel: gyms +

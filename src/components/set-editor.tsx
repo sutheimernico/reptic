@@ -1,23 +1,19 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   ToastAndroid,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PlateSheet } from '@/components/plate-sheet';
-import { RestTimerBanner, useRestTimer } from '@/components/rest-timer';
-import { SessionClock } from '@/components/session-clock';
+import { useRestTimer } from '@/components/rest-timer';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Radius, Spacing } from '@/constants/theme';
@@ -107,7 +103,6 @@ function SetInput({
   label,
   value,
   onChangeText,
-  onEndEditing,
   keyboardType,
   onLabelPress,
   labelAccessibilityLabel,
@@ -115,7 +110,6 @@ function SetInput({
   label: string;
   value: string;
   onChangeText: (text: string) => void;
-  onEndEditing: () => void;
   keyboardType: 'decimal-pad' | 'number-pad' | 'default';
   /** Makes the small caption tappable — used by the kg field for the plate sheet. */
   onLabelPress?: () => void;
@@ -141,7 +135,6 @@ function SetInput({
         accessibilityLabel={label}
         value={value}
         onChangeText={onChangeText}
-        onEndEditing={onEndEditing}
         keyboardType={keyboardType}
         placeholder="—"
         placeholderTextColor={c.placeholder}
@@ -153,21 +146,30 @@ function SetInput({
   );
 }
 
-export default function ExerciseSetScreen() {
+/**
+ * The sets of one exercise inside a running session, edited in place — it is
+ * rendered under the exercise's row when that row is expanded.
+ *
+ * Every edit is written straight away, so nothing lives only in component
+ * state — the row can collapse, scroll away or the session finish at any moment
+ * without a flush step. expo-sqlite does not order concurrent async writes, so
+ * they run one after another through `save`, each reading the newest row.
+ */
+export function SetEditor({
+  workoutId,
+  workoutExerciseId,
+  exerciseId,
+  onChanged,
+}: {
+  workoutId: number;
+  workoutExerciseId: number;
+  exerciseId: number;
+  /** Sets were added, removed or ticked — the parent refreshes its progress count. */
+  onChanged?: () => void;
+}) {
   const db = useSQLiteContext();
-  const router = useRouter();
-  const navigation = useNavigation();
   const c = useTheme();
   const restTimer = useRestTimer();
-  const params = useLocalSearchParams<{
-    workoutId: string;
-    workoutExerciseId: string;
-    exerciseId: string;
-    name: string;
-  }>();
-  const workoutId = Number(params.workoutId);
-  const workoutExerciseId = Number(params.workoutExerciseId);
-  const exerciseId = Number(params.exerciseId);
 
   const [isCardio, setIsCardio] = useState(false);
   const [prior, setPrior] = useState<PriorSet[]>([]);
@@ -185,11 +187,30 @@ export default function ExerciseSetScreen() {
   const [plateOpen, setPlateOpen] = useState(false);
   /** Double-progression advice from last time; null when there is nothing honest to say. */
   const [hint, setHint] = useState<ProgressionHint | null>(null);
-  const [startedAt, setStartedAt] = useState<string | null>(null);
 
+  // Kept in a ref so a new callback identity from the parent never re-runs the load.
+  const onChangedRef = useRef(onChanged);
   useEffect(() => {
-    rowsRef.current = rows;
-  }, [rows]);
+    onChangedRef.current = onChanged;
+  }, [onChanged]);
+
+  /** State and ref move together: writes read the ref, so they see the latest keystroke. */
+  const commitRows = (next: Row[]) => {
+    rowsRef.current = next;
+    setRows(next);
+  };
+
+  const writesRef = useRef<Promise<void>>(Promise.resolve());
+  /** Queue a write of the set's current values; resolves once it is stored. */
+  const save = (id: number): Promise<void> => {
+    const write = writesRef.current.then(async () => {
+      const row = rowsRef.current.find((r) => r.id === id);
+      if (row) await updateSet(db, id, fieldsOf(row));
+    });
+    // A failed write must not wedge the queue for every later keystroke.
+    writesRef.current = write.catch(() => {});
+    return write;
+  };
 
   useEffect(() => {
     let active = true;
@@ -239,10 +260,12 @@ export default function ExerciseSetScreen() {
         bestsRef.current = bests;
         setIsCardio(cardio);
         setHint(nextHint);
-        setStartedAt(workout?.startedAt ?? null);
         setPrior(priorSets);
         setPriorGymName(sourceGymName);
-        setRows(toRows(current));
+        const loaded = toRows(current);
+        rowsRef.current = loaded;
+        setRows(loaded);
+        onChangedRef.current?.();
       }
     })();
     return () => {
@@ -251,43 +274,17 @@ export default function ExerciseSetScreen() {
   }, [db, exerciseId, workoutExerciseId, workoutId]);
 
   const setField = (id: number, field: TextField, value: string) => {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    const next = rowsRef.current.map((r) => (r.id === id ? { ...r, [field]: value } : r));
+    commitRows(next);
+    void save(id).catch(showSaveError);
   };
-
-  const persist = (id: number) => {
-    const r = rowsRef.current.find((x) => x.id === id);
-    if (r) void updateSet(db, id, fieldsOf(r)).catch(showSaveError);
-  };
-
-  const flush = useCallback(async () => {
-    try {
-      await Promise.all(rowsRef.current.map((r) => updateSet(db, r.id, fieldsOf(r))));
-    } catch (error) {
-      showSaveError(error);
-    }
-  }, [db]);
-
-  // Header back, swipe-back and Android hardware back all bypass finish().
-  // Hold the pop until the flush committed — otherwise the session screen
-  // refocuses (and could even finish the workout) while writes are in flight.
-  const leavingRef = useRef<'idle' | 'flushing' | 'done'>('idle');
-  useEffect(() => {
-    return navigation.addListener('beforeRemove', (e) => {
-      if (leavingRef.current === 'done') return; // our re-dispatched action — let it pop
-      e.preventDefault();
-      if (leavingRef.current === 'flushing') return; // swallow repeat back presses
-      leavingRef.current = 'flushing';
-      void flush().finally(() => {
-        leavingRef.current = 'done';
-        navigation.dispatch(e.data.action);
-      });
-    });
-  }, [navigation, flush]);
 
   const toggleDone = (row: Row) => {
     const next = !row.done;
-    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, done: next } : r)));
-    void updateSet(db, row.id, { ...fieldsOf(row), done: next }).catch(showSaveError);
+    commitRows(rowsRef.current.map((r) => (r.id === row.id ? { ...r, done: next } : r)));
+    void save(row.id)
+      .then(() => onChangedRef.current?.())
+      .catch(showSaveError);
     if (!next) return; // un-ticking is a correction: no rest, no record
     haptic('set-done');
     restTimer.start();
@@ -307,7 +304,7 @@ export default function ExerciseSetScreen() {
 
   const addSet = async () => {
     try {
-      await flush();
+      await writesRef.current; // the reload below must not read a value still in flight
       const index = rowsRef.current.length;
       const prev = rowsRef.current[index - 1];
       const priorAt = prior[index];
@@ -325,7 +322,8 @@ export default function ExerciseSetScreen() {
         durationSec: null,
         done: false,
       });
-      setRows(toRows(await getSetsForWorkoutExercise(db, workoutExerciseId)));
+      commitRows(toRows(await getSetsForWorkoutExercise(db, workoutExerciseId)));
+      onChangedRef.current?.();
     } catch (error) {
       showSaveError(error);
     }
@@ -339,11 +337,12 @@ export default function ExerciseSetScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await flush();
+            await writesRef.current;
             await deleteSet(db, row.id);
             const remaining = await getSetsForWorkoutExercise(db, workoutExerciseId);
             await Promise.all(remaining.map((s, i) => updateSetNumber(db, s.id, i + 1)));
-            setRows(toRows(await getSetsForWorkoutExercise(db, workoutExerciseId)));
+            commitRows(toRows(await getSetsForWorkoutExercise(db, workoutExerciseId)));
+            onChangedRef.current?.();
           } catch (error) {
             showSaveError(error);
           }
@@ -369,17 +368,8 @@ export default function ExerciseSetScreen() {
     if (indices.length === 0) return;
     const weightText = formatWeight(hint.toKg);
     const next = current.map((r, i) => (indices.includes(i) ? { ...r, weightText } : r));
-    rowsRef.current = next;
-    setRows(next);
-    void Promise.all(indices.map((i) => updateSet(db, next[i].id, fieldsOf(next[i])))).catch(
-      showSaveError,
-    );
-  };
-
-  const finish = async () => {
-    await flush();
-    leavingRef.current = 'done'; // already flushed — don't hold the pop again
-    router.back();
+    commitRows(next);
+    void Promise.all(indices.map((i) => save(next[i].id))).catch(showSaveError);
   };
 
   const referenceFor = (ref: PriorSet | undefined): string | null => {
@@ -390,18 +380,7 @@ export default function ExerciseSetScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: c.background }]}>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: params.name ?? 'Übung',
-          headerRight: () => <SessionClock startedAt={startedAt} />,
-        }}
-      />
-      <ScrollView
-        contentContainerStyle={styles.body}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
+    <View style={styles.body}>
         {hint ? (
           <View
             style={[
@@ -449,22 +428,19 @@ export default function ExerciseSetScreen() {
                       label="KM"
                       value={row.distanceText}
                       onChangeText={(t) => setField(row.id, 'distanceText', t)}
-                      onEndEditing={() => persist(row.id)}
-                      keyboardType="decimal-pad"
+                                            keyboardType="decimal-pad"
                     />
                     <SetInput
                       label="ZEIT (min:s)"
                       value={row.timeText}
                       onChangeText={(t) => setField(row.id, 'timeText', t)}
-                      onEndEditing={() => persist(row.id)}
-                      keyboardType="default"
+                                            keyboardType="default"
                     />
                     <SetInput
                       label="STUFE"
                       value={row.levelText}
                       onChangeText={(t) => setField(row.id, 'levelText', t)}
-                      onEndEditing={() => persist(row.id)}
-                      keyboardType="number-pad"
+                                            keyboardType="number-pad"
                     />
                   </>
                 ) : (
@@ -473,8 +449,7 @@ export default function ExerciseSetScreen() {
                       label="KG"
                       value={row.weightText}
                       onChangeText={(t) => setField(row.id, 'weightText', t)}
-                      onEndEditing={() => persist(row.id)}
-                      keyboardType="decimal-pad"
+                                            keyboardType="decimal-pad"
                       onLabelPress={() => {
                         setPlateTarget(parseWeight(row.weightText));
                         setPlateOpen(true);
@@ -485,8 +460,7 @@ export default function ExerciseSetScreen() {
                       label="WDH"
                       value={row.repsText}
                       onChangeText={(t) => setField(row.id, 'repsText', t)}
-                      onEndEditing={() => persist(row.id)}
-                      keyboardType="number-pad"
+                                            keyboardType="number-pad"
                     />
                   </>
                 )}
@@ -540,27 +514,18 @@ export default function ExerciseSetScreen() {
             ? 'Tipp: Satz-Nummer lange drücken zum Löschen.'
             : 'Tipp: Satz-Nummer lange drücken zum Löschen · „KG" antippen zeigt die Scheiben.'}
         </ThemedText>
-      </ScrollView>
 
       <PlateSheet
         targetKg={plateTarget}
         visible={plateOpen}
         onClose={() => setPlateOpen(false)}
       />
-
-      <SafeAreaView
-        edges={['bottom']}
-        style={[styles.footer, { borderTopColor: c.border, backgroundColor: c.background }]}>
-        <RestTimerBanner />
-        <Button label="Übung fertig" icon="checkmark-done" onPress={finish} />
-      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  body: { padding: Spacing.four, gap: Spacing.two },
+  body: { gap: Spacing.two },
   setBlock: { gap: 2 },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   badge: {
@@ -616,9 +581,4 @@ const styles = StyleSheet.create({
   progressionTexts: { flex: 1 },
   progressionTitle: { fontSize: 15, fontWeight: '700' },
   progressionAction: { fontSize: 14, fontWeight: '700' },
-  footer: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-    borderTopWidth: 1,
-  },
 });

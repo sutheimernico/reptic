@@ -1,15 +1,27 @@
 /**
- * The set screen — the flow the whole app exists for. Runs against real SQLite
+ * Logging sets inside the session — the flow the whole app exists for. A tap on
+ * an exercise folds its sets open under the row. Runs against real SQLite
  * (see `@/test-support/db`), so these tests break when the actual queries or
  * the carry-over rules break, not when a stub drifts.
  *
  * Kept out of `src/app/` on purpose: every file under that tree is a route.
  */
 jest.mock('expo-sqlite', () => require('@/test-support/expo-sqlite-mock'));
+// Reanimated's worklet runtime does not exist under Jest; see session-finish.test.
+jest.mock('react-native-reorderable-list', () => ({
+  __esModule: true,
+  default: require('react-native').FlatList,
+  reorderItems: <T,>(items: T[]) => items,
+  useReorderableDrag: () => () => {},
+}));
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => ({
+  __esModule: true,
+  default: ({ children }: { children: unknown }) => children,
+}));
 
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import ExerciseSetScreen from '@/app/session/exercise';
+import SessionScreen from '@/app/session/[id]';
 import {
   addWorkoutExercise,
   createExercise,
@@ -43,17 +55,13 @@ async function pastSession(day: number, weightKg: number, reps: number) {
   await finishWorkout(db, workoutId, `2026-08-0${day}T11:00:00.000Z`);
 }
 
-/** Open the set screen for a fresh session and wait for its first set row. */
+/** Open a fresh session, fold the exercise open and wait for its first set row. */
 async function openExercise() {
   const workoutId = await startWorkout(db, [], gymId, '2026-08-09T10:00:00.000Z');
   const workoutExerciseId = await addWorkoutExercise(db, workoutId, exerciseId);
-  setRouteParams({
-    workoutId: String(workoutId),
-    workoutExerciseId: String(workoutExerciseId),
-    exerciseId: String(exerciseId),
-    name: 'Bankdrücken',
-  });
-  const view = await renderWithProviders(<ExerciseSetScreen />);
+  setRouteParams({ id: String(workoutId) });
+  const view = await renderWithProviders(<SessionScreen />);
+  await fireEvent.press(await view.findByLabelText('Bankdrücken, Sätze aufklappen'));
   await waitFor(() => expect(view.getByLabelText('Satz 1 erledigt')).toBeTruthy());
   return { view, workoutId, workoutExerciseId };
 }
@@ -65,7 +73,7 @@ beforeEach(async () => {
   exerciseId = await createExercise(db, 'Bankdrücken', 'Brust');
 });
 
-describe('set screen', () => {
+describe('sets in the session', () => {
   it('pre-fills the weight from last time and leaves the reps empty', async () => {
     await pastSession(1, 80, 8);
     const { view } = await openExercise();
@@ -203,5 +211,58 @@ describe('set screen', () => {
     await fireEvent.press(view.getByLabelText('Pause beenden'));
     await fireEvent.press(view.getByLabelText('Satz 1 erledigt')); // un-tick
     expect(view.queryByText(/^Pause /)).toBeNull();
+  });
+
+  it('folds the sets away on a second tap and keeps what was typed', async () => {
+    const { view, workoutExerciseId } = await openExercise();
+
+    await fireEvent.changeText(view.getByLabelText('KG'), '60');
+    await fireEvent.press(view.getByLabelText('Bankdrücken, Sätze zuklappen'));
+    expect(view.queryByLabelText('Satz 1 erledigt')).toBeNull();
+
+    // Stored on the keystroke, not on leaving — there is no leaving any more.
+    await waitFor(async () => {
+      const [saved] = await getSetsForWorkoutExercise(db, workoutExerciseId);
+      expect(saved.weightKg).toBe(60);
+    });
+    await fireEvent.press(view.getByLabelText('Bankdrücken, Sätze aufklappen'));
+    await waitFor(() => expect(view.getByLabelText('KG').props.value).toBe('60'));
+  });
+
+  it('keeps the newest value when keystrokes are written back to back', async () => {
+    const { view, workoutExerciseId } = await openExercise();
+
+    for (const text of ['1', '10', '100', '102', '102,5']) {
+      await fireEvent.changeText(view.getByLabelText('KG'), text);
+    }
+
+    await waitFor(async () => {
+      const [saved] = await getSetsForWorkoutExercise(db, workoutExerciseId);
+      expect(saved.weightKg).toBe(102.5);
+    });
+  });
+
+  it('counts ticked sets on the row as they happen', async () => {
+    const { view } = await openExercise();
+
+    await waitFor(() => expect(view.getByText('0/1 Sätze')).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('Satz 1 erledigt'));
+    await waitFor(() => expect(view.getByText('1/1 Sätze')).toBeTruthy());
+  });
+
+  it('keeps only one exercise open at a time', async () => {
+    const rowingId = await createExercise(db, 'Rudern', 'Rücken');
+    const workoutId = await startWorkout(db, [], gymId, '2026-08-09T10:00:00.000Z');
+    await addWorkoutExercise(db, workoutId, exerciseId);
+    await addWorkoutExercise(db, workoutId, rowingId);
+    setRouteParams({ id: String(workoutId) });
+    const view = await renderWithProviders(<SessionScreen />);
+
+    await fireEvent.press(await view.findByLabelText('Bankdrücken, Sätze aufklappen'));
+    await fireEvent.press(view.getByLabelText('Rudern, Sätze aufklappen'));
+
+    expect(view.getByLabelText('Bankdrücken, Sätze aufklappen')).toBeTruthy();
+    expect(view.getByLabelText('Rudern, Sätze zuklappen')).toBeTruthy();
+    await waitFor(() => expect(view.getAllByLabelText('Satz 1 erledigt')).toHaveLength(1));
   });
 });
