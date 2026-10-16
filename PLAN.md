@@ -218,6 +218,30 @@ in the v1.1 plan until he asked for it).
 - [x] Weights and distances shown with a German decimal comma
 - [x] Browser preview in a phone frame: `npx expo start`, then `localhost:8081/phone.html`
       (metro.config.js serves the sqlite wasm + COOP/COEP; no auto-backup on web)
+- [x] Drag from the grip (≡) at once, long press on the row after 400 ms — a click held
+      past 150 ms used to start a drag instead of opening the sets
+
+### Bug sweep (same day)
+
+Two code reviews (screens; db/domain) plus a scripted 88-step click-through of every tab
+in the phone frame (`scratchpad` Playwright script, real mouse, hit-tested targets).
+
+- [x] "Einheit beenden" did nothing in the browser: `Alert.alert` is a no-op in
+      react-native-web → `lib/web-alert.ts` routes it to browser dialogs; plus the grip was a
+      `<button>` inside the row's `<button>` (invalid HTML, its error toast covered the button)
+- [x] Carried-over cardio distance counted as a done set / km in summary, history, trends,
+      records → performed = reps, time, or distance on a ticked set
+- [x] "Letztes Mal" and the progression hint came from a session where the exercise was
+      only opened; bests counted abandoned sessions; archived exercises still seeded sessions
+      and counted in "x Übungen"
+- [x] Bodyweight sets (no kg) vanished from history/reference → "Eigengewicht × 10";
+      progress for bodyweight by reps; 0 kg never a weight record
+- [x] Swipe asks before deleting an exercise with ticked sets; an empty session can be
+      discarded instead of landing in Verlauf; the last set can't be deleted (it re-seeded)
+- [x] Set editor: no double seeding on quick re-open, PR badge leaves on un-tick, "+ Satz"
+      no longer overwrites fresh keystrokes, cardio time normalised on blur ("32" → "32:00")
+- [x] Settings reload after an import, calendar month race, web notices for backup/export,
+      "Eigene Übung" noise dropped, history detail rows open the exercise's progress
 
 ## Needs Nico
 
