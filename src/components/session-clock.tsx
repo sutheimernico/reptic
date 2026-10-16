@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { formatElapsed } from '@/domain/format';
 import { elapsedSeconds } from '@/domain/session';
@@ -39,7 +39,14 @@ export function SessionClock({ startedAt }: { startedAt: string | null }) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  // The native header pads its right slot; the web header doesn't, and the
+  // clock sat flush against the screen edge in the browser preview.
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingRight: Platform.OS === 'web' ? 16 : 0,
+  },
   // Fixed-width digits, or the header text jitters every second.
   time: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
 });

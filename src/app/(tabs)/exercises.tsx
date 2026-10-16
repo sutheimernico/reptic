@@ -74,13 +74,9 @@ export default function ExercisesScreen() {
           <View style={styles.row}>
           <ListRow
             title={exercise.name}
-            subtitle={
-              section.title === 'Archiviert'
-                ? exercise.muscleGroup
-                : exercise.isCustom
-                  ? 'Eigene Übung'
-                  : undefined
-            }
+            // Every exercise is the user's own (the starter set is seeded as
+            // custom), so "Eigene Übung" on each row said nothing.
+            subtitle={section.title === 'Archiviert' ? exercise.muscleGroup : undefined}
             onPress={() =>
               router.push({ pathname: '/exercise/edit', params: { id: String(exercise.id) } })
             }

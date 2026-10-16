@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { useRestTimer } from '@/components/rest-timer';
 import { ThemedText } from '@/components/themed-text';
@@ -84,18 +84,28 @@ export default function SettingsScreen() {
     }
   }, [db]);
 
-  useFocusEffect(
-    useCallback(() => {
-      getGyms(db, { includeArchived: true }).then(setGyms);
-      getSetting(db, HAPTICS_SETTING).then((v) => setHaptics(parseHapticsSetting(v)));
-      getSetting(db, PLATE_SETUP_SETTING).then((v) => setPlates(parsePlateSetup(v)));
-      getSetting(db, REP_TARGET_SETTING).then((v) => setRepTarget(parseRepTarget(v)));
-      getSetting(db, INCREMENT_SETTING).then((v) => setIncrement(parseIncrement(v)));
-      void loadBackupState();
-    }, [db, loadBackupState]),
-  );
+  // Also run after a restore: the tab stays mounted, so focus alone would keep
+  // showing the replaced gyms and settings.
+  const loadAll = useCallback(() => {
+    getGyms(db, { includeArchived: true }).then(setGyms);
+    getSetting(db, HAPTICS_SETTING).then((v) => setHaptics(parseHapticsSetting(v)));
+    getSetting(db, PLATE_SETUP_SETTING).then((v) => setPlates(parsePlateSetup(v)));
+    getSetting(db, REP_TARGET_SETTING).then((v) => setRepTarget(parseRepTarget(v)));
+    getSetting(db, INCREMENT_SETTING).then((v) => setIncrement(parseIncrement(v)));
+    void loadBackupState();
+  }, [db, loadBackupState]);
+
+  useFocusEffect(loadAll);
+
+  /** The browser preview has no file system — say so instead of a cryptic error. */
+  const fileAccessMissing = () => {
+    if (Platform.OS !== 'web') return false;
+    Alert.alert('Im Browser nicht verfügbar', 'Backups, Export und Import laufen auf dem Handy.');
+    return true;
+  };
 
   const onExport = async () => {
+    if (fileAccessMissing()) return;
     try {
       const shared = await exportBackup(db);
       if (!shared) {
@@ -119,7 +129,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               await restoreBackup(db, data);
-              await loadBackupState();
+              loadAll();
               Alert.alert('Import abgeschlossen', 'Deine Daten wurden ersetzt.');
             } catch (e) {
               Alert.alert('Import fehlgeschlagen', errorMessage(e));
@@ -131,6 +141,7 @@ export default function SettingsScreen() {
   };
 
   const onImport = async () => {
+    if (fileAccessMissing()) return;
     let data: BackupData | null;
     try {
       data = await pickBackup();
@@ -143,6 +154,7 @@ export default function SettingsScreen() {
   };
 
   const onBackupNow = async () => {
+    if (fileAccessMissing()) return;
     setBusy(true);
     try {
       await runAutoBackup(db, new Date().toISOString());

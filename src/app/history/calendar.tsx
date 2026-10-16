@@ -29,10 +29,18 @@ export default function HistoryCalendarScreen() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   const load = useCallback(() => {
+    // Flipping months quickly can resolve an older month's query last; the
+    // cleanup drops it so the grid never shows another month's sessions.
+    let active = true;
     const from = new Date(year, month0, 1).toISOString();
     const to = new Date(year, month0 + 1, 1).toISOString();
-    getFinishedWorkoutSummaries(db, { from, to }).then(setSessions);
-    getPlans(db).then((plans) => setPlansById(new Map(plans.map((p) => [p.id, p]))));
+    getFinishedWorkoutSummaries(db, { from, to }).then((s) => active && setSessions(s));
+    getPlans(db).then(
+      (plans) => active && setPlansById(new Map(plans.map((p) => [p.id, p]))),
+    );
+    return () => {
+      active = false;
+    };
   }, [db, year, month0]);
 
   useFocusEffect(useCallback(() => load(), [load]));
