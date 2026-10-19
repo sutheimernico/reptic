@@ -16,6 +16,7 @@ import {
   exerciseHasHistory,
   exportAllData,
   finishWorkout,
+  getExerciseHistoryAll,
   getExerciseSessionHistory,
   getExerciseBests,
   getFinishedWorkoutSummaries,
@@ -967,5 +968,38 @@ describe('getWeekOverview', () => {
     }
     const o = await getWeekOverview(db, now);
     expect(o.xp).toBe(10 * 4 + 50 * 1);
+  });
+});
+
+describe('getExerciseHistoryAll', () => {
+  it('returns every performed finished session oldest first with the gym id', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const ex = await createExercise(db, 'Bankdrücken', 'Brust');
+    for (let i = 1; i <= 15; i++) {
+      const day = String(i).padStart(2, '0');
+      await loggedSession(db, {
+        gymId: gym, exerciseId: ex,
+        startedAt: `2026-08-${day}T10:00:00.000Z`, finishedAt: `2026-08-${day}T11:00:00.000Z`,
+        sets: [{ weightKg: 60 + i, reps: 5 }],
+      });
+    }
+    await loggedSession(db, {
+      gymId: gym, exerciseId: ex,
+      startedAt: '2026-08-20T10:00:00.000Z', finishedAt: null, // still running
+      sets: [{ weightKg: 200, reps: 5 }],
+    });
+    await loggedSession(db, {
+      gymId: gym, exerciseId: ex,
+      startedAt: '2026-08-21T10:00:00.000Z', finishedAt: '2026-08-21T11:00:00.000Z',
+      sets: [{ weightKg: 80, reps: null }], // carried-over, not performed
+    });
+
+    const history = await getExerciseHistoryAll(db, ex);
+    expect(history).toHaveLength(15);
+    expect(history[0].date).toBe('2026-08-01T11:00:00.000Z');
+    expect(history[14].date).toBe('2026-08-15T11:00:00.000Z');
+    expect(history[0].gymId).toBe(gym);
+    expect(history[0].sets).toHaveLength(1);
   });
 });

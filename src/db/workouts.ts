@@ -291,6 +291,71 @@ export async function getExerciseSessionHistory(
   return entries;
 }
 
+export interface ExerciseHistoryEntry extends ExerciseSessionEntry {
+  gymId: number | null;
+}
+
+/**
+ * Every finished session that logged this exercise, oldest first, for the
+ * strength forecast. Same "performed" filter as `getExerciseSessionHistory`,
+ * but unlimited and carrying `gym_id` so the chart can mark gym changes.
+ */
+export async function getExerciseHistoryAll(
+  db: SQLiteDatabase,
+  exerciseId: number,
+): Promise<ExerciseHistoryEntry[]> {
+  const rows = await db.getAllAsync<{
+    id: number;
+    started_at: string;
+    finished_at: string | null;
+    gym_id: number | null;
+    gym_name: string;
+    set_number: number;
+    weight_kg: number | null;
+    reps: number | null;
+    distance_km: number | null;
+    duration_sec: number | null;
+    level: number | null;
+  }>(
+    `SELECT w.id, w.started_at, w.finished_at, w.gym_id, g.name AS gym_name,
+            s.set_number, s.weight_kg, s.reps, s.distance_km, s.duration_sec, s.level
+     FROM workouts w
+     LEFT JOIN gyms g ON g.id = w.gym_id
+     JOIN workout_sets s
+       ON s.workout_id = w.id AND s.exercise_id = ?
+          AND ${performedSql('s.')}
+     WHERE w.finished_at IS NOT NULL
+     ORDER BY w.finished_at ASC, w.id ASC, s.set_number`,
+    exerciseId,
+  );
+
+  const entries: ExerciseHistoryEntry[] = [];
+  const byWorkout = new Map<number, ExerciseHistoryEntry>();
+  for (const r of rows) {
+    let entry = byWorkout.get(r.id);
+    if (!entry) {
+      entry = {
+        workoutId: r.id,
+        date: r.finished_at ?? r.started_at,
+        gymName: r.gym_name,
+        gymId: r.gym_id,
+        sets: [],
+      };
+      byWorkout.set(r.id, entry);
+      entries.push(entry);
+    }
+    entry.sets.push({
+      setNumber: r.set_number,
+      weightKg: r.weight_kg,
+      reps: r.reps,
+      distanceKm: r.distance_km,
+      durationSec: r.duration_sec,
+      level: r.level,
+    });
+  }
+  return entries;
+}
+
 /**
  * Per-session, per-muscle-group totals for the weekly trends, in one aggregate
  * query. Bucketing into weeks happens in `@/domain/weeks`, not here: ISO weeks
