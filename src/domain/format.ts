@@ -151,7 +151,7 @@ export function formatSessionDate(iso: string): string {
 }
 
 /** Group thousands with a dot (German): 4180 -> "4.180". */
-function groupThousands(n: number): string {
+export function groupThousands(n: number): string {
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 

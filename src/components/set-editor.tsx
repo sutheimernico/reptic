@@ -17,6 +17,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { Celebration } from '@/components/celebration';
 import { CheckPop } from '@/components/motion/check-pop';
 import { PlateSheet } from '@/components/plate-sheet';
 import { useRestTimer } from '@/components/rest-timer';
@@ -245,6 +246,9 @@ export function SetEditor({
    *  folded in on every tick, so un-ticking one takes it back out. */
   const baseBestsRef = useRef<ExerciseBests>(NO_BESTS);
   const [records, setRecords] = useState<Map<number, PrKind[]>>(new Map());
+  /** The record celebration that is playing (its id remounts it on a new record), or null. */
+  const [shout, setShout] = useState<{ id: number } | null>(null);
+  const shoutCount = useRef(0);
   /** One toast per visit to this exercise — badges stay, the shout does not. */
   const toastedRef = useRef(false);
   /** Target of the plate sheet; null while it is closed. */
@@ -382,6 +386,7 @@ export function SetEditor({
 
     setRecords((prev) => new Map(prev).set(row.id, kinds));
     haptic('record');
+    setShout({ id: (shoutCount.current += 1) });
     if (!toastedRef.current && Platform.OS === 'android') {
       toastedRef.current = true;
       ToastAndroid.show(`Neuer Rekord: ${describeRecords(kinds)}`, ToastAndroid.LONG);
@@ -643,6 +648,16 @@ export function SetEditor({
       </ThemedText>
 
       <PlateSheet targetKg={plateTarget} visible={plateOpen} onClose={() => setPlateOpen(false)} />
+      {/* Hovers above the first rows; touches pass through to the inputs underneath. */}
+      <View pointerEvents="none" style={styles.shout}>
+        <Celebration
+          key={shout?.id ?? 0}
+          kind="pr"
+          label="Neuer Rekord"
+          visible={shout !== null}
+          onDone={() => setShout(null)}
+        />
+      </View>
     </View>
   );
 }
@@ -650,6 +665,7 @@ export function SetEditor({
 const styles = StyleSheet.create({
   body: { gap: Spacing.two },
   setBlock: { gap: 2 },
+  shout: { position: 'absolute', top: -44, left: 0, right: 0, height: 130 },
   settle: { position: 'absolute', top: -3, bottom: -3, left: -4, right: -4 },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   badge: {

@@ -51,6 +51,7 @@ module.exports = {
   Easing,
   useSharedValue: (initial: unknown) => box(initial),
   useAnimatedStyle: (factory: () => object) => factory(),
+  useAnimatedProps: (factory: () => object) => factory(),
   useReducedMotion: () => reducedMotion,
   withTiming: passthrough,
   withSpring: passthrough,

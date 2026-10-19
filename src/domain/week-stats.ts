@@ -4,6 +4,7 @@
  * rows. Weeks are local-time ISO weeks (see `weeks.ts`).
  */
 
+import { parseWeight } from '@/domain/format';
 import {
   detectPersonalRecords,
   NO_BESTS,
@@ -31,6 +32,38 @@ export interface WeekProgress {
   volumeKg: number;
   distanceKm: number;
   sessions: number;
+}
+
+/** One weekday (Mon = index 0) of the running week. */
+export interface WeekDay {
+  volumeKg: number;
+  trained: boolean;
+}
+
+/**
+ * The running week split by local weekday: volume moved and whether anything was
+ * trained. The unfinished workout counts on today, in step with the hero number.
+ */
+export function weekDays(
+  rows: SessionMuscleTotals[],
+  now: Date,
+  live: { volumeKg: number; active: boolean },
+): WeekDay[] {
+  const days: WeekDay[] = Array.from({ length: 7 }, () => ({ volumeKg: 0, trained: false }));
+  const key = isoWeekKey(isoWeekOf(now));
+  for (const r of rows) {
+    const date = new Date(r.finishedAt);
+    if (Number.isNaN(date.getTime()) || isoWeekKey(isoWeekOf(date)) !== key) continue;
+    const day = days[(date.getDay() + 6) % 7];
+    day.volumeKg += r.volumeKg;
+    day.trained = true;
+  }
+  if (live.active) {
+    const today = days[(now.getDay() + 6) % 7];
+    today.volumeKg += live.volumeKg;
+    today.trained = true;
+  }
+  return days;
 }
 
 export function currentWeekProgress(rows: SessionMuscleTotals[], now: Date): WeekProgress {
@@ -129,7 +162,29 @@ export function resolveWeekGoal(
   };
 }
 
-export const xpFor = (setCount: number, prCount: number): number => 10 * setCount + 50 * prCount;
+export type GoalInput = { action: 'clear' } | { action: 'set'; value: string } | { action: 'invalid' };
+
+/**
+ * A goal as typed in the settings: "25000", "25.000" (German thousands dot),
+ * "12,5" and "12.5" all work. Stored with a dot so `parseGoal` reads it back;
+ * empty clears the goal so the suggestion takes over again. Zero or negative is
+ * invalid.
+ */
+export function normalizeGoalInput(text: string): GoalInput {
+  const trimmed = text.trim();
+  if (trimmed === '') return { action: 'clear' };
+  // parseWeight alone would read "25.000" as 25 — a German user means 25 000.
+  const thousands = /^\d{1,3}(\.\d{3})+$/.test(trimmed);
+  const n = parseWeight(thousands ? trimmed.replace(/\./g, '') : trimmed);
+  if (n === null || n <= 0) return { action: 'invalid' };
+  return { action: 'set', value: String(n) };
+}
+
+export const XP_PER_SET = 10;
+export const XP_PER_PR = 50;
+
+export const xpFor = (setCount: number, prCount: number): number =>
+  XP_PER_SET * setCount + XP_PER_PR * prCount;
 
 /** Cumulative XP at which `level` begins (level 1 starts at 0). */
 const levelStart = (level: number): number => Math.round(100 * (level - 1) ** 1.5);

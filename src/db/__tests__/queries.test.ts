@@ -889,6 +889,7 @@ describe('getWeekOverview', () => {
     expect(o.weeks).toHaveLength(12);
     expect(o.streak).toBe(0);
     expect(o.xp).toBe(0);
+    expect(o.days).toEqual(Array.from({ length: 7 }, () => ({ volumeKg: 0, trained: false })));
     expect(o.goal).toMatchObject({ kg: 10000, km: null, kgIsSuggestion: true });
   });
 
@@ -917,6 +918,8 @@ describe('getWeekOverview', () => {
     expect(o.progress.sessions).toBe(2);
     // finished this week 1000 + 800 (reps entered count even if unticked), live 400
     expect(o.progress.volumeKg).toBe(2200);
+    expect(o.days.map((d) => d.volumeKg)).toEqual([1000, 800, 400, 0, 0, 0, 0]);
+    expect(o.days.map((d) => d.trained)).toEqual([true, true, true, false, false, false, false]);
     expect(o.streak).toBe(2);
     expect(o.goal).toMatchObject({ kg: 1000, kgIsSuggestion: true }); // W42 = 800 → up to 500s
     expect(o.xp).toBe(10 * 5); // five performed sets, no record yet (< 3 prior sessions)

@@ -12,23 +12,29 @@ import {
   countPersonalRecords,
   currentWeekProgress,
   resolveWeekGoal,
+  weekDays,
   weekStreak,
   WEEK_GOAL_KG_SETTING,
   WEEK_GOAL_KM_SETTING,
   xpFor,
   type PrReplaySet,
+  type WeekDay,
   type WeekGoal,
   type WeekProgress,
 } from '@/domain/week-stats';
-import { bucketByWeek, isoWeekKey, isoWeekOf, startOfWeekWindow, type WeekTotals } from '@/domain/weeks';
+import { bucketByWeek, isoWeekKey, isoWeekOf, startOfIsoWeek, startOfWeekWindow, type WeekTotals } from '@/domain/weeks';
 
 const WINDOW_WEEKS = 12;
 
 export interface WeekOverview {
   progress: WeekProgress;
   weeks: WeekTotals[];
+  /** Mon–Sun of the running week, live workout included on today. */
+  days: WeekDay[];
   streak: number;
   goal: WeekGoal;
+  /** Personal records set in finished workouts this week. */
+  weekPrs: number;
   xp: number;
 }
 
@@ -70,6 +76,7 @@ export async function getWeekOverview(db: SQLiteDatabase, now: Date): Promise<We
      WHERE w.finished_at IS NOT NULL AND ${performedSql('s.')}`,
   );
   const prSets = await db.getAllAsync<{
+    finished_at: string;
     workout_id: number;
     exercise_id: number;
     weight_kg: number | null;
@@ -77,20 +84,25 @@ export async function getWeekOverview(db: SQLiteDatabase, now: Date): Promise<We
     distance_km: number | null;
     duration_sec: number | null;
   }>(
-    `SELECT s.workout_id, s.exercise_id, s.weight_kg, s.reps, s.distance_km, s.duration_sec
+    `SELECT w.finished_at, s.workout_id, s.exercise_id, s.weight_kg, s.reps, s.distance_km, s.duration_sec
      FROM workout_sets s
      JOIN workouts w ON w.id = s.workout_id
      WHERE w.finished_at IS NOT NULL AND ${performedSql('s.')}
      ORDER BY w.finished_at, w.id, s.id`,
   );
-  const replay: PrReplaySet[] = prSets.map((r) => ({
+  const toReplay = (r: (typeof prSets)[number]): PrReplaySet => ({
     workoutId: r.workout_id,
     exerciseId: r.exercise_id,
     weightKg: r.weight_kg,
     reps: r.reps,
     distanceKm: r.distance_km,
     durationSec: r.duration_sec,
-  }));
+  });
+  const replay = prSets.map(toReplay);
+  // Sets are chronological, so the records before Monday are a prefix of the replay.
+  const weekStartMs = startOfIsoWeek(now).getTime();
+  const before = prSets.filter((r) => new Date(r.finished_at).getTime() < weekStartMs).map(toReplay);
+  const totalPrs = countPersonalRecords(replay);
 
   const goal = resolveWeekGoal(
     await getSetting(db, WEEK_GOAL_KG_SETTING),
@@ -101,11 +113,16 @@ export async function getWeekOverview(db: SQLiteDatabase, now: Date): Promise<We
   return {
     progress,
     weeks,
+    days: weekDays(rows, now, {
+      volumeKg: startedThisWeek ? (activeTotals?.volume ?? 0) : 0,
+      active: startedThisWeek && (activeTotals?.sets ?? 0) > 0,
+    }),
     streak: weekStreak(
       dates.map((d) => d.finished_at),
       now,
     ),
     goal,
-    xp: xpFor((finishedSetCount?.n ?? 0) + (activeTotals?.sets ?? 0), countPersonalRecords(replay)),
+    weekPrs: totalPrs - countPersonalRecords(before),
+    xp: xpFor((finishedSetCount?.n ?? 0) + (activeTotals?.sets ?? 0), totalPrs),
   };
 }

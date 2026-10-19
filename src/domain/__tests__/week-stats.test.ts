@@ -2,9 +2,11 @@ import {
   countPersonalRecords,
   currentWeekProgress,
   levelFor,
+  normalizeGoalInput,
   resolveWeekGoal,
   suggestGoalKg,
   suggestGoalKm,
+  weekDays,
   weekStreak,
   xpFor,
   type PrReplaySet,
@@ -136,5 +138,53 @@ describe('countPersonalRecords', () => {
   it('tracks exercises independently', () => {
     const sets = [set(1, 50), set(2, 50), set(3, 50), set(4, 60, 5, 2)];
     expect(countPersonalRecords(sets)).toBe(0);
+  });
+});
+
+describe('weekDays', () => {
+  const now = new Date(2026, 9, 21, 12); // Wednesday, 2026-W43
+  const none = { volumeKg: 0, active: false };
+
+  it('is seven untrained zero days on an empty week', () => {
+    expect(weekDays([], now, none)).toEqual(Array.from({ length: 7 }, () => ({ volumeKg: 0, trained: false })));
+  });
+
+  it('puts a Sunday-night set on Sunday of its own week and ignores other weeks', () => {
+    const days = weekDays(
+      [
+        row(local(2026, 9, 18, 23, 30), 700), // Sun of W42: not this week
+        row(local(2026, 9, 19, 9), 1000), // Mon
+        row(local(2026, 9, 19, 9), 500, 4), // same session, other muscle
+      ],
+      now,
+      none,
+    );
+    expect(days.map((d) => d.volumeKg)).toEqual([1500, 0, 0, 0, 0, 0, 0]);
+    expect(days[0].trained).toBe(true);
+  });
+
+  it('adds the running workout to today', () => {
+    const days = weekDays([], now, { volumeKg: 400, active: true });
+    expect(days[2]).toEqual({ volumeKg: 400, trained: true });
+  });
+});
+
+describe('normalizeGoalInput', () => {
+  it.each([
+    ['25000', '25000'],
+    ['25.000', '25000'],
+    ['12,5', '12.5'],
+    ['12.5', '12.5'],
+    [' 20 ', '20'],
+  ])('reads %p as %p', (text, value) => {
+    expect(normalizeGoalInput(text)).toEqual({ action: 'set', value });
+  });
+
+  it('clears on empty input', () => {
+    expect(normalizeGoalInput('  ')).toEqual({ action: 'clear' });
+  });
+
+  it.each(['abc', '0', '-5', '0,0'])('rejects %p', (text) => {
+    expect(normalizeGoalInput(text)).toEqual({ action: 'invalid' });
   });
 });

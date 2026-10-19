@@ -11,6 +11,7 @@ import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { ThemePicker } from '@/components/theme-picker';
+import { WeekGoalFields } from '@/components/week-goal-fields';
 import { APP_NAME } from '@/constants/app';
 import { Spacing } from '@/constants/theme';
 import { getGyms, getSetting, setSetting } from '@/db';
@@ -225,6 +226,13 @@ export default function SettingsScreen() {
           <SegmentedControl options={THEME_OPTIONS} value={mode} onChange={setMode} />
         </View>
       )}
+
+      <View style={styles.block}>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.label}>
+          WOCHENZIEL
+        </ThemedText>
+        <WeekGoalFields />
+      </View>
 
       <View style={styles.block}>
         <ThemedText type="small" themeColor="textSecondary" style={styles.label}>

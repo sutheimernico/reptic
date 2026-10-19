@@ -4,20 +4,24 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { FadeInListItem } from '@/components/motion/fade-in-list-item';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
+import { WeekHero } from '@/components/week-hero';
 import { Spacing } from '@/constants/theme';
 import {
   getActiveWorkout,
   getGym,
   getPlansWithExercises,
   getSetting,
+  getWeekOverview,
   LAST_GYM_SETTING,
   startWorkout,
+  type WeekOverview,
 } from '@/db';
 import { plural } from '@/domain/format';
 import type { Gym, PlanWithExercises, Workout } from '@/domain/types';
@@ -40,10 +44,14 @@ export default function HeuteScreen() {
   const [plans, setPlans] = useState<PlanWithExercises[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
   const [gym, setGym] = useState<Gym | null>(null);
+  const [overview, setOverview] = useState<WeekOverview | null>(null);
 
   const load = useCallback(() => {
     getActiveWorkout(db).then(setActive);
     getPlansWithExercises(db).then(setPlans);
+    getWeekOverview(db, new Date()).then(setOverview)
+      // The hero is a bonus: if the stats cannot load, the rest of Heute must still work.
+      .catch(() => setOverview(null));
     // The "selected" gym IS the persisted last-used one; archived/deleted → none.
     getSetting(db, LAST_GYM_SETTING)
       .then((value) => (value ? getGym(db, Number(value)) : null))
@@ -71,6 +79,12 @@ export default function HeuteScreen() {
 
   return (
     <Screen title="Heute" subtitle={todayLabel()}>
+      {overview ? (
+        <FadeInListItem index={0}>
+          <WeekHero overview={overview} />
+        </FadeInListItem>
+      ) : null}
+
       {!active ? (
         <ListRow
           title={gym ? gym.name : 'Gym wählen'}

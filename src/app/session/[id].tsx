@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import ReorderableList, {
   reorderItems,
@@ -10,6 +10,7 @@ import ReorderableList, {
 } from 'react-native-reorderable-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Celebration } from '@/components/celebration';
 import { FadeInListItem } from '@/components/motion/fade-in-list-item';
 import { RestTimerBanner, useRestTimer } from '@/components/rest-timer';
 import { SessionClock } from '@/components/session-clock';
@@ -24,6 +25,7 @@ import {
   finishWorkout,
   getGym,
   getSetProgressForWorkout,
+  getWeekOverview,
   getWorkout,
   getWorkoutExercises,
   removeWorkoutExercise,
@@ -35,6 +37,8 @@ import { plural } from '@/domain/format';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
+import { markGoalCelebrated, shouldCelebrateGoal } from '@/lib/celebrations';
+import { haptic } from '@/lib/haptics';
 
 /**
  * One exercise row. Rendered inside ReorderableList, so it can call
@@ -152,9 +156,44 @@ export default function SessionScreen() {
 
   useFocusEffect(useCallback(() => load(), [load]));
 
+  /** The goal celebration that is playing (its start time doubles as the key), or null. */
+  const [goalShout, setGoalShout] = useState<{ key: number; label: string } | null>(null);
+  const checkingGoals = useRef(false);
+
+  /** A week goal reached by this tick is celebrated once per week and goal, then remembered. */
+  const checkGoals = useCallback(async () => {
+    if (checkingGoals.current) return; // two quick ticks must not both see "not celebrated yet"
+    checkingGoals.current = true;
+    try {
+      const { progress, goal } = await getWeekOverview(db, new Date());
+      const labels: string[] = [];
+      if (progress.volumeKg > 0 && progress.volumeKg >= goal.kg) {
+        if (await shouldCelebrateGoal(db, 'kg', progress.weekKey)) {
+          await markGoalCelebrated(db, 'kg', progress.weekKey);
+          labels.push('Wochenziel geschafft');
+        }
+      }
+      if (goal.km !== null && progress.distanceKm > 0 && progress.distanceKm >= goal.km) {
+        if (await shouldCelebrateGoal(db, 'km', progress.weekKey)) {
+          await markGoalCelebrated(db, 'km', progress.weekKey);
+          labels.push('Cardio-Ziel geschafft');
+        }
+      }
+      if (labels.length > 0) {
+        haptic('record');
+        setGoalShout({ key: Date.now(), label: labels.length > 1 ? 'Beide Wochenziele geschafft' : labels[0] });
+      }
+    } catch {
+      // A missed celebration is not worth an alert; the set itself is already saved.
+    } finally {
+      checkingGoals.current = false;
+    }
+  }, [db]);
+
   const refreshProgress = useCallback(() => {
     getSetProgressForWorkout(db, workoutId).then(setProgress);
-  }, [db, workoutId]);
+    void checkGoals();
+  }, [db, workoutId, checkGoals]);
 
   const removeExercise = async (we: WorkoutExerciseWithExercise) => {
     setExercises((prev) => prev.filter((x) => x.id !== we.id)); // reflow immediately
@@ -292,6 +331,16 @@ export default function SessionScreen() {
           />
         }
       />
+
+      {goalShout ? (
+        <Celebration
+          key={goalShout.key}
+          kind="goal"
+          label={goalShout.label}
+          visible
+          onDone={() => setGoalShout(null)}
+        />
+      ) : null}
 
       <SafeAreaView
         edges={['bottom']}
