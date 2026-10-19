@@ -162,6 +162,11 @@ export default function SessionScreen() {
   const [startedAt, setStartedAt] = useState<string | null>(null);
   /** The one exercise whose sets are folded open; opening another closes it. */
   const [openId, setOpenId] = useState<number | null>(null);
+  /** Mirror of `openId` for async code that must see the exercise open *now*, not at call time. */
+  const openIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    openIdRef.current = openId;
+  }, [openId]);
 
   const load = useCallback(() => {
     getWorkoutExercises(db, workoutId).then(setExercises);
@@ -208,7 +213,7 @@ export default function SessionScreen() {
       const plates = parsePlateSetup(await getSetting(db, PLATE_SETUP_SETTING));
       // Stored first: exercises opened from now on seed lowered, even before the writes below end.
       await setSetting(db, breakAppliedKey(workoutId), String(factor));
-      await lowerUntouchedWeights(db, workoutId, openId, (kg) =>
+      await lowerUntouchedWeights(db, workoutId, () => openIdRef.current, (kg) =>
         lowerWeight(kg, factor, incrementKg, plates),
       );
       setBreakApplied(true);

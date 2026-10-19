@@ -48,6 +48,9 @@ export function lowerWeight(
   if (plates && solvePlates(kg, plates)?.exact) {
     const lowered = solvePlates(target, plates);
     if (lowered) return roundKg(lowered.totalKg);
+    // Below the bar nothing is loadable: the empty bar is the lightest real weight. `kg` was
+    // exactly loadable, so it is at least the bar and this never raises the weight.
+    return plates.barKg;
   }
   // The epsilon keeps an exact multiple (45 / 2.5) from flooring one step too far.
   return roundKg(Math.max(0, Math.floor(target / incrementKg + 1e-9) * incrementKg));

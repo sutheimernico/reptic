@@ -168,6 +168,31 @@ describe('break banner', () => {
     });
   });
 
+  it('keeps a kg typed into a collapsed exercise and still lowers its carried-over sets', async () => {
+    await pastSession(pressId, 16, [82.5, 82.5]);
+    await pastSession(rowId, 16, [60]);
+    const { workoutId, wes } = await newSession([pressId, rowId]);
+    const view = await openScreen(workoutId);
+    await view.findByText(/nicht im Gym/);
+    await open(view, 'Brustpresse', 2);
+    await fireEvent.changeText(view.getAllByLabelText('KG')[0], '100'); // typed, no reps
+    await waitFor(async () => {
+      const saved = await getSetsForWorkoutExercise(db, wes[0]);
+      expect(saved[0].weightKg).toBe(100);
+    });
+    await open(view, 'Rudern', 1); // collapses Brustpresse
+
+    await fireEvent.press(view.getByText('Übernehmen'));
+
+    await waitFor(() => expect(view.getByLabelText('KG').props.value).toBe('52,5'));
+    await waitFor(async () => {
+      const saved = await getSetsForWorkoutExercise(db, wes[0]);
+      expect(saved.map((x) => x.weightKg)).toEqual([100, 72.5]);
+    });
+    await open(view, 'Brustpresse', 2);
+    expect(view.getAllByLabelText('KG').map((i) => i.props.value)).toEqual(['100', '72,5']);
+  });
+
   it('seeds a never-opened exercise lowered after Übernehmen', async () => {
     await pastSession(pressId, 16, [82.5]);
     const { workoutId } = await newSession([pressId]);

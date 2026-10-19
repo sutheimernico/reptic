@@ -17,6 +17,7 @@ import {
   type WorkoutExerciseRow,
   type WorkoutRow,
 } from '@/db/rows';
+import { getLastSetsForExercise, getSetsForWorkoutExercise } from '@/db/sets';
 import { LAST_GYM_SETTING, setSetting } from '@/db/settings';
 import {
   mapSessionTotals,
@@ -25,6 +26,7 @@ import {
   type SessionTotalsRow,
 } from '@/db/totals';
 import { mergePlanExercises, type PlanExercises } from '@/domain/plans';
+import { isPerformed } from '@/domain/sets';
 import type { SessionMuscleTotals } from '@/domain/weeks';
 import type {
   Exercise,
@@ -137,29 +139,39 @@ export async function getLastFinishedWorkoutDate(
 }
 
 /**
- * Lower the weight of every set in the workout that was not worked yet (nothing
- * performed, not ticked), except those of `skipWorkoutExerciseId` — an open editor
- * holds its own rows in memory and lowers them itself.
+ * Lower the carried-over weights of the workout: sets that were not worked yet
+ * (nothing performed, not ticked) and whose weight still equals what seeding
+ * copied from last time for that exercise and set number. A weight the user
+ * changed therefore stays. The exercise open right now (asked per exercise, just
+ * before its writes, so switching exercises mid-way is safe) is left to its
+ * editor, which holds its rows in memory and lowers them itself.
  */
 export async function lowerUntouchedWeights(
   db: SQLiteDatabase,
   workoutId: number,
-  skipWorkoutExerciseId: number | null,
+  openWorkoutExerciseId: () => number | null,
   lower: (kg: number) => number | null,
 ): Promise<void> {
-  const rows = await db.getAllAsync<{ id: number; weight_kg: number }>(
-    `SELECT id, weight_kg FROM workout_sets
-     WHERE workout_id = ? AND done = 0 AND NOT ${performedSql()}
-       AND weight_kg IS NOT NULL AND weight_kg > 0
-       AND (? IS NULL OR workout_exercise_id != ?)`,
-    workoutId,
-    skipWorkoutExerciseId,
-    skipWorkoutExerciseId,
-  );
-  for (const row of rows) {
-    const next = lower(row.weight_kg);
-    if (next !== null && next !== row.weight_kg) {
-      await db.runAsync('UPDATE workout_sets SET weight_kg = ? WHERE id = ?', next, row.id);
+  const workout = await getWorkout(db, workoutId);
+  if (!workout) return;
+  const exercises = await getWorkoutExercises(db, workoutId);
+  for (const we of exercises) {
+    const { sets: prior } = await getLastSetsForExercise(
+      db,
+      we.exerciseId,
+      workout.gymId,
+      workoutId,
+    );
+    const sets = await getSetsForWorkoutExercise(db, we.id);
+    if (we.id === openWorkoutExerciseId()) continue;
+    for (const set of sets) {
+      const carried = prior[set.setNumber - 1]?.weightKg ?? null;
+      if (set.done || isPerformed(set) || set.weightKg === null || set.weightKg <= 0) continue;
+      if (set.weightKg !== carried) continue;
+      const next = lower(set.weightKg);
+      if (next !== null && next !== set.weightKg) {
+        await db.runAsync('UPDATE workout_sets SET weight_kg = ? WHERE id = ?', next, set.id);
+      }
     }
   }
 }

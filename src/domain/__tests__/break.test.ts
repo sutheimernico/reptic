@@ -28,6 +28,11 @@ describe('lowerWeight', () => {
     expect(lowerWeight(null, 0.9, 2.5, null)).toBeNull();
     expect(lowerWeight(0, 0.9, 2.5, null)).toBe(0);
   });
+  it('falls back to the empty bar when the target is below it', () => {
+    // 22,5 kg is loadable (bar + 1,25 per side); 85 % of it is under the 20 kg bar.
+    expect(lowerWeight(22.5, 0.85, 2.5, DEFAULT_PLATE_SETUP)).toBe(20);
+    expect(lowerWeight(20, 0.9, 2.5, DEFAULT_PLATE_SETUP)).toBe(20);
+  });
   it('never goes negative', () => {
     expect(lowerWeight(2, 0.9, 2.5, null)).toBe(0);
     expect(lowerWeight(2, 0.9, 2.5, DEFAULT_PLATE_SETUP)).toBe(0);
@@ -38,6 +43,19 @@ describe('daysBetween', () => {
   it('counts local calendar days, not 24 h blocks', () => {
     const last = new Date(2026, 2, 20, 23, 30).toISOString();
     expect(daysBetween(last, new Date(2026, 3, 3, 0, 10))).toBe(14);
+  });
+  it('counts across the spring DST change (23 h day)', () => {
+    // 14 calendar days, but only 13 d 23 h 40 min of elapsed ms: a naive ms / 86400000 says 13.
+    const last = new Date(2026, 2, 28, 23, 30).toISOString();
+    expect(daysBetween(last, new Date(2026, 3, 11, 0, 10))).toBe(14);
+  });
+  it('counts across the autumn DST change (25 h day)', () => {
+    // 13 calendar days, but 14 d 0 h 40 min of elapsed ms: a naive floor says 14.
+    const last = new Date(2026, 9, 18, 0, 10).toISOString();
+    expect(daysBetween(last, new Date(2026, 9, 31, 23, 50))).toBe(13);
+    expect(
+      daysBetween(new Date(2026, 9, 24, 23, 30).toISOString(), new Date(2026, 9, 26, 0, 10)),
+    ).toBe(2);
   });
   it('is 0 on the same day', () => {
     const last = new Date(2026, 9, 19, 7, 0).toISOString();
