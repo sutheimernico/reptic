@@ -1,132 +1,71 @@
 // End-to-end click-through of the web preview. Needs `npx expo start` (web) running.
-//   npm run e2e                       -> http://localhost:8081
+//   npm run e2e                       -> http://localhost:8081, theme "evolved"
+//   E2E_THEME=warm|arcade|instrument|evolved-dark npm run e2e
+//   npm run e2e:all                   -> once per theme
 //   E2E_URL=http://host:port npm run e2e   |   E2E_HEADED=1 npm run e2e
-// A fresh browser context per run = empty expo-sqlite (wasm) storage, so the
-// phone's data is never touched. Exit code 0 = all assertions passed.
-import { mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { chromium } from 'playwright';
+// Time runs on a Playwright clock (see TODAY in lib/e2e-kit.mjs): the click-through starts 61 days
+// before "today", seeds a Brustpresse history through the UI, then jumps to today so the 16-day
+// break banner and the forecast are reproducible. (Backup import is not reachable on web: the app
+// answers "Im Browser nicht verfügbar", so the history is seeded by real sessions instead.)
+// Exit code 0 = all assertions passed.
+import {
+  createKit,
+  daysBefore,
+  de,
+  friendCode,
+  THEME_ORDER,
+  THEMES,
+  TODAY,
+  TODAY_WEEK_KEY,
+  BASE,
+} from './lib/e2e-kit.mjs';
 
-const BASE = process.env.E2E_URL ?? 'http://localhost:8081';
-const SHOTS = process.env.E2E_SHOTS ?? join(tmpdir(), 'reptic-e2e');
-const T = 8000;
+const [VARIANT, MODE_SUFFIX] = (process.env.E2E_THEME ?? 'evolved').split('-');
+const DARK = MODE_SUFFIX === 'dark';
+if (!THEMES[VARIANT] || (MODE_SUFFIX && !(DARK && VARIANT === 'evolved'))) {
+  console.error(`Unknown E2E_THEME "${process.env.E2E_THEME}" (evolved|warm|arcade|instrument|evolved-dark)`);
+  process.exit(2);
+}
+console.log(`E2E theme: ${DARK ? 'evolved (dark)' : VARIANT}`);
 
-const browser = await chromium.launch({ headless: !process.env.E2E_HEADED });
-const context = await browser.newContext({
-  viewport: { width: 412, height: 915 },
-  locale: 'de-DE',
-  colorScheme: 'light',
-});
-const page = await context.newPage();
-page.setDefaultTimeout(T);
-
-// ---- diagnostics -----------------------------------------------------------
-const problems = [];
-page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
-page.on('console', (m) => {
-  if (m.type() === 'error') problems.push(`console.error: ${m.text()}`);
-});
-// Native dialogs (lib/web-alert.ts routes Alert.alert to confirm/alert).
-// accept = first non-cancel button, dismiss = cancel.
-let dialogMode = 'accept';
-const dialogs = [];
-page.on('dialog', async (d) => {
-  dialogs.push({ type: d.type(), message: d.message() });
-  if (dialogMode === 'accept') await d.accept();
-  else await d.dismiss();
-});
-const lastDialog = () => dialogs[dialogs.length - 1]?.message ?? '';
-
-// ---- tiny test harness -----------------------------------------------------
-let steps = 0;
-let assertions = 0;
-const failures = [];
-async function step(name, fn) {
-  steps++;
-  process.stdout.write(`- ${name} ... `);
-  try {
-    await fn();
-    console.log('ok');
-  } catch (e) {
-    console.log('FAIL');
-    failures.push(`${name}: ${e.message.split('\n')[0]}`);
-    mkdirSync(SHOTS, { recursive: true });
-    await page.screenshot({ path: `${SHOTS}/fail-${steps}.png` }).catch(() => {});
-    throw e;
-  }
-}
-const check = (cond, msg) => {
-  assertions++;
-  if (!cond) throw new Error(`assertion failed: ${msg}`);
-};
-async function expectVisible(locator, msg) {
-  assertions++;
-  try {
-    await locator.first().waitFor({ state: 'visible' });
-  } catch {
-    throw new Error(`not visible: ${msg}`);
-  }
-}
-async function expectGone(locator, msg) {
-  assertions++;
-  try {
-    await locator.first().waitFor({ state: 'hidden' });
-  } catch {
-    throw new Error(`still visible: ${msg}`);
-  }
-}
-
-// Tabs/Stack screens stay mounted, so only ever address what is on screen.
-const vis = (loc) => loc.filter({ visible: true });
-const button = (name, opts = {}) => vis(page.getByRole('button', { name, ...opts })).last();
-const text = (t, opts = {}) => vis(page.getByText(t, opts)).last();
-const tab = (name) => vis(page.getByRole('tab', { name })).first();
-const field = (label) => vis(page.getByLabel(label, { exact: true })).last();
-const doneBox = (n) => vis(page.getByRole('checkbox', { name: `Satz ${n} erledigt` })).last();
-const click = (loc) => loc.click();
-async function goTab(name) {
-  await tab(name).click();
-  // Header text of the tab screen is unique and visible once it is active.
-  await expectVisible(vis(page.getByText(name, { exact: true })), `tab ${name}`);
-}
-/** Lists reload after navigation and deletes; poll instead of sleeping a fixed time. */
-async function expectCount(loc, n, msg) {
-  let got = -1;
-  for (let i = 0; i < 50; i++) {
-    got = await loc.count();
-    if (got === n) break;
-    await page.waitForTimeout(100);
-  }
-  check(got === n, `${msg} (got ${got})`);
-}
-/** Type a value the way a keyboard would (fires onChangeText per key). */
-async function typeInto(loc, value) {
-  await loc.click();
-  // react-native-web runs selectTextOnFocus in a setTimeout(0) after focus. Typing before it
-  // fires gets the first character selected and overwritten by the second ("25:30" -> "5:30").
-  // A page-side setTimeout(0) queued now runs after it, so the selection is settled.
-  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
-  await loc.press('ControlOrMeta+a');
-  await loc.pressSequentially(value, { delay: 40 });
-  check((await loc.inputValue()) === value, `typed "${value}" into field`);
-}
-/** The row (button) of a plan/exercise/session; matches the accessible name containing `name`. */
-const row = (name) => vis(page.getByRole('button', { name })).first();
+const kit = await createKit({ clockStart: daysBefore(61) });
+const {
+  page, step, check, expectVisible, expectGone, vis, button, text, field, doneBox, click, row, goTab,
+  expectCount, typeInto, settle, selectTheme, expectThemeFont, heroSummary, waitHero, expectNoGarbage, logSession,
+  lastDialog, dialogs,
+} = kit;
 
 const GYM = 'E2E Gym';
 const PLAN = 'E2E Push';
 const STRENGTH = 'Brustpresse';
 const CARDIO = 'E2E Ergometer';
+const parseKg = (s) => Number(s.replace(',', '.'));
 
 try {
   // ---- 1. load -------------------------------------------------------------
-  await step('app loads on Heute without errors', async () => {
+  await step('app loads on Heute without errors, empty hero is sane', async () => {
     await page.goto(BASE, { waitUntil: 'load', timeout: 120000 }); // first hit may wait on the Metro bundle
     await expectVisible(vis(page.getByText('Heute', { exact: true })), 'Heute title');
     await expectVisible(button('Gym wählen'), 'Gym wählen row (no gym yet)');
     await expectVisible(text('Noch keine Pläne'), 'empty plans state');
     check((await button("Los geht's").isDisabled()) === true, "Los geht's disabled without gym/plan");
+    check(/^Wochenfortschritt: 0 kg von [\d.]+ kg$/.test(await heroSummary()), 'empty week hero reads 0 kg');
+    await expectNoGarbage('empty Heute');
+  });
+
+  // ---- 1b. design picker ---------------------------------------------------
+  await step(`design picker: switch to ${THEMES[VARIANT].name}${DARK ? ' (dark)' : ''}`, async () => {
+    await selectTheme(VARIANT);
+    if (DARK) {
+      await click(button('Dunkel', { exact: true }));
+      await settle(400);
+    } else if (VARIANT === 'evolved') {
+      await click(button('Hell', { exact: true }));
+    }
+    await expectThemeFont(VARIANT);
+    await goTab('Heute');
+    await expectNoGarbage('Heute after switching design');
+    check(/^Wochenfortschritt: 0 kg/.test(await heroSummary()), 'hero survives the design switch');
   });
 
   // ---- 2a. gym -------------------------------------------------------------
@@ -173,6 +112,8 @@ try {
     await expectVisible(text(`Einheit · ${GYM}`), 'session header with gym');
     await expectVisible(button(`${STRENGTH}, Sätze aufklappen`), 'strength row');
     await expectVisible(button(`${CARDIO}, Sätze aufklappen`), 'cardio row');
+    // A first-ever session has no history: no break banner.
+    check((await page.getByText(/Tage nicht im Gym/).count()) === 0, 'no break banner on the very first session');
   });
 
   await step('strength: open inline, enter 82,5 kg x 8, tick done', async () => {
@@ -213,18 +154,28 @@ try {
     await expectVisible(text('1/1 Sätze'), 'cardio progress 1/1');
   });
 
-  await step('finish session -> summary', async () => {
-    dialogMode = 'accept';
+  await step('finish session -> summary -> Heute hero shows the kg moved', async () => {
+    kit.dialogMode = 'accept';
     await click(button('Einheit beenden'));
     check(lastDialog().startsWith('Einheit beenden?'), `confirm dialog shown (got "${lastDialog()}")`);
     await expectVisible(text('Einheit beendet'), 'summary header');
     await expectVisible(text('ÜBUNGEN', { exact: true }), 'summary tile ÜBUNGEN');
     await click(button('Fertig'));
     await expectVisible(button(`Gym: ${GYM}`), 'back on Heute');
+    // 82,5 x 8 + 82,5 x 7 = 1237,5 kg -> shown rounded; the cardio half appears once cardio exists.
+    await waitHero(/^Wochenfortschritt: 1\.238 kg von [\d.]+ kg, 5,2 km von /, 'hero sums the run');
+    // The number counts up (up to ~1 s in the calm themes): poll instead of sleeping.
+    let body = '';
+    for (let i = 0; i < 40 && !body.includes('1.238'); i++) {
+      body = await page.evaluate(() => document.body.innerText);
+      if (!body.includes('1.238')) await page.waitForTimeout(100);
+    }
+    check(body.includes('1.238'), 'hero text shows 1.238 after the count-up');
+    await expectNoGarbage('Heute with data');
   });
 
   // ---- 3. Verlauf ----------------------------------------------------------
-  await step('Verlauf lists the session; detail -> exercise progress shows 82,5 kg', async () => {
+  await step('Verlauf lists the session; detail -> exercise progress (1 session = no forecast yet)', async () => {
     await goTab('Verlauf');
     await expectGone(text('Noch kein Verlauf'), 'empty history state');
     const sessionRow = vis(page.getByRole('button', { name: new RegExp(`${GYM}.*2 Übungen`) })).first();
@@ -234,6 +185,8 @@ try {
     await expectVisible(text('82,5', { exact: false }), 'detail lists 82,5 weight');
     await click(button(`${STRENGTH}: Fortschritt ansehen`));
     await expectVisible(text('82,5 kg', { exact: true }), 'progress top weight 82,5 kg');
+    await expectVisible(text('Noch zu wenig Daten für eine Prognose', { exact: false }), 'forecast says insufficient');
+    await expectNoGarbage('progress with one session');
   });
 
   // ---- 4. second session ---------------------------------------------------
@@ -258,6 +211,38 @@ try {
     await expectVisible(text('1/2 Sätze'), 'progress with 0 kg set ticked');
   });
 
+  await step('switching the design mid-session keeps typed input and the running rest timer', async () => {
+    const timer = () => vis(page.getByLabel(/^Pause, noch \d+ Sekunden/)).first();
+    const remaining = async () => Number((await timer().getAttribute('aria-label')).match(/(\d+)/)[1]);
+    await expectVisible(timer(), 'rest timer running after the ticked set');
+    // A typed-but-unticked value (no reps, so it is not a performed set) must survive too.
+    await typeInto(vis(page.getByLabel('KG', { exact: true })).nth(0), '91');
+    const before = await remaining();
+    await page.goBack(); // leave the session; it stays open and the timer lives in the app root
+    // Every design in turn, ending on the one under test.
+    const cycle = [...THEME_ORDER.filter((v) => v !== VARIANT), VARIANT];
+    for (const variant of cycle) {
+      await selectTheme(variant);
+      await expectThemeFont(variant);
+    }
+    if (DARK) await click(button('Dunkel', { exact: true }));
+    await goTab('Heute');
+    await click(button('Weiter zur Einheit'));
+    await expectVisible(timer(), 'rest timer survived the design switches');
+    const after = await remaining();
+    check(after < before && after > 0, `timer kept running: ${before}s -> ${after}s (not restarted)`);
+    if (await button(`${STRENGTH}, Sätze aufklappen`).isVisible()) {
+      await click(button(`${STRENGTH}, Sätze aufklappen`));
+    }
+    const kgs = vis(page.getByLabel('KG', { exact: true }));
+    await expectVisible(kgs, 'KG fields after returning');
+    check((await kgs.nth(0).inputValue()) === '91', 'typed 91 kg survived the design switches');
+    check((await kgs.nth(1).inputValue()) === '0', 'ticked 0 kg set survived');
+    await expectVisible(text('1/2 Sätze'), 'progress unchanged after the switches');
+    // Put the prefilled weight back so the later steps see the original numbers.
+    await typeInto(kgs.nth(0), '82,5');
+  });
+
   await step('swipe-to-delete / remove exercise from session', async () => {
     const swipe = async (rowName) => {
       const box = await row(rowName).boundingBox();
@@ -272,12 +257,12 @@ try {
     await swipe(`${CARDIO}, Sätze`);
     await expectGone(page.getByRole('button', { name: `${CARDIO}, Sätze aufklappen` }), 'cardio row removed by swipe');
     // Strength row has a ticked set -> asks first; cancel keeps it.
-    dialogMode = 'dismiss';
+    kit.dialogMode = 'dismiss';
     await swipe(`${STRENGTH}, Sätze`);
     for (let i = 0; i < 30 && !lastDialog().startsWith('Übung entfernen?'); i++) await page.waitForTimeout(100);
     check(lastDialog().startsWith('Übung entfernen?'), `remove confirm shown (got "${lastDialog()}"; all: ${JSON.stringify(dialogs.map((d) => d.message.slice(0, 25)))})`);
     await expectVisible(button(`${STRENGTH}, Sätze`), 'strength row kept after cancel');
-    dialogMode = 'accept';
+    kit.dialogMode = 'accept';
   });
 
   await step('finish session with 0 kg set -> history now has 2 sessions', async () => {
@@ -293,7 +278,7 @@ try {
     await goTab('Heute');
     await click(button('Leere Einheit starten'));
     await expectVisible(text('Noch keine Übungen'), 'empty session screen');
-    dialogMode = 'accept'; // first action = "Verwerfen"
+    kit.dialogMode = 'accept'; // first action = "Verwerfen"
     await click(button('Einheit beenden'));
     check(lastDialog().startsWith('Noch kein Satz abgehakt'), `discard dialog (got "${lastDialog()}")`);
     await expectVisible(button(`Gym: ${GYM}`), 'back on Heute after discard');
@@ -307,15 +292,21 @@ try {
     const first = vis(page.getByRole('button', { name: new RegExp(`${GYM}.*Übung`) })).first();
     await click(first);
     await expectVisible(text('Zusammenfassung', { exact: true }), 'detail screen');
-    dialogMode = 'accept';
+    kit.dialogMode = 'accept';
     await click(button('Einheit löschen'));
     check(lastDialog().startsWith('Einheit löschen?'), `delete confirm (got "${lastDialog()}")`);
     const rows = vis(page.getByRole('button', { name: new RegExp(`${GYM}.*Übung`) }));
     await expectCount(rows, 1, '1 session left');
   });
 
-  await step('theme toggle in Einstellungen (Dunkel / Hell / System)', async () => {
+  // ---- 5. settings ---------------------------------------------------------
+  await step('Darstellung (Dunkel / Hell / System) exists for evolved only', async () => {
     await goTab('Einstellungen');
+    const darstellung = vis(page.getByText('DARSTELLUNG', { exact: true }));
+    if (VARIANT !== 'evolved') {
+      check((await darstellung.count()) === 0, `${VARIANT} is single-scheme: no Darstellung control`);
+      return;
+    }
     const bg = () =>
       page.evaluate(() => {
         // Walk up from the title to the first element with an opaque background.
@@ -336,11 +327,11 @@ try {
     const filled = (name) =>
       button(name, { exact: true }).evaluate((e) => /background-color/.test(e.getAttribute('style') ?? ''));
     check((await filled('Dunkel')) && !(await filled('Hell')), 'Dunkel is the active segment');
-    await click(button('System', { exact: true }));
+    await click(button(DARK ? 'Dunkel' : 'Hell', { exact: true })); // back to the mode under test
   });
 
   await step('arcade theme: no screen is offset sideways after tab switches', async () => {
-    await click(vis(page.getByRole('radio', { name: 'Arcade' })).last());
+    await selectTheme('arcade');
     for (const name of ['Heute', 'Verlauf', 'Einstellungen', 'Heute']) {
       await goTab(name);
       await page.waitForTimeout(500);
@@ -364,21 +355,120 @@ try {
       () => [...document.querySelectorAll('*')].filter((e) => e.scrollLeft > 0).length,
     );
     check(scrolledBack === 0, `no container scrolled sideways after saving a plan (${scrolledBack})`);
+    await selectTheme(VARIANT);
+    if (DARK) await click(button('Dunkel', { exact: true }));
+  });
+
+  await step('week goals: change both goals in Einstellungen -> Heute hero follows', async () => {
     await goTab('Einstellungen');
-    await click(vis(page.getByRole('radio', { name: 'Repz Evolved' })).last());
+    await typeInto(field('Wochenziel (kg)'), '2000');
+    await field('Wochenziel (kg)').blur();
+    await typeInto(field('Wochenziel Cardio (km)'), '8');
+    await field('Wochenziel Cardio (km)').blur();
+    await settle(300);
+    await goTab('Heute');
+    const want = 'Wochenfortschritt: 1.238 kg von 2.000 kg, 5,2 km von 8 km';
+    await waitHero(new RegExp(`^${want}$`), 'hero follows the goals');
+    check((await page.getByText('Vorschlag · anpassen').count()) === 0, 'no "Vorschlag" hint once a goal is set');
   });
 
   await step('gym listed in Einstellungen; archive offered (has workouts)', async () => {
+    await goTab('Einstellungen');
     await expectVisible(text(GYM, { exact: true }), 'gym in settings');
     await click(row(GYM));
     await expectVisible(button('Archivieren'), 'Archivieren (gym has history)');
+    await page.goBack();
   });
 
+  // ---- 6. history over time (Playwright clock) -------------------------------
+  await step('seed 8 more Brustpresse sessions 60..16 days back, then jump to today', async () => {
+    const history = [
+      [60, 85], [53, 90], [46, 92.5], [39, 95], [32, 97.5], [25, 100], [20, 100], [16, 102.5],
+    ];
+    for (const [d, weight] of history) {
+      await page.clock.setSystemTime(daysBefore(d));
+      await logSession({ plan: PLAN, exercise: STRENGTH, weight, reps: 8 });
+    }
+    await page.clock.setSystemTime(TODAY);
+    await goTab('Verlauf');
+    const rows = vis(page.getByRole('button', { name: new RegExp(`${GYM}.*Übung`) }));
+    await expectCount(rows, 9, '9 sessions in Verlauf');
+    await goTab('Heute');
+    await waitHero(/^Wochenfortschritt: 0 kg von 2\.000 kg/, 'new week starts at 0 kg');
+    await expectNoGarbage('Heute on a new week');
+  });
+
+  await step('progress: forecast for 9 rising sessions', async () => {
+    await goTab('Verlauf');
+    await click(vis(page.getByRole('button', { name: new RegExp(`${GYM}.*Übung`) })).first());
+    await click(button(`${STRENGTH}: Fortschritt ansehen`));
+    await expectVisible(text('geschätztes 1RM (e1RM)', { exact: false }), 'e1RM headline');
+    await expectVisible(text('Prognose', { exact: true }), 'Prognose heading');
+    await expectVisible(text('pro Monat', { exact: false }), 'gain per month');
+    await expectVisible(text('9 Einheiten', { exact: true }), '9 Einheiten stat');
+    check((await page.getByText('Noch zu wenig Daten').count()) === 0, 'no "too little data" text');
+    check((await page.getByText(/rückläufig|zu unruhig/).count()) === 0, 'no declining / unreliable warning');
+    await expectNoGarbage('progress with forecast');
+    await page.goBack();
+    await page.goBack();
+  });
+
+  await step('break banner after 16 days: Später hides it, Übernehmen lowers the weights, PR shows', async () => {
+    await goTab('Heute');
+    await click(row(PLAN));
+    await click(button("Los geht's"));
+    await expectVisible(text('Du warst 16 Tage nicht im Gym'), 'break banner with 16 days');
+    await expectVisible(text('Heute rund 10 % leichter starten?'), 'banner copy');
+    await click(button('Später', { exact: true }));
+    await expectGone(page.getByText('Du warst 16 Tage nicht im Gym'), 'banner gone after Später');
+    kit.dialogMode = 'accept';
+    await click(button('Einheit beenden'));
+    check(lastDialog().startsWith('Noch kein Satz abgehakt'), 'empty session discarded');
+    await expectVisible(button(`Gym: ${GYM}`), 'back on Heute');
+
+    // Same break, fresh session: this time apply.
+    await click(row(PLAN));
+    await click(button("Los geht's"));
+    await expectVisible(text('Du warst 16 Tage nicht im Gym'), 'banner again for a new session');
+    await click(button(`${STRENGTH}, Sätze aufklappen`));
+    const firstKg = () => vis(page.getByLabel('KG', { exact: true })).first();
+    const kg0 = parseKg(await firstKg().inputValue());
+    check(kg0 === 102.5, `prefilled weight before applying is 102,5 (got ${kg0})`);
+    await click(button('Übernehmen', { exact: true }));
+    await expectVisible(text('Gewichte um 10 % gesenkt'), 'banner confirms');
+    let kg1 = kg0;
+    for (let i = 0; i < 30 && kg1 === kg0; i++) {
+      await page.waitForTimeout(100);
+      kg1 = parseKg(await firstKg().inputValue());
+    }
+    check(Number.isFinite(kg1) && kg1 > 70 && kg1 < kg0, `weight lowered to a sane value (${kg0} -> ${kg1})`);
+    // A fresh PR on top of the lowered start.
+    await typeInto(firstKg(), '110');
+    await typeInto(vis(page.getByLabel('WDH', { exact: true })).first(), '8');
+    await click(vis(page.getByRole('checkbox', { name: 'Satz 1 erledigt' })).first());
+    await expectVisible(vis(page.getByLabel(/^Rekord in Satz 1/)), 'PR marker on the set');
+    await expectVisible(vis(page.getByLabel('Neuer Rekord', { exact: true })), 'PR celebration');
+    await settle(1500);
+    check((await vis(page.getByLabel('Neuer Rekord', { exact: true })).count()) === 0, 'celebration is gone after ~1.2 s');
+    await click(button('Einheit beenden'));
+    await expectVisible(text('Einheit beendet'), 'summary');
+    await click(button('Fertig'));
+    await expectVisible(button(`Gym: ${GYM}`), 'back on Heute');
+    const summary = await waitHero(/^Wochenfortschritt: [1-9][\d.]* kg/, "hero shows this week's kg");
+    const moved = Number(summary.match(/^Wochenfortschritt: ([\d.]+) kg/)[1].replace('.', ''));
+    check(moved >= 880 && moved < 2000, `this week's kg is plausible (${summary})`);
+  });
+
+  // ---- 7. duel -------------------------------------------------------------
   await step('duel: CTA on Heute, name prompt, share code, own code rejected, friend imported', async () => {
-    await page.goBack(); // leave the gym edit screen the previous step ended on
     await goTab('Heute');
     await click(button('Fordere Freunde heraus'));
     await expectVisible(text('Noch kein Duell', { exact: false }), 'empty duel state');
+    // Native stack header carries the design: title font + loaded.
+    const header = await vis(page.getByText('Wochen-Duell', { exact: true })).first().evaluate(
+      (e) => getComputedStyle(e).fontFamily,
+    );
+    check(header.includes(THEMES[VARIANT].header), `duel header uses ${THEMES[VARIANT].header} (got ${header})`);
     await click(button('Wochenkarte teilen'));
     await typeInto(field('Dein Name'), 'E2E Jörg');
     await click(button('Name speichern und teilen'));
@@ -386,38 +476,35 @@ try {
     // The share alert opens after an async re-read of the week; wait for it instead of racing.
     for (let i = 0; i < 50 && !lastDialog().includes('REPZ1.'); i++) await page.waitForTimeout(100);
     const shared = lastDialog();
-    check(/Meine Repz-Woche KW \d+: .* Code: REPZ1\.[A-Za-z0-9_-]+\.[0-9a-z]{4}/.test(shared), `share message (${shared})`);
+    check(/Meine Repz-Woche KW 45: .* Code: REPZ1\.[A-Za-z0-9_-]+\.[0-9a-z]{4}/.test(shared), `share message (${shared})`);
     const own = shared.match(/REPZ1\.[A-Za-z0-9_-]+\.[0-9a-z]{4}/)[0];
-    await typeInto(field('Code eingeben'), `[12:00] Jörg: Hier meine Karte. ${own}.`);
+    // Long pastes: fill() sets the value in one go (typing 130 characters at 40 ms would be slow and flaky).
+    await field('Code eingeben').fill(`[12:00] Jörg: Hier meine Karte. ${own}.`);
     await click(button('Importieren'));
     await expectVisible(text('Das ist deine eigene Karte'), 'own card rejected');
-    const friendCode = 'REPZ1.eyJ2IjoxLCJuIjoiSm9uYXMiLCJ3IjoiMjAyNi1XNDMiLCJrZyI6MjEwNTAsImttIjo4LjEsInMiOjV9.v1eu';
-    await typeInto(field('Code eingeben'), friendCode.slice(0, -1) + 'x');
+    const friend = friendCode({ n: 'Jonas', w: TODAY_WEEK_KEY, kg: 21050, km: 8.1, s: 5 });
+    await field('Code eingeben').fill(friend.slice(0, -1) + (friend.endsWith('x') ? 'y' : 'x'));
     await click(button('Importieren'));
     await expectVisible(text('Der Code ist beschädigt', { exact: false }), 'corrupt code rejected');
-    await typeInto(field('Code eingeben'), friendCode);
+    await field('Code eingeben').fill(`Hallo ${friend}.\nViel Erfolg!`);
     await click(button('Importieren'));
     await expectVisible(text('Karte von Jonas importiert'), 'friend imported');
-    await expectVisible(text('Jonas', { exact: true }), 'friend name in the visual');
-    await page.screenshot({ path: `${SHOTS}/duel.png` }).catch(() => {});
+    // Instrument prints names in capitals, hence the case-insensitive match.
+    await expectVisible(text(/^Jonas$/i), 'friend name in the visual');
+    await expectVisible(text('Jonas führt bei kg und Cardio', { exact: false }), 'verdict against this week');
+    await expectNoGarbage('duel screen');
     await page.goBack();
     await expectVisible(text('Duell mit Jonas'), 'Heute duel card with the friend');
+    await expectNoGarbage('Heute with duel card');
   });
 
   await step('no console/page errors during the whole run', async () => {
-    check(problems.length === 0, `console/page errors:\n  ${problems.join('\n  ')}`);
+    check(kit.problems.length === 0, `console/page errors:\n  ${kit.problems.join('\n  ')}`);
   });
 } catch (e) {
-  if (!failures.length) failures.push(e.message);
+  if (!kit.failuresCount()) console.log(`  x ${e.message}`);
 } finally {
-  if (problems.length && !failures.some((f) => f.startsWith('no console'))) {
-    failures.push(`console/page errors:\n  ${problems.join('\n  ')}`);
-  }
-  await browser.close();
-  console.log(`\n${steps} steps, ${assertions} assertions, ${failures.length} failure(s)`);
-  if (failures.length) {
-    for (const f of failures) console.log(`  x ${f}`);
-    process.exit(1);
-  }
+  const ok = await kit.finish();
+  if (!ok) process.exit(1);
   console.log('E2E OK');
 }
