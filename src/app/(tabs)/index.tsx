@@ -46,8 +46,12 @@ export default function HeuteScreen() {
   const [selected, setSelected] = useState<number[]>([]);
   const [gym, setGym] = useState<Gym | null>(null);
   const [overview, setOverview] = useState<WeekOverview | null>(null);
+  // State, not a render-time call: the React Compiler would cache `todayLabel()` for the lifetime of
+  // the mounted tab, so the date would stay on the day the app was opened.
+  const [today, setToday] = useState(todayLabel);
 
   const load = useCallback(() => {
+    setToday(todayLabel());
     getActiveWorkout(db).then(setActive);
     getPlansWithExercises(db).then(setPlans);
     getWeekOverview(db, new Date()).then(setOverview)
@@ -79,7 +83,7 @@ export default function HeuteScreen() {
   };
 
   return (
-    <Screen title="Heute" subtitle={todayLabel()}>
+    <Screen title="Heute" subtitle={today}>
       {overview ? (
         <FadeInListItem index={0}>
           <WeekHero overview={overview} />
