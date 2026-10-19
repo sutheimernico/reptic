@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import ReorderableList, {
   reorderItems,
@@ -10,6 +10,7 @@ import ReorderableList, {
 } from 'react-native-reorderable-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BreakBanner } from '@/components/break-banner';
 import { Celebration } from '@/components/celebration';
 import { FadeInListItem } from '@/components/motion/fade-in-list-item';
 import { RestTimerBanner, useRestTimer } from '@/components/rest-timer';
@@ -24,16 +25,29 @@ import {
   deleteWorkout,
   finishWorkout,
   getGym,
+  getLastFinishedWorkoutDate,
   getSetProgressForWorkout,
+  getSetting,
   getWeekOverview,
   getWorkout,
   getWorkoutExercises,
+  lowerUntouchedWeights,
   removeWorkoutExercise,
   reorderWorkoutExercises,
   type SetProgress,
+  setSetting,
   type WorkoutExerciseWithExercise,
 } from '@/db';
+import {
+  breakAppliedKey,
+  breakDismissedKey,
+  breakFactor,
+  daysBetween,
+  lowerWeight,
+} from '@/domain/break';
 import { plural } from '@/domain/format';
+import { parsePlateSetup, PLATE_SETUP_SETTING } from '@/domain/plates';
+import { INCREMENT_SETTING, parseIncrement } from '@/domain/progression';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
@@ -55,6 +69,8 @@ function ExerciseRow({
   onToggle,
   onRemove,
   onSetsChanged,
+  breakOffer,
+  breakApplyToken,
 }: {
   we: WorkoutExerciseWithExercise;
   workoutId: number;
@@ -63,6 +79,8 @@ function ExerciseRow({
   onToggle: () => void;
   onRemove: (close: () => void) => void;
   onSetsChanged: () => void;
+  breakOffer: boolean;
+  breakApplyToken: number;
 }) {
   const c = useTheme();
   const { shape } = useAppTheme();
@@ -121,6 +139,8 @@ function ExerciseRow({
             workoutExerciseId={we.id}
             exerciseId={we.exerciseId}
             onChanged={onSetsChanged}
+            breakOffer={breakOffer}
+            breakApplyToken={breakApplyToken}
           />
         </View>
       ) : null}
@@ -155,6 +175,58 @@ export default function SessionScreen() {
   }, [db, workoutId]);
 
   useFocusEffect(useCallback(() => load(), [load]));
+
+  /** Break detection: shown once per session, until answered with Übernehmen or Später. */
+  const [breakOffer, setBreakOffer] = useState<{ days: number; factor: number } | null>(null);
+  const [breakApplied, setBreakApplied] = useState(false);
+  const [breakApplyToken, setBreakApplyToken] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const last = await getLastFinishedWorkoutDate(db, workoutId);
+      const days = last === null ? null : daysBetween(last, new Date());
+      const factor = breakFactor(days);
+      if (factor === null || days === null) return;
+      const answered =
+        (await getSetting(db, breakAppliedKey(workoutId))) !== null ||
+        (await getSetting(db, breakDismissedKey(workoutId))) !== null;
+      if (active && !answered) setBreakOffer({ days, factor });
+    })().catch(() => {
+      // The banner is a convenience; a failed lookup must not block the session.
+    });
+    return () => {
+      active = false;
+    };
+  }, [db, workoutId]);
+
+  const applyBreak = async () => {
+    if (!breakOffer) return;
+    try {
+      const { factor } = breakOffer;
+      const incrementKg = parseIncrement(await getSetting(db, INCREMENT_SETTING));
+      const plates = parsePlateSetup(await getSetting(db, PLATE_SETUP_SETTING));
+      // Stored first: exercises opened from now on seed lowered, even before the writes below end.
+      await setSetting(db, breakAppliedKey(workoutId), String(factor));
+      await lowerUntouchedWeights(db, workoutId, openId, (kg) =>
+        lowerWeight(kg, factor, incrementKg, plates),
+      );
+      setBreakApplied(true);
+      setBreakApplyToken((n) => n + 1);
+      load();
+    } catch (error) {
+      showSaveError(error);
+    }
+  };
+
+  const postponeBreak = async () => {
+    setBreakOffer(null);
+    try {
+      await setSetting(db, breakDismissedKey(workoutId), '1');
+    } catch (error) {
+      showSaveError(error);
+    }
+  };
 
   /** The goal celebration that is playing (its start time doubles as the key), or null. */
   const [goalShout, setGoalShout] = useState<{ key: number; label: string } | null>(null);
@@ -307,9 +379,22 @@ export default function SessionScreen() {
             onToggle={() => setOpenId((prev) => (prev === item.id ? null : item.id))}
             onRemove={(close) => askRemoveExercise(item, close)}
             onSetsChanged={refreshProgress}
+            breakOffer={breakOffer !== null && !breakApplied}
+            breakApplyToken={breakApplyToken}
           />
           </FadeInListItem>
         )}
+        ListHeaderComponent={
+          breakOffer ? (
+            <BreakBanner
+              days={breakOffer.days}
+              factor={breakOffer.factor}
+              applied={breakApplied}
+              onApply={() => void applyBreak()}
+              onLater={() => void postponeBreak()}
+            />
+          ) : null
+        }
         ListEmptyComponent={
           <EmptyState
             icon="barbell-outline"

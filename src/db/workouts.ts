@@ -124,6 +124,46 @@ export async function finishWorkout(
   await db.runAsync('UPDATE workouts SET finished_at = ? WHERE id = ?', finishedAt, id);
 }
 
+/** When the most recent finished session ended, ignoring `excludeWorkoutId`; null when there is none. */
+export async function getLastFinishedWorkoutDate(
+  db: SQLiteDatabase,
+  excludeWorkoutId: number,
+): Promise<string | null> {
+  const row = await db.getFirstAsync<{ finished_at: string | null }>(
+    'SELECT MAX(finished_at) AS finished_at FROM workouts WHERE finished_at IS NOT NULL AND id != ?',
+    excludeWorkoutId,
+  );
+  return row?.finished_at ?? null;
+}
+
+/**
+ * Lower the weight of every set in the workout that was not worked yet (nothing
+ * performed, not ticked), except those of `skipWorkoutExerciseId` — an open editor
+ * holds its own rows in memory and lowers them itself.
+ */
+export async function lowerUntouchedWeights(
+  db: SQLiteDatabase,
+  workoutId: number,
+  skipWorkoutExerciseId: number | null,
+  lower: (kg: number) => number | null,
+): Promise<void> {
+  const rows = await db.getAllAsync<{ id: number; weight_kg: number }>(
+    `SELECT id, weight_kg FROM workout_sets
+     WHERE workout_id = ? AND done = 0 AND NOT ${performedSql()}
+       AND weight_kg IS NOT NULL AND weight_kg > 0
+       AND (? IS NULL OR workout_exercise_id != ?)`,
+    workoutId,
+    skipWorkoutExerciseId,
+    skipWorkoutExerciseId,
+  );
+  for (const row of rows) {
+    const next = lower(row.weight_kg);
+    if (next !== null && next !== row.weight_kg) {
+      await db.runAsync('UPDATE workout_sets SET weight_kg = ? WHERE id = ?', next, row.id);
+    }
+  }
+}
+
 export async function deleteWorkout(db: SQLiteDatabase, id: number): Promise<void> {
   await db.runAsync('DELETE FROM workouts WHERE id = ?', id);
 }

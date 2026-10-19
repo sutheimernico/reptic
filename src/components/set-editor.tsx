@@ -53,7 +53,8 @@ import {
   type PrKind,
   withSet,
 } from '@/domain/personal-records';
-import { parsePlateSetup, PLATE_SETUP_SETTING } from '@/domain/plates';
+import { breakAppliedKey, lowerWeight } from '@/domain/break';
+import { type PlateSetup, parsePlateSetup, PLATE_SETUP_SETTING } from '@/domain/plates';
 import {
   describeHint,
   INCREMENT_SETTING,
@@ -64,7 +65,7 @@ import {
   rowsToBump,
   suggestProgression,
 } from '@/domain/progression';
-import { createInitialSets, referenceLabel, type PriorSet } from '@/domain/sets';
+import { createInitialSets, isPerformed, referenceLabel, type PriorSet } from '@/domain/sets';
 import type { WorkoutSet } from '@/domain/types';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -195,6 +196,29 @@ function SetInput({
   );
 }
 
+interface BreakConfig {
+  factor: number;
+  incrementKg: number;
+  plates: PlateSetup;
+}
+
+/** The break factor this session applied (see the banner), or null when it did not. */
+async function loadBreakConfig(
+  db: ReturnType<typeof useSQLiteContext>,
+  workoutId: number,
+): Promise<BreakConfig | null> {
+  const factor = Number(await getSetting(db, breakAppliedKey(workoutId)));
+  if (!(factor > 0 && factor < 1)) return null;
+  return {
+    factor,
+    incrementKg: parseIncrement(await getSetting(db, INCREMENT_SETTING)),
+    plates: parsePlateSetup(await getSetting(db, PLATE_SETUP_SETTING)),
+  };
+}
+
+const lowered = (kg: number | null, b: BreakConfig) =>
+  lowerWeight(kg, b.factor, b.incrementKg, b.plates);
+
 /**
  * First-open seeding in flight, per workout exercise. Folding a row shut and
  * open again while its first load still runs mounts a second editor; without
@@ -225,12 +249,18 @@ export function SetEditor({
   workoutExerciseId,
   exerciseId,
   onChanged,
+  breakOffer = false,
+  breakApplyToken = 0,
 }: {
   workoutId: number;
   workoutExerciseId: number;
   exerciseId: number;
   /** Sets were added, removed or ticked — the parent refreshes its progress count. */
   onChanged?: () => void;
+  /** The break banner is waiting for an answer — its lighter weights contradict the progression hint. */
+  breakOffer?: boolean;
+  /** Bumped when the banner's "Übernehmen" is tapped; lowers the sets that are still untouched. */
+  breakApplyToken?: number;
 }) {
   const db = useSQLiteContext();
   const c = useTheme();
@@ -255,7 +285,22 @@ export function SetEditor({
   const [plateTarget, setPlateTarget] = useState<number | null>(null);
   const [plateOpen, setPlateOpen] = useState(false);
   /** Double-progression advice from last time; null when there is nothing honest to say. */
-  const [hint, setHint] = useState<ProgressionHint | null>(null);
+  const [rawHint, setHint] = useState<ProgressionHint | null>(null);
+  /** The session's break factor is in force (applied earlier or just now). */
+  const [breakApplied, setBreakApplied] = useState(false);
+  const breakRef = useRef<BreakConfig | null>(null);
+  /** Rows whose kg the user typed: the break never overwrites those. */
+  const editedWeights = useRef(new Set<number>());
+  /** Resolves once the first load (seeding included) is over. */
+  const readyRef = useRef<Promise<void>>(Promise.resolve());
+  const mountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
+  const hint = breakOffer || breakApplied ? null : rawHint;
 
   // Kept in a ref so a new callback identity from the parent never re-runs the load.
   const onChangedRef = useRef(onChanged);
@@ -283,6 +328,10 @@ export function SetEditor({
 
   useEffect(() => {
     let active = true;
+    let loaded!: () => void;
+    readyRef.current = new Promise<void>((resolve) => {
+      loaded = resolve;
+    });
     (async () => {
       const exercise = await getExercise(db, exerciseId);
       const workout = await getWorkout(db, workoutId);
@@ -307,6 +356,7 @@ export function SetEditor({
               },
               parsePlateSetup(await getSetting(db, PLATE_SETUP_SETTING)),
             );
+      const breakConfig = await loadBreakConfig(db, workoutId);
       await seedOnce(workoutExerciseId, async () => {
         // Re-checked inside the guard: an earlier editor may have seeded already.
         if ((await getSetsForWorkoutExercise(db, workoutExerciseId)).length > 0) return;
@@ -316,7 +366,7 @@ export function SetEditor({
             workoutExerciseId,
             exerciseId,
             setNumber: draft.setNumber,
-            weightKg: draft.weightKg,
+            weightKg: breakConfig ? lowered(draft.weightKg, breakConfig) : draft.weightKg,
             reps: draft.reps,
             distanceKm: draft.distanceKm,
             durationSec: draft.durationSec,
@@ -328,6 +378,8 @@ export function SetEditor({
       const current = await getSetsForWorkoutExercise(db, workoutExerciseId);
       if (active) {
         baseBestsRef.current = bests;
+        breakRef.current = breakConfig;
+        setBreakApplied(breakConfig !== null);
         setIsCardio(cardio);
         setHint(nextHint);
         setPrior(priorSets);
@@ -337,13 +389,46 @@ export function SetEditor({
         setRows(loaded);
         onChangedRef.current?.();
       }
-    })();
+    })()
+      .catch(showSaveError)
+      .finally(loaded);
     return () => {
       active = false;
     };
   }, [db, exerciseId, workoutExerciseId, workoutId]);
 
+  // Banner "Übernehmen": lower the rows still untouched, in memory and on disk, so a
+  // value typed a moment ago is never overwritten by a reload.
+  const seenApplyToken = useRef(breakApplyToken);
+  useEffect(() => {
+    if (breakApplyToken === seenApplyToken.current) return;
+    seenApplyToken.current = breakApplyToken;
+    (async () => {
+      await readyRef.current;
+      const config = await loadBreakConfig(db, workoutId);
+      if (!config || !mountedRef.current) return;
+      breakRef.current = config;
+      setBreakApplied(true);
+      // Read after the awaits: rowsRef holds the latest keystroke.
+      const current = rowsRef.current;
+      const changed: number[] = [];
+      const next = current.map((r) => {
+        if (r.done || editedWeights.current.has(r.id) || isPerformed(fieldsOf(r))) return r;
+        const kg = parseWeight(r.weightText);
+        const lower = lowered(kg, config);
+        if (kg === null || lower === null || lower === kg) return r;
+        changed.push(r.id);
+        return { ...r, weightText: formatWeight(lower) };
+      });
+      if (changed.length === 0) return;
+      commitRows(next);
+      await Promise.all(changed.map((id) => save(id)));
+    })().catch(showSaveError);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [breakApplyToken]);
+
   const setField = (id: number, field: TextField, value: string) => {
+    if (field === 'weightText') editedWeights.current.add(id);
     const next = rowsRef.current.map((r) => (r.id === id ? { ...r, [field]: value } : r));
     commitRows(next);
     void save(id).catch(showSaveError);
@@ -405,7 +490,10 @@ export function SetEditor({
         setNumber: index + 1,
         // Carry over the "settings" from last time (or the previous set); the
         // performance fields (reps / time) stay empty.
-        weightKg: priorAt?.weightKg ?? (prev ? parseWeight(prev.weightText) : null),
+        weightKg:
+          breakRef.current && priorAt?.weightKg != null
+            ? lowered(priorAt.weightKg, breakRef.current)
+            : (priorAt?.weightKg ?? (prev ? parseWeight(prev.weightText) : null)),
         distanceKm: priorAt?.distanceKm ?? (prev ? parseWeight(prev.distanceText) : null),
         level: priorAt?.level ?? (prev ? parseReps(prev.levelText) : null),
         reps: null,

@@ -29,8 +29,10 @@ import {
   finishWorkout,
   getSetsForWorkoutExercise,
   insertSet,
+  setSetting,
   startWorkout,
 } from '@/db';
+import { breakDismissedKey } from '@/domain/break';
 import { spyOnAlert } from '@/test-support/alert';
 import { createTestDb } from '@/test-support/db';
 import { fireEvent, renderWithProviders, waitFor } from '@/test-support/render';
@@ -60,6 +62,8 @@ async function pastSession(day: number, weightKg: number, reps: number) {
 async function openExercise() {
   const workoutId = await startWorkout(db, [], gymId, '2026-08-09T10:00:00.000Z');
   const workoutExerciseId = await addWorkoutExercise(db, workoutId, exerciseId);
+  // The fixed 2026-08 history is months before the real clock; the break banner is not under test here.
+  await setSetting(db, breakDismissedKey(workoutId), '1');
   setRouteParams({ id: String(workoutId) });
   const view = await renderWithProviders(<SessionScreen />);
   await fireEvent.press(await view.findByLabelText('Bankdrücken, Sätze aufklappen'));
