@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListRow } from '@/components/ui/list-row';
 import { SwipeToDelete } from '@/components/ui/swipe-to-delete';
-import { Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import {
   deleteWorkout,
   finishWorkout,
@@ -31,6 +31,7 @@ import {
   type WorkoutExerciseWithExercise,
 } from '@/db';
 import { plural } from '@/domain/format';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
 
@@ -59,6 +60,7 @@ function ExerciseRow({
   onSetsChanged: () => void;
 }) {
   const c = useTheme();
+  const { shape } = useAppTheme();
   const drag = useReorderableDrag();
   return (
     <View style={styles.rowWrap}>
@@ -99,7 +101,16 @@ function ExerciseRow({
         </View>
       </SwipeToDelete>
       {expanded ? (
-        <View style={[styles.sets, { backgroundColor: c.card, borderColor: c.border }]}>
+        <View
+          style={[
+            styles.sets,
+            {
+              backgroundColor: c.card,
+              borderColor: c.border,
+              borderWidth: shape.borderWidth,
+              borderRadius: shape.radius.md,
+            },
+          ]}>
           <SetEditor
             workoutId={workoutId}
             workoutExerciseId={we.id}
@@ -308,8 +319,6 @@ const styles = StyleSheet.create({
   sets: {
     marginTop: Spacing.one,
     padding: Spacing.three,
-    borderWidth: 1,
-    borderRadius: Radius.md,
   },
   footer: {
     paddingHorizontal: Spacing.four,

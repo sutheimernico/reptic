@@ -4,7 +4,7 @@ import { Modal, Pressable, StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
-import { Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { getSetting } from '@/db';
 import { formatWeight } from '@/domain/format';
 import {
@@ -13,6 +13,7 @@ import {
   type PlateSetup,
   solvePlates,
 } from '@/domain/plates';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -30,6 +31,7 @@ export function PlateSheet({
   onClose: () => void;
 }) {
   const c = useTheme();
+  const { shape } = useAppTheme();
   const db = useSQLiteContext();
   const [setup, setSetup] = useState<PlateSetup | null>(null);
 
@@ -51,7 +53,15 @@ export function PlateSheet({
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Schließen">
         {/* Swallow taps inside the card so they don't dismiss the sheet. */}
         <Pressable
-          style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}
+          style={[
+            styles.card,
+            {
+              backgroundColor: c.card,
+              borderColor: c.border,
+              borderWidth: shape.borderWidth,
+              borderRadius: shape.radius.lg,
+            },
+          ]}
           onPress={() => {}}>
           <ThemedText style={styles.title}>
             {targetKg === null ? 'Hantelscheiben' : `${formatWeight(targetKg)} kg auflegen`}
@@ -69,7 +79,7 @@ export function PlateSheet({
             </ThemedText>
           ) : (
             <>
-              <ThemedText style={styles.plates}>
+              <ThemedText variant="numeric" style={styles.plates}>
                 {solution.perSide.length === 0
                   ? 'Nur die Stange'
                   : `pro Seite: ${solution.perSide.map(formatWeight).join(' + ')}`}
@@ -107,9 +117,7 @@ const styles = StyleSheet.create({
   card: {
     gap: Spacing.two,
     padding: Spacing.four,
-    borderWidth: 1,
-    borderRadius: Radius.lg,
   },
   title: { fontSize: 17, fontWeight: '700' },
-  plates: { fontSize: 20, fontWeight: '800' },
+  plates: { fontSize: 20 },
 });

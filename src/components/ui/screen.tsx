@@ -52,7 +52,7 @@ export function Screen({
     <SafeAreaView edges={['top']} style={[styles.flex, { backgroundColor: c.background }]}>
       <View style={styles.header}>
         <View style={styles.flex}>
-          <ThemedText style={styles.title}>{title}</ThemedText>
+          <ThemedText variant="display" style={styles.title}>{title}</ThemedText>
           {subtitle ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
               {subtitle}
@@ -91,7 +91,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 30,
     lineHeight: 36,
-    fontWeight: '800',
     letterSpacing: -0.5,
   },
   subtitle: {

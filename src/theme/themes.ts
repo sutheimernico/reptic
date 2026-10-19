@@ -5,6 +5,7 @@
 
 import type { ThemeMode } from '@/domain/types';
 
+import { FONTS } from './fonts';
 import { PALETTES, type ThemeColor, type ThemeColors, type ThemeVariant } from './palettes';
 
 export type { ThemeColor, ThemeColors, ThemeVariant };
@@ -33,15 +34,6 @@ const VARIANTS: ThemeVariant[] = ['evolved', 'warm', 'arcade', 'instrument'];
 export function parseThemeVariant(stored: string | null): ThemeVariant {
   return VARIANTS.find((v) => v === stored) ?? 'evolved';
 }
-
-// Placeholder families until the font task bundles real ones.
-const PLACEHOLDER_FONTS: AppTheme['fonts'] = {
-  display: 'System',
-  body: 'System',
-  bodyBold: 'System',
-  numeric: 'System',
-  label: 'System',
-};
 
 type Style = Pick<AppTheme, 'shape' | 'motion'>;
 
@@ -93,7 +85,7 @@ export function resolveTheme(
 
   const colors = PALETTES[variant][scheme];
   if (!colors) throw new Error(`No ${scheme} palette for theme ${variant}`);
-  return { variant, scheme, colors, fonts: PLACEHOLDER_FONTS, ...STYLES[variant] };
+  return { variant, scheme, colors, fonts: FONTS[variant], ...STYLES[variant] };
 }
 
 export const THEME_OPTIONS: { variant: ThemeVariant; name: string; tagline: string }[] = [

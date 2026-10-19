@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import {
   getGym,
   getPlans,
@@ -32,6 +32,7 @@ import {
   summarizeSession,
 } from '@/domain/session';
 import type { Plan, Workout } from '@/domain/types';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type Trend = 'up' | 'down' | 'neutral';
@@ -53,20 +54,33 @@ function StatTile({
   trend?: Trend;
 }) {
   const c = useTheme();
+  const { shape, fonts } = useAppTheme();
   // Only "more work" is coloured. Less than last time stays neutral grey — a
   // lighter day is information, not a failure.
   const deltaColor = trend === 'up' ? c.success : c.textSecondary;
   return (
     <View
-      style={[styles.tile, { backgroundColor: c.card, borderColor: c.border }]}
+      style={[
+        styles.tile,
+        {
+          backgroundColor: c.card,
+          borderColor: c.border,
+          borderWidth: shape.borderWidth,
+          borderRadius: shape.radius.lg,
+        },
+      ]}
       accessible
       accessibilityLabel={`${label}: ${value}${delta ? `, ${delta} gegenüber letztem Mal` : ''}`}>
       <View style={styles.tileHead}>
         <Ionicons name={icon} size={14} color={c.textSecondary} />
-        <Text style={[styles.tileLabel, { color: c.textSecondary }]}>{label}</Text>
+        <Text style={[styles.tileLabel, { color: c.textSecondary, fontFamily: fonts.label }]}>{label}</Text>
       </View>
-      <Text style={[styles.tileValue, { color: c.text }]}>{value}</Text>
-      {delta ? <Text style={[styles.tileDelta, { color: deltaColor }]}>{delta}</Text> : null}
+      <Text
+        style={[
+          styles.tileValue,
+          { color: c.text, fontFamily: fonts.numeric, fontVariant: ['tabular-nums'] },
+        ]}>{value}</Text>
+      {delta ? <Text style={[styles.tileDelta, { color: deltaColor, fontFamily: fonts.bodyBold }]}>{delta}</Text> : null}
     </View>
   );
 }
@@ -81,6 +95,7 @@ export default function WorkoutSummaryScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const c = useTheme();
+  const { shape } = useAppTheme();
   const params = useLocalSearchParams<{ id: string; fresh?: string }>();
   const workoutId = Number(params.id);
   const fresh = params.fresh === '1';
@@ -148,7 +163,7 @@ export default function WorkoutSummaryScreen() {
       />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <ThemedText style={styles.heroTitle}>
+          <ThemedText variant="display" style={styles.heroTitle}>
             {fresh ? 'Einheit geschafft' : 'Deine Einheit'}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
@@ -157,7 +172,7 @@ export default function WorkoutSummaryScreen() {
           {plans.length > 0 ? (
             <View style={styles.plans}>
               {plans.map((plan) => (
-                <View key={plan.id} style={[styles.planChip, { borderColor: c.border }]}>
+                <View key={plan.id} style={[styles.planChip, { borderColor: c.border, borderRadius: shape.radius.md }]}>
                   <View style={[styles.dot, { backgroundColor: plan.color }]} />
                   <ThemedText type="small">{plan.name}</ThemedText>
                 </View>
@@ -263,7 +278,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   body: { padding: Spacing.four, gap: Spacing.three },
   hero: { gap: 2 },
-  heroTitle: { fontSize: 26, lineHeight: 32, fontWeight: '800', letterSpacing: -0.4 },
+  heroTitle: { fontSize: 26, lineHeight: 32, letterSpacing: -0.4 },
   plans: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.two },
   planChip: {
     flexDirection: 'row',
@@ -272,22 +287,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
     paddingVertical: 2,
     borderWidth: 1,
-    borderRadius: Radius.md,
   },
   dot: { width: 10, height: 10, borderRadius: 5 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   tile: {
     flexGrow: 1,
     flexBasis: '46%',
-    borderWidth: 1,
-    borderRadius: Radius.lg,
     padding: Spacing.three,
     gap: 2,
   },
   tileHead: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  tileLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6 },
-  tileValue: { fontSize: 26, fontWeight: '800', letterSpacing: -0.4 },
-  tileDelta: { fontSize: 13, fontWeight: '700' },
+  tileLabel: { fontSize: 11, letterSpacing: 0.6 },
+  tileValue: { fontSize: 26, letterSpacing: -0.4 },
+  tileDelta: { fontSize: 13 },
   caption: { marginTop: -Spacing.one },
   records: { gap: Spacing.two },
   recordRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },

@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
 import { TextField } from '@/components/ui/text-field';
-import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import {
   createPlan,
   deletePlan,
@@ -27,6 +27,7 @@ import {
   updatePlan,
 } from '@/db';
 import { MUSCLE_GROUPS, type Exercise } from '@/domain/types';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
 
@@ -44,9 +45,19 @@ const PLAN_COLOR_NAMES: Record<string, string> = {
 /** A selected exercise in the ordered list: long-press to drag-reorder, X to remove. */
 function PlanExerciseRow({ exercise, onRemove }: { exercise: Exercise; onRemove: () => void }) {
   const c = useTheme();
+  const { shape } = useAppTheme();
   const drag = useReorderableDrag();
   return (
-    <View style={[styles.orderRow, { backgroundColor: c.card, borderColor: c.border }]}>
+    <View
+      style={[
+        styles.orderRow,
+        {
+          backgroundColor: c.card,
+          borderColor: c.border,
+          borderWidth: shape.borderWidth,
+          borderRadius: shape.radius.md,
+        },
+      ]}>
       <Pressable
         onLongPress={drag}
         delayLongPress={150}
@@ -72,6 +83,7 @@ export default function PlanEditScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const c = useTheme();
+  const { shape } = useAppTheme();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const editingId = id ? Number(id) : null;
   const isEditing = editingId !== null;
@@ -197,8 +209,13 @@ export default function PlanEditScreen() {
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
                   accessibilityLabel={`Farbe ${PLAN_COLOR_NAMES[swatch] ?? swatch}`}
-                  style={[styles.swatchRing, { borderColor: active ? c.accent : 'transparent' }]}>
-                  <View style={[styles.swatch, { backgroundColor: swatch }]} />
+                  style={[
+                    styles.swatchRing,
+                    { borderColor: active ? c.accent : 'transparent', borderRadius: shape.radius.xl },
+                  ]}>
+                  <View
+                    style={[styles.swatch, { backgroundColor: swatch, borderRadius: shape.radius.lg }]}
+                  />
                 </Pressable>
               );
             })}
@@ -276,12 +293,11 @@ const styles = StyleSheet.create({
   swatchRing: {
     width: 44,
     height: 44,
-    borderRadius: Radius.xl,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  swatch: { width: 32, height: 32, borderRadius: Radius.lg },
+  swatch: { width: 32, height: 32 },
   section: { gap: Spacing.two },
   sectionTitle: {
     textTransform: 'uppercase',
@@ -294,8 +310,6 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    borderWidth: 1,
-    borderRadius: Radius.md,
     marginBottom: Spacing.two,
   },
   orderDrag: {

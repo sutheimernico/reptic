@@ -7,11 +7,12 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
-import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import { getFinishedWorkoutSummaries, getPlans, type WorkoutSummary } from '@/db';
 import { buildMonthGrid, localDayOf, monthTitle, shiftMonth } from '@/domain/calendar';
 import { formatSessionDate, formatVolume, plural } from '@/domain/format';
 import type { Plan } from '@/domain/types';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 
 const WEEKDAY_HEADERS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -20,6 +21,7 @@ export default function HistoryCalendarScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const c = useTheme();
+  const { shape } = useAppTheme();
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -113,6 +115,7 @@ export default function HistoryCalendarScreen() {
                   }
                   style={[
                     styles.cell,
+                    { borderRadius: shape.radius.sm },
                     selected ? { backgroundColor: c.backgroundSelected } : null,
                     isToday(day) ? { borderColor: c.accent, borderWidth: 1 } : null,
                   ]}>
@@ -174,7 +177,6 @@ const styles = StyleSheet.create({
   cell: {
     flex: 1,
     minHeight: 48,
-    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,

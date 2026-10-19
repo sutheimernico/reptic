@@ -2,8 +2,10 @@ import { type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { ShadowFrame } from '@/components/ui/shadow-frame';
+import { Spacing } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { shadowStyle } from '@/theme/shape';
 
 interface ListRowProps {
   title: string;
@@ -31,9 +33,11 @@ export function ListRow({
   selected,
   accessibilityLabel,
 }: ListRowProps) {
-  const c = useTheme();
+  const theme = useAppTheme();
+  const { colors: c, shape } = theme;
   const interactive = Boolean(onPress || onLongPress);
   return (
+    <ShadowFrame radius={shape.radius.md}>
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
@@ -47,7 +51,10 @@ export function ListRow({
         {
           backgroundColor: selected ? c.backgroundSelected : c.card,
           borderColor: selected ? c.accent : c.border,
+          borderWidth: shape.borderWidth,
+          borderRadius: shape.radius.md,
         },
+        shadowStyle(theme),
         pressed && interactive ? styles.pressed : null,
       ]}>
       {left}
@@ -61,6 +68,7 @@ export function ListRow({
       </View>
       {right}
     </Pressable>
+    </ShadowFrame>
   );
 }
 
@@ -70,8 +78,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.three,
     padding: Spacing.three,
-    borderWidth: 1,
-    borderRadius: Radius.md,
   },
   texts: { flex: 1, gap: 1 },
   title: { fontSize: 16, fontWeight: '600' },

@@ -5,7 +5,8 @@ import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
 
-import { Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 
 interface SwipeToDeleteProps {
@@ -23,6 +24,8 @@ interface SwipeToDeleteProps {
  */
 export function SwipeToDelete({ children, onDelete, accessibilityLabel }: SwipeToDeleteProps) {
   const c = useTheme();
+  const { shape } = useAppTheme();
+  const r = shape.radius.md;
   const swipeable = useRef<SwipeableMethods>(null);
   const close = () => swipeable.current?.close();
 
@@ -34,7 +37,16 @@ export function SwipeToDelete({ children, onDelete, accessibilityLabel }: SwipeT
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={[styles.action, { backgroundColor: c.danger }]}
+      style={[
+        styles.action,
+        {
+          backgroundColor: c.danger,
+          borderTopLeftRadius: r,
+          borderBottomLeftRadius: r,
+          marginRight: -r,
+          paddingRight: r,
+        },
+      ]}
       onPress={() => {
         methods.close();
         onDelete(close);
@@ -65,10 +77,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'flex-start',
-    borderTopLeftRadius: Radius.md,
-    borderBottomLeftRadius: Radius.md,
-    marginRight: -Radius.md,
-    paddingRight: Radius.md,
   },
   iconBox: { paddingHorizontal: Spacing.four },
 });

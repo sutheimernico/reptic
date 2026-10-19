@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { getSetting, setSetting } from '@/db';
 import { formatDuration } from '@/domain/format';
 import {
@@ -22,6 +22,7 @@ import {
   type RestTimer,
   remainingSeconds,
 } from '@/domain/rest-timer';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 import { haptic } from '@/lib/haptics';
 
@@ -119,6 +120,7 @@ export function useRestTimer(): RestTimerContextValue {
  */
 export function RestTimerBanner() {
   const c = useTheme();
+  const { shape, fonts } = useAppTheme();
   const { timer, dismiss } = useRestTimer();
   const [now, setNow] = useState(() => Date.now());
 
@@ -150,6 +152,8 @@ export function RestTimerBanner() {
         {
           backgroundColor: expired ? c.success : c.backgroundElement,
           borderColor: expired ? c.success : c.border,
+          borderWidth: shape.borderWidth,
+          borderRadius: shape.radius.md,
         },
       ]}>
       <Ionicons
@@ -157,7 +161,11 @@ export function RestTimerBanner() {
         size={18}
         color={expired ? c.onAccent : c.textSecondary}
       />
-      <Text style={[styles.label, { color: expired ? c.onAccent : c.text }]}>
+      <Text
+        style={[
+          styles.label,
+          { color: expired ? c.onAccent : c.text, fontFamily: fonts.bodyBold },
+        ]}>
         {expired ? 'Pause vorbei' : `Pause ${formatDuration(remaining)}`}
       </Text>
       <Pressable
@@ -166,7 +174,13 @@ export function RestTimerBanner() {
         accessibilityLabel="Pause beenden"
         hitSlop={8}
         style={styles.dismiss}>
-        <Text style={[styles.dismissText, { color: expired ? c.onAccent : c.accent }]}>Weiter</Text>
+        <Text
+          style={[
+            styles.dismissText,
+            { color: expired ? c.onAccent : c.accent, fontFamily: fonts.bodyBold },
+          ]}>
+          Weiter
+        </Text>
       </Pressable>
     </View>
   );
@@ -180,10 +194,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.two,
     paddingVertical: 10,
     paddingHorizontal: Spacing.three,
-    borderWidth: 1,
-    borderRadius: Radius.md,
   },
-  label: { flex: 1, fontSize: 15, fontWeight: '700' },
+  label: { flex: 1, fontSize: 15 },
   dismiss: { paddingHorizontal: Spacing.one },
-  dismissText: { fontSize: 15, fontWeight: '700' },
+  dismissText: { fontSize: 15 },
 });

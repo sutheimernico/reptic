@@ -16,7 +16,7 @@ import { PlateSheet } from '@/components/plate-sheet';
 import { useRestTimer } from '@/components/rest-timer';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
-import { Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import {
   deleteSet,
   getExercise,
@@ -59,6 +59,7 @@ import {
 } from '@/domain/progression';
 import { createInitialSets, referenceLabel, type PriorSet } from '@/domain/sets';
 import type { WorkoutSet } from '@/domain/types';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
 import { haptic } from '@/lib/haptics';
@@ -118,8 +119,18 @@ function SetInput({
   labelAccessibilityLabel?: string;
 }) {
   const c = useTheme();
+  const { shape, fonts } = useAppTheme();
+  const labelFont = { fontFamily: fonts.label };
   return (
-    <View style={[styles.inputBox, { backgroundColor: c.backgroundElement, borderColor: c.border }]}>
+    <View
+      style={[
+        styles.inputBox,
+        {
+          backgroundColor: c.backgroundElement,
+          borderColor: c.border,
+          borderRadius: shape.radius.sm,
+        },
+      ]}>
       {onLabelPress ? (
         <Pressable
           onPress={onLabelPress}
@@ -127,11 +138,11 @@ function SetInput({
           accessibilityLabel={labelAccessibilityLabel}
           hitSlop={6}
           style={styles.labelRow}>
-          <Text style={[styles.inputLabel, { color: c.accent }]}>{label}</Text>
+          <Text style={[styles.inputLabel, labelFont, { color: c.accent }]}>{label}</Text>
           <Ionicons name="disc-outline" size={11} color={c.accent} />
         </Pressable>
       ) : (
-        <Text style={[styles.inputLabel, { color: c.textSecondary }]}>{label}</Text>
+        <Text style={[styles.inputLabel, labelFont, { color: c.textSecondary }]}>{label}</Text>
       )}
       <TextInput
         accessibilityLabel={label}
@@ -143,7 +154,10 @@ function SetInput({
         placeholderTextColor={c.placeholder}
         selectTextOnFocus
         returnKeyType="done"
-        style={[styles.input, { color: c.text }]}
+        style={[
+          styles.input,
+          { color: c.text, fontFamily: fonts.numeric, fontVariant: ['tabular-nums'] },
+        ]}
       />
     </View>
   );
@@ -188,6 +202,7 @@ export function SetEditor({
 }) {
   const db = useSQLiteContext();
   const c = useTheme();
+  const { shape, fonts } = useAppTheme();
   const restTimer = useRestTimer();
 
   const [isCardio, setIsCardio] = useState(false);
@@ -442,7 +457,11 @@ export function SetEditor({
           <View
             style={[
               styles.progression,
-              { backgroundColor: c.backgroundElement, borderColor: c.border },
+              {
+                backgroundColor: c.backgroundElement,
+                borderColor: c.border,
+                borderRadius: shape.radius.md,
+              },
             ]}>
             <Ionicons
               name={hint.kind === 'increase' ? 'trending-up' : 'repeat'}
@@ -450,7 +469,7 @@ export function SetEditor({
               color={c.accent}
             />
             <View style={styles.progressionTexts}>
-              <Text style={[styles.progressionTitle, { color: c.text }]}>
+              <Text style={[styles.progressionTitle, { color: c.text, fontFamily: fonts.bodyBold }]}>
                 {describeHint(hint).title}
               </Text>
               <ThemedText type="small" themeColor="textSecondary">
@@ -463,7 +482,7 @@ export function SetEditor({
                 accessibilityRole="button"
                 accessibilityLabel={`Vorschlag übernehmen: ${formatWeight(hint.toKg)} kg`}
                 hitSlop={8}>
-                <Text style={[styles.progressionAction, { color: c.accent }]}>Übernehmen</Text>
+                <Text style={[styles.progressionAction, { color: c.accent, fontFamily: fonts.bodyBold }]}>Übernehmen</Text>
               </Pressable>
             ) : null}
           </View>
@@ -476,8 +495,9 @@ export function SetEditor({
               <View style={styles.setRow}>
                 <Pressable
                   onLongPress={() => removeSet(row, i + 1)}
-                  style={[styles.badge, { borderColor: c.border }]}>
-                  <Text style={[styles.badgeText, { color: c.textSecondary }]}>{i + 1}</Text>
+                  style={[styles.badge, { borderColor: c.border, borderRadius: shape.radius.sm }]}>
+                  <Text
+                    style={[styles.badgeText, { color: c.textSecondary, fontFamily: fonts.numeric }]}>{i + 1}</Text>
                 </Pressable>
                 {isCardio ? (
                   <>
@@ -530,6 +550,7 @@ export function SetEditor({
                   style={[
                     styles.check,
                     {
+                      borderRadius: shape.radius.sm,
                       backgroundColor: row.done ? c.accent : 'transparent',
                       borderColor: row.done ? c.accent : c.border,
                     },
@@ -556,9 +577,9 @@ export function SetEditor({
                     accessibilityRole="button"
                     accessibilityLabel={`Rekord in Satz ${i + 1}: ${describeRecords(records.get(row.id) ?? [])}`}
                     hitSlop={6}
-                    style={[styles.prBadge, { backgroundColor: c.success }]}>
+                    style={[styles.prBadge, { backgroundColor: c.success, borderRadius: shape.radius.sm }]}>
                     <Ionicons name="trophy" size={11} color={c.onAccent} />
-                    <Text style={[styles.prText, { color: c.onAccent }]}>PR</Text>
+                    <Text style={[styles.prText, { color: c.onAccent, fontFamily: fonts.label }]}>PR</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -589,26 +610,23 @@ const styles = StyleSheet.create({
   badge: {
     width: 30,
     height: 44,
-    borderRadius: Radius.sm,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { fontSize: 13, fontWeight: '700' },
+  badgeText: { fontSize: 13 },
   inputBox: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: Radius.sm,
     paddingHorizontal: Spacing.two,
     paddingVertical: 6,
   },
-  inputLabel: { fontSize: 9, fontWeight: '600', letterSpacing: 0.6 },
+  inputLabel: { fontSize: 9, letterSpacing: 0.6 },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  input: { fontSize: 17, fontWeight: '700', padding: 0, margin: 0 },
+  input: { fontSize: 17, padding: 0, margin: 0 },
   check: {
     width: 44,
     height: 44,
-    borderRadius: Radius.sm,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -622,9 +640,8 @@ const styles = StyleSheet.create({
     gap: 3,
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: Radius.sm,
   },
-  prText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
+  prText: { fontSize: 11, letterSpacing: 0.4 },
   hint: { marginTop: Spacing.one, textAlign: 'center' },
   progression: {
     flexDirection: 'row',
@@ -633,10 +650,9 @@ const styles = StyleSheet.create({
     padding: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderWidth: 1,
-    borderRadius: Radius.md,
     marginBottom: Spacing.one,
   },
   progressionTexts: { flex: 1 },
-  progressionTitle: { fontSize: 15, fontWeight: '700' },
-  progressionAction: { fontSize: 14, fontWeight: '700' },
+  progressionTitle: { fontSize: 15 },
+  progressionAction: { fontSize: 14 },
 });

@@ -1,3 +1,4 @@
+import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { SQLiteProvider } from 'expo-sqlite';
@@ -10,12 +11,18 @@ import { AnimatedSplashOverlay } from '@/components/splash-overlay';
 import { DATABASE_NAME } from '@/constants/app';
 import { migrateDbIfNeeded } from '@/db';
 import { installWebAlert } from '@/lib/web-alert';
+import { FONT_MAP } from '@/theme/fonts';
 import { ThemeProvider, useThemeMode } from '@/theme/theme-provider';
 
 SplashScreen.preventAutoHideAsync();
 installWebAlert();
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts(FONT_MAP);
+  if (fontError) console.warn('Font loading failed, using system fonts', fontError);
+  // The native splash stays up (preventAutoHideAsync) until fonts loaded or failed.
+  if (!fontsLoaded && !fontError) return null;
+
   return (
     // Required for react-native-gesture-handler; without it swipe gestures
     // (e.g. swipe-to-delete in a session) silently do nothing.

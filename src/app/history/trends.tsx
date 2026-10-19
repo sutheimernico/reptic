@@ -6,7 +6,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
-import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import { getSessionMuscleTotals } from '@/db';
 import { formatVolume, formatWeight } from '@/domain/format';
 import {
@@ -15,6 +15,7 @@ import {
   startOfWeekWindow,
   type WeekTotals,
 } from '@/domain/weeks';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 
 const WEEKS = 12;
@@ -22,6 +23,7 @@ const WEEKS = 12;
 /** A labelled bar, scaled against the largest value in its own series. */
 function Bar({ label, value, max, caption }: { label: string; value: number; max: number; caption: string }) {
   const c = useTheme();
+  const { shape } = useAppTheme();
   // Zero stays visibly zero: a week without training is information, and a
   // minimum-width stub would read as "trained a little".
   const widthPct = max > 0 && value > 0 ? Math.max((value / max) * 100, 3) : 0;
@@ -30,8 +32,14 @@ function Bar({ label, value, max, caption }: { label: string; value: number; max
       <ThemedText type="small" themeColor="textSecondary" style={styles.barLabel}>
         {label}
       </ThemedText>
-      <View style={[styles.track, { backgroundColor: c.backgroundSelected }]}>
-        <View style={[styles.fill, { backgroundColor: c.accent, width: `${widthPct}%` }]} />
+      <View
+        style={[styles.track, { backgroundColor: c.backgroundSelected, borderRadius: shape.radius.sm }]}>
+        <View
+          style={[
+            styles.fill,
+            { backgroundColor: c.accent, width: `${widthPct}%`, borderRadius: shape.radius.sm },
+          ]}
+        />
       </View>
       <ThemedText type="small" themeColor={value > 0 ? 'text' : 'placeholder'} style={styles.barValue}>
         {caption}
@@ -141,6 +149,6 @@ const styles = StyleSheet.create({
   barRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   barLabel: { width: 58 },
   barValue: { width: 74, textAlign: 'right' },
-  track: { flex: 1, height: 8, borderRadius: Radius.sm, overflow: 'hidden' },
-  fill: { height: 8, borderRadius: Radius.sm },
+  track: { flex: 1, height: 8, overflow: 'hidden' },
+  fill: { height: 8 },
 });

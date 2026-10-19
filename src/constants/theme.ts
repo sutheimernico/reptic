@@ -8,14 +8,6 @@ import { Platform } from 'react-native';
 // Palettes live in @/theme/palettes; re-exported here for the code that predates themes.
 export { Colors, type ThemeColor } from '@/theme/palettes';
 
-/** Variant A's radii. Static until screens read `theme.shape.radius` (later task). */
-export const Radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
-} as const;
-
 export const Spacing = {
   half: 2,
   one: 4,

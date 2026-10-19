@@ -4,6 +4,7 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { formatElapsed } from '@/domain/format';
 import { elapsedSeconds } from '@/domain/session';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -16,6 +17,7 @@ import { useTheme } from '@/hooks/use-theme';
  */
 export function SessionClock({ startedAt }: { startedAt: string | null }) {
   const c = useTheme();
+  const { fonts } = useAppTheme();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -33,7 +35,7 @@ export function SessionClock({ startedAt }: { startedAt: string | null }) {
       accessibilityRole="timer"
       accessibilityLabel={`Trainingsdauer ${Math.floor(seconds / 60)} Minuten`}>
       <Ionicons name="stopwatch-outline" size={16} color={c.textSecondary} />
-      <Text style={[styles.time, { color: c.text }]}>{formatElapsed(seconds)}</Text>
+      <Text style={[styles.time, { color: c.text, fontFamily: fonts.numeric }]}>{formatElapsed(seconds)}</Text>
     </View>
   );
 }
@@ -48,5 +50,5 @@ const styles = StyleSheet.create({
     paddingRight: Platform.OS === 'web' ? 16 : 0,
   },
   // Fixed-width digits, or the header text jitters every second.
-  time: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  time: { fontSize: 15, fontVariant: ['tabular-nums'] },
 });

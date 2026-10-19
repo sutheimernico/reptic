@@ -1,22 +1,37 @@
 import { StyleSheet, View, type ViewProps } from 'react-native';
 
-import { Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { ShadowFrame } from '@/components/ui/shadow-frame';
+import { Spacing } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { shadowStyle } from '@/theme/shape';
 
-/** Themed surface: card background, hairline border, rounded corners, padding. */
+/** Themed surface: card background, themed border, radius and shadow, padding. */
 export function Card({ style, children, ...rest }: ViewProps) {
-  const c = useTheme();
+  const theme = useAppTheme();
+  const { colors: c, shape } = theme;
   return (
-    <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }, style]} {...rest}>
-      {children}
-    </View>
+    <ShadowFrame radius={shape.radius.lg}>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: c.card,
+            borderColor: c.border,
+            borderWidth: shape.borderWidth,
+            borderRadius: shape.radius.lg,
+          },
+          shadowStyle(theme),
+          style,
+        ]}
+        {...rest}>
+        {children}
+      </View>
+    </ShadowFrame>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderWidth: 1,
-    borderRadius: Radius.lg,
     padding: Spacing.three,
   },
 });

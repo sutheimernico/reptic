@@ -6,7 +6,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
-import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import { type ExerciseSessionEntry, getExercise, getExerciseSessionHistory } from '@/db';
 import {
   formatCardioSetSummary,
@@ -16,11 +16,13 @@ import {
   formatWeight,
 } from '@/domain/format';
 import { topCardioMetrics, topSetReps, topSetWeight } from '@/domain/sets';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ExerciseProgressScreen() {
   const db = useSQLiteContext();
   const c = useTheme();
+  const { shape } = useAppTheme();
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const exerciseId = Number(id);
 
@@ -88,9 +90,20 @@ export default function ExerciseProgressScreen() {
                     </ThemedText>
                   ) : null}
                 </View>
-                <View style={[styles.track, { backgroundColor: c.backgroundSelected }]}>
+                <View
+                  style={[
+                    styles.track,
+                    { backgroundColor: c.backgroundSelected, borderRadius: shape.radius.sm },
+                  ]}>
                   <View
-                    style={[styles.fill, { backgroundColor: c.accent, width: `${widthPct * 100}%` }]}
+                    style={[
+                      styles.fill,
+                      {
+                        backgroundColor: c.accent,
+                        width: `${widthPct * 100}%`,
+                        borderRadius: shape.radius.sm,
+                      },
+                    ]}
                   />
                 </View>
                 {summary ? (
@@ -116,6 +129,6 @@ const styles = StyleSheet.create({
   },
   card: { gap: Spacing.two },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  track: { height: 8, borderRadius: Radius.sm, overflow: 'hidden' },
-  fill: { height: 8, borderRadius: Radius.sm },
+  track: { height: 8, overflow: 'hidden' },
+  fill: { height: 8 },
 });

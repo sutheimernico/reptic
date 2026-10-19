@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Spacing } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-app-theme';
 
 interface Segment<T extends string> {
   value: T;
@@ -20,9 +20,18 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
 }: SegmentedControlProps<T>) {
-  const c = useTheme();
+  const { colors: c, shape } = useAppTheme();
   return (
-    <View style={[styles.track, { backgroundColor: c.backgroundElement, borderColor: c.border }]}>
+    <View
+      style={[
+        styles.track,
+        {
+          backgroundColor: c.backgroundElement,
+          borderColor: c.border,
+          borderWidth: Math.max(shape.borderWidth, 1),
+          borderRadius: shape.radius.md,
+        },
+      ]}>
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -32,7 +41,11 @@ export function SegmentedControl<T extends string>({
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             accessibilityLabel={option.label}
-            style={[styles.segment, active && { backgroundColor: c.accent }]}>
+            style={[
+              styles.segment,
+              { borderRadius: shape.radius.sm },
+              active && { backgroundColor: c.accent },
+            ]}>
             <ThemedText type="smallBold" style={{ color: active ? c.onAccent : c.textSecondary }}>
               {option.label}
             </ThemedText>
@@ -46,8 +59,6 @@ export function SegmentedControl<T extends string>({
 const styles = StyleSheet.create({
   track: {
     flexDirection: 'row',
-    borderWidth: 1,
-    borderRadius: Radius.md,
     padding: 3,
     gap: 3,
   },
@@ -56,6 +67,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: Spacing.two,
-    borderRadius: Radius.sm,
   },
 });

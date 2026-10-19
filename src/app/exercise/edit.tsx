@@ -6,7 +6,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
-import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import {
   createExercise,
   deleteExercise,
@@ -16,6 +16,7 @@ import {
   updateExercise,
 } from '@/db';
 import { MUSCLE_GROUPS, type MuscleGroup } from '@/domain/types';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
 
@@ -23,6 +24,7 @@ export default function ExerciseEditScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const c = useTheme();
+  const { shape } = useAppTheme();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const editingId = id ? Number(id) : null;
   const isEditing = editingId !== null;
@@ -138,6 +140,7 @@ export default function ExerciseEditScreen() {
                   style={[
                     styles.chip,
                     {
+                      borderRadius: shape.radius.md,
                       borderColor: active ? c.accent : c.border,
                       backgroundColor: active ? c.backgroundSelected : c.card,
                     },
@@ -197,7 +200,6 @@ const styles = StyleSheet.create({
   chip: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    borderRadius: Radius.md,
     borderWidth: 1,
   },
 });

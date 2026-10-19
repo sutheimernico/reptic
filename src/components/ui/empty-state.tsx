@@ -16,7 +16,7 @@ export function EmptyState({ icon, title, message }: EmptyStateProps) {
   return (
     <View style={styles.wrap}>
       <Ionicons name={icon} size={44} color={c.textSecondary} />
-      <ThemedText style={styles.title}>{title}</ThemedText>
+      <ThemedText variant="display" style={styles.title}>{title}</ThemedText>
       {message ? (
         <ThemedText type="small" themeColor="textSecondary" style={styles.message}>
           {message}
@@ -34,6 +34,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.six,
     paddingHorizontal: Spacing.four,
   },
-  title: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  title: { fontSize: 18, textAlign: 'center' },
   message: { textAlign: 'center' },
 });

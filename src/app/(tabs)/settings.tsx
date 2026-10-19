@@ -12,7 +12,7 @@ import { Screen } from '@/components/ui/screen';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { ThemePicker } from '@/components/theme-picker';
 import { APP_NAME } from '@/constants/app';
-import { Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { getGyms, getSetting, setSetting } from '@/db';
 import { AUTO_BACKUP_KEEP, formatBackupAge } from '@/domain/auto-backup';
 import type { BackupData } from '@/domain/backup';
@@ -50,6 +50,7 @@ import {
   parseHapticsSetting,
   setHapticsEnabled,
 } from '@/lib/haptics';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemeMode } from '@/theme/theme-provider';
 
@@ -75,6 +76,7 @@ export default function SettingsScreen() {
   const [repTarget, setRepTarget] = useState(DEFAULT_REP_TARGET);
   const [increment, setIncrement] = useState(DEFAULT_INCREMENT_KG);
   const c = useTheme();
+  const { shape, fonts } = useAppTheme();
 
   const loadBackupState = useCallback(async () => {
     setLastAutoBackup(await getLastAutoBackupAt(db));
@@ -341,11 +343,16 @@ export default function SettingsScreen() {
                   style={[
                     styles.chip,
                     {
+                      borderRadius: shape.radius.md,
                       backgroundColor: owned ? c.accent : 'transparent',
                       borderColor: owned ? c.accent : c.border,
                     },
                   ]}>
-                  <Text style={[styles.chipText, { color: owned ? c.onAccent : c.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.chipText,
+                      { color: owned ? c.onAccent : c.textSecondary, fontFamily: fonts.bodyBold },
+                    ]}>
                     {formatWeight(kg)}
                   </Text>
                 </Pressable>
@@ -425,7 +432,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: 6,
     borderWidth: 1,
-    borderRadius: Radius.md,
   },
-  chipText: { fontSize: 14, fontWeight: '700' },
+  chipText: { fontSize: 14 },
 });

@@ -8,8 +8,9 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Spacing } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { shadowStyle } from '@/theme/shape';
 
 type Variant = 'primary' | 'secondary' | 'danger';
 
@@ -32,10 +33,13 @@ export function Button({
   icon,
   style,
 }: ButtonProps) {
-  const c = useTheme();
+  const theme = useAppTheme();
+  const { colors: c, shape, fonts } = theme;
   const background = variant === 'primary' ? c.accent : variant === 'danger' ? c.danger : 'transparent';
   const foreground = variant === 'secondary' ? c.text : c.onAccent;
-  const borderColor = variant === 'secondary' ? c.border : 'transparent';
+  // Arcade outlines every button in ink; other themes only outline the secondary one.
+  const borderColor =
+    variant === 'secondary' || shape.shadow === 'hard' ? c.border : 'transparent';
   const isDisabled = disabled || loading;
 
   return (
@@ -45,7 +49,13 @@ export function Button({
       accessibilityRole="button"
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: background, borderColor },
+        {
+          backgroundColor: background,
+          borderColor,
+          borderWidth: Math.max(shape.borderWidth, variant === 'secondary' ? 1 : 0),
+          borderRadius: shape.radius.md,
+        },
+        variant !== 'secondary' && !isDisabled ? shadowStyle(theme) : null,
         isDisabled && styles.disabled,
         pressed && !isDisabled && styles.pressed,
         style,
@@ -55,7 +65,7 @@ export function Button({
       ) : (
         <>
           {icon ? <Ionicons name={icon} size={18} color={foreground} /> : null}
-          <Text style={[styles.label, { color: foreground }]}>{label}</Text>
+          <Text style={[styles.label, { color: foreground, fontFamily: fonts.bodyBold }]}>{label}</Text>
         </>
       )}
     </Pressable>
@@ -73,14 +83,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.two,
-    borderWidth: 1,
-    borderRadius: Radius.md,
     paddingVertical: 14,
     paddingHorizontal: Spacing.four,
   },
   label: {
     fontSize: 16,
-    fontWeight: '700',
   },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.85 },
