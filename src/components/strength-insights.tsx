@@ -338,7 +338,10 @@ const styles = StyleSheet.create({
   chartCard: { gap: Spacing.two, paddingHorizontal: Spacing.two },
   legend: {
     flexDirection: 'row',
-    gap: Spacing.three,
+    // Wraps instead of running out of the card on a 360 dp phone.
+    flexWrap: 'wrap',
+    columnGap: Spacing.three,
+    rowGap: Spacing.one,
     paddingHorizontal: Spacing.two,
   },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },

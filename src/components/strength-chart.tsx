@@ -280,7 +280,7 @@ export function StrengthChart({ points, curve, plateauKg, originDate }: Strength
                 strokeOpacity={isInstrument ? 1 : 0.7}
                 strokeDasharray={isInstrument ? undefined : '2 5'}
               />
-              <SvgText x={width - PAD.r + 6} y={t.y + 3.5} {...axisText}>
+              <SvgText x={width - PAD.r + 10} y={t.y + 3.5} {...axisText}>
                 {formatWeight(Math.round(t.v * 10) / 10)}
               </SvgText>
             </G>
