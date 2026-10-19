@@ -14,6 +14,11 @@ export function formatWeight(weightKg: number | null): string {
   return String(Number(weightKg.toFixed(2))).replace('.', ',');
 }
 
+/** A weight rounded to one decimal with unit, German comma: 107.66 -> "107,7 kg". */
+export function formatKg(kg: number): string {
+  return `${formatWeight(Math.round(kg * 10) / 10)} kg`;
+}
+
 /**
  * Parse a weight input ("82,5" or "82.5") to kg. Returns null for anything
  * that is not a finite, non-negative number — a set cannot weigh less than

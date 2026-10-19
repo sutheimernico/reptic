@@ -28,6 +28,7 @@ export default function ExerciseProgressScreen() {
   const exerciseId = Number(id);
 
   const [entries, setEntries] = useState<ExerciseSessionEntry[]>([]);
+  const [gymWorkoutIds, setGymWorkoutIds] = useState<Set<number> | null>(null);
   const [isCardio, setIsCardio] = useState(false);
 
   const load = useCallback(() => {
@@ -74,8 +75,13 @@ export default function ExerciseProgressScreen() {
           />
         ) : (
           <>
-            {!isCardio && !byReps ? <StrengthInsights exerciseId={exerciseId} /> : null}
+            {!isCardio && !byReps ? (
+              <StrengthInsights exerciseId={exerciseId} onGymFilter={setGymWorkoutIds} />
+            ) : null}
             {entries.map((entry, i) => {
+              if (!isCardio && !byReps && gymWorkoutIds && !gymWorkoutIds.has(entry.workoutId)) {
+                return null;
+              }
               const top = tops[i];
               const summary = isCardio
                 ? formatCardioSetSummary(entry.sets)

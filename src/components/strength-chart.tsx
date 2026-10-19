@@ -27,7 +27,7 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 
-import { formatWeight } from '@/domain/format';
+import { formatKg, formatWeight } from '@/domain/format';
 import type { ForecastPoint, StrengthPoint } from '@/domain/forecast';
 import { useAppTheme } from '@/hooks/use-app-theme';
 
@@ -168,7 +168,7 @@ export function StrengthChart({ points, curve, plateauKg, originDate }: Strength
       cursor.setMonth(cursor.getMonth() + 1);
     }
     const keepEvery = Math.max(1, Math.ceil(labels.length / Math.max(1, Math.floor(plotW / 56))));
-    const thinned = labels.filter((_, i) => i % keepEvery === 0);
+    const thinned = labels.filter((_, i) => (labels.length - 1 - i) % keepEvery === 0);
 
     return {
       plotW,
@@ -333,7 +333,7 @@ export function StrengthChart({ points, curve, plateauKg, originDate }: Strength
                     fontFamily={fonts.bodyBold}
                     fontSize={11}
                   >
-                    {`Plateau ~${formatWeight(Math.round(plateauKg ?? 0))}`}
+                    {`Plateau ~${formatKg(plateauKg ?? 0)}`}
                   </SvgText>
                 </>
               ) : null}

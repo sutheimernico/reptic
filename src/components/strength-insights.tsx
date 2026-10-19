@@ -7,7 +7,7 @@
 
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { StrengthChart } from '@/components/strength-chart';
@@ -22,7 +22,7 @@ import {
   setSetting,
 } from '@/db';
 import { fitForecast, MIN_FORECAST_SESSIONS, strengthSeries } from '@/domain/forecast';
-import { formatSigned, formatWeight, plural } from '@/domain/format';
+import { formatKg, formatSigned, MONTHS_DE, plural } from '@/domain/format';
 import {
   applyGymFilter,
   type GymFilter,
@@ -39,22 +39,8 @@ const RANGES = [
   { label: '1J', days: 365 },
   { label: 'Alles', days: null },
 ] as const;
-const MONTHS_DE = [
-  'Januar',
-  'Februar',
-  'März',
-  'April',
-  'Mai',
-  'Juni',
-  'Juli',
-  'August',
-  'September',
-  'Oktober',
-  'November',
-  'Dezember',
-];
 
-const kg = (v: number) => `${formatWeight(Math.round(v * 10) / 10)} kg`;
+const kg = formatKg;
 
 function Chip({
   label,
@@ -92,7 +78,14 @@ function Chip({
   );
 }
 
-export function StrengthInsights({ exerciseId }: { exerciseId: number }) {
+export function StrengthInsights({
+  exerciseId,
+  onGymFilter,
+}: {
+  exerciseId: number;
+  /** Workout ids the active gym filter keeps, or null for "all" — the screen filters its list with it. */
+  onGymFilter?: (workoutIds: Set<number> | null) => void;
+}) {
   const db = useSQLiteContext();
   const { colors } = useAppTheme();
   const [history, setHistory] = useState<ExerciseHistoryEntry[] | null>(null);
@@ -139,6 +132,15 @@ export function StrengthInsights({ exerciseId }: { exerciseId: number }) {
     [history, filter],
   );
   const forecast = useMemo(() => fitForecast(series), [series]);
+
+  useEffect(() => {
+    if (!onGymFilter) return;
+    onGymFilter(
+      filter === 'all' || history === null
+        ? null
+        : new Set(applyGymFilter(history, filter).map((e) => e.workoutId)),
+    );
+  }, [history, filter, onGymFilter]);
 
   if (history === null) return null;
 
@@ -235,9 +237,11 @@ export function StrengthInsights({ exerciseId }: { exerciseId: number }) {
 
       {fit ? (
         <>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.heading}>
-            Prognose
-          </ThemedText>
+          {fit.status === 'rising' || fit.status === 'plateau' ? (
+            <ThemedText type="small" themeColor="textSecondary" style={styles.heading}>
+              Prognose
+            </ThemedText>
+          ) : null}
           <View style={styles.stats}>
             {fit.status === 'rising' || fit.status === 'plateau' ? (
               <Stat

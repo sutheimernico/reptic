@@ -60,6 +60,14 @@ async function seedEight() {
   for (const [g, d, w] of plan) await logSession(g, d, w);
 }
 
+/** Log sessions by target e1RM (6 reps -> e1RM = 1.2 x weight) at `day` days after the first one. */
+async function logCurve(days: number[], e1rms: number[], gymId = gymA) {
+  const last = days[days.length - 1];
+  for (let i = 0; i < days.length; i++) {
+    await logSession(gymId, last - days[i] + 1, e1rms[i] / 1.2, 6);
+  }
+}
+
 async function renderScreen() {
   setRouteParams({ id: String(exerciseId), name: 'Bankdrücken' });
   return renderWithProviders(<ExerciseProgressScreen />);
@@ -88,7 +96,9 @@ describe('exercise progress', () => {
     await waitFor(() => expect(view.getAllByText('Prognose').length).toBeGreaterThan(0));
     expect(view.getByText('8 Einheiten')).toBeTruthy();
     expect(view.getByText(/pro Monat/)).toBeTruthy();
-    expect(view.getByText(/Plateau ~\d+(,\d)? kg|Noch kein Plateau erkennbar/)).toBeTruthy();
+    // Linear growth: a curve is drawn, but no plateau is claimed.
+    expect(view.getByText('Noch kein Plateau erkennbar')).toBeTruthy();
+    expect(view.queryByText(/Plateau ~/)).toBeNull();
     expect(view.queryByText(/NaN/)).toBeNull();
   });
 
@@ -130,6 +140,60 @@ describe('exercise progress', () => {
     expect(
       view.getByText('Noch zu wenig Daten für eine Prognose (1 von 6 Einheiten)'),
     ).toBeTruthy();
+  });
+
+  it('shows a plateau for flat noisy data', async () => {
+    await logCurve(
+      [0, 12, 24, 36, 48, 60, 72, 84, 96, 108],
+      [100, 101, 99, 100, 102, 100, 99, 101, 100, 100],
+    );
+    const view = await renderScreen();
+    await waitFor(() => expect(view.getByText(/^Plateau ~\d+(,\d)? kg$/)).toBeTruthy());
+    expect(view.queryByText('Noch kein Plateau erkennbar')).toBeNull();
+  });
+
+  it('declining: shows the pause copy, no plateau, no curve legend', async () => {
+    await logCurve(
+      [0, 12, 24, 36, 48, 60, 72, 84, 96, 108, 120],
+      [100, 101, 102, 103, 104, 105, 100, 97, 94, 91, 88],
+    );
+    const view = await renderScreen();
+    await waitFor(() =>
+      expect(
+        view.getByText(
+          'Zuletzt rückläufig — nach einer Pause oder einem Deload normal. Die Prognose kommt wieder, sobald es aufwärts geht.',
+        ),
+      ).toBeTruthy(),
+    );
+    expect(view.queryByText(/Plateau/)).toBeNull();
+    expect(view.queryByText('Prognose')).toBeNull(); // no legend, no heading: nothing is forecast
+    expect(view.getByText(/^−\d+(,\d)? kg pro Monat$/)).toBeTruthy();
+  });
+
+  it('unreliable: shows the noise copy, no plateau, no gain', async () => {
+    const days = Array.from({ length: 16 }, (_, i) => i * 10);
+    const e1 = days.map((d) => 80 + 0.2 * d);
+    e1[14] += 8;
+    e1[15] += 8;
+    await logCurve(days, e1);
+    const view = await renderScreen();
+    await waitFor(() =>
+      expect(view.getByText('Der Verlauf ist gerade zu unruhig für eine Prognose.')).toBeTruthy(),
+    );
+    expect(view.queryByText(/Plateau/)).toBeNull();
+    expect(view.queryByText(/pro Monat/)).toBeNull();
+    expect(view.queryByText('Unsicherheit')).toBeNull();
+    expect(view.getByText('16 Einheiten')).toBeTruthy();
+  });
+
+  it('filters the session list with the gym filter', async () => {
+    await seedEight();
+    const view = await renderScreen();
+    await waitFor(() => expect(view.getByLabelText('Hotel-Gym')).toBeTruthy());
+    expect(view.getAllByText(/ · Studio Nord$/)).toHaveLength(6);
+    await fireEvent.press(view.getByLabelText('Hotel-Gym'));
+    await waitFor(() => expect(view.queryAllByText(/ · Studio Nord$/)).toHaveLength(0));
+    expect(view.getAllByText(/ · Hotel-Gym$/)).toHaveLength(2);
   });
 
   it('keeps the per-session list', async () => {
