@@ -13,4 +13,5 @@ export * from '@/db/plans';
 export * from '@/db/sets';
 export * from '@/db/settings';
 export * from '@/db/summary';
+export * from '@/db/week-stats';
 export * from '@/db/workouts';

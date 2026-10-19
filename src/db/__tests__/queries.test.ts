@@ -25,6 +25,7 @@ import {
   getSessionRecordInputs,
   getSessionTotals,
   getSetProgressForWorkout,
+  getWeekOverview,
   getWorkout,
   gymHasWorkouts,
   importAllData,
@@ -874,5 +875,64 @@ describe('carried-over and abandoned rows (2026-10-16 bug sweep)', () => {
     );
     expect(rows.map((r) => r.exercise_id)).toEqual([bench]);
     expect(progress.size).toBe(0);
+  });
+});
+
+describe('getWeekOverview', () => {
+  const now = new Date(2026, 9, 21, 12); // Wednesday of 2026-W43
+  const at = (m0: number, d: number, h = 10) => new Date(2026, m0, d, h).toISOString();
+
+  it('shows sane zeros on a brand-new install', async () => {
+    const db = await freshDb();
+    const o = await getWeekOverview(db, now);
+    expect(o.progress).toEqual({ weekKey: '2026-W43', volumeKg: 0, distanceKm: 0, sessions: 0 });
+    expect(o.weeks).toHaveLength(12);
+    expect(o.streak).toBe(0);
+    expect(o.xp).toBe(0);
+    expect(o.goal).toMatchObject({ kg: 10000, km: null, kgIsSuggestion: true });
+  });
+
+  it('adds the running workout to this week and feeds streak, goal and XP', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const bench = await createExercise(db, 'Bankdrücken', 'Brust');
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench, startedAt: at(9, 19, 9), finishedAt: at(9, 19, 10),
+      sets: [{ weightKg: 100, reps: 10 }],
+    });
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench, startedAt: at(9, 20, 9), finishedAt: at(9, 20, 10),
+      sets: [{ weightKg: 50, reps: 10 }, { weightKg: 60, reps: 5, done: false }],
+    });
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench, startedAt: at(9, 12, 9), finishedAt: at(9, 12, 10),
+      sets: [{ weightKg: 80, reps: 10 }],
+    });
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench, startedAt: at(9, 21, 9), finishedAt: null,
+      sets: [{ weightKg: 40, reps: 10 }, { weightKg: 90 }], // second row: carried over, not performed
+    });
+
+    const o = await getWeekOverview(db, now);
+    expect(o.progress.sessions).toBe(2);
+    // finished this week 1000 + 800 (reps entered count even if unticked), live 400
+    expect(o.progress.volumeKg).toBe(2200);
+    expect(o.streak).toBe(2);
+    expect(o.goal).toMatchObject({ kg: 1000, kgIsSuggestion: true }); // W42 = 800 → up to 500s
+    expect(o.xp).toBe(10 * 5); // five performed sets, no record yet (< 3 prior sessions)
+  });
+
+  it('counts XP records only after three prior sessions, like the badge', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const bench = await createExercise(db, 'Bankdrücken', 'Brust');
+    for (const [i, kg] of [50, 50, 50, 60].entries()) {
+      await loggedSession(db, {
+        gymId: gym, exerciseId: bench, startedAt: at(8, 1 + i, 9), finishedAt: at(8, 1 + i, 10),
+        sets: [{ weightKg: kg, reps: 5 }],
+      });
+    }
+    const o = await getWeekOverview(db, now);
+    expect(o.xp).toBe(10 * 4 + 50 * 1);
   });
 });
