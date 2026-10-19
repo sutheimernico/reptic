@@ -922,6 +922,36 @@ describe('getWeekOverview', () => {
     expect(o.xp).toBe(10 * 5); // five performed sets, no record yet (< 3 prior sessions)
   });
 
+  it('counts only the active workout, never abandoned unfinished ones', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const bench = await createExercise(db, 'Bankdrücken', 'Brust');
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench, startedAt: at(9, 20, 8), finishedAt: null, // abandoned, older
+      sets: [{ weightKg: 200, reps: 10 }, { weightKg: 200, reps: 10 }],
+    });
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench, startedAt: at(9, 21, 9), finishedAt: null, // active
+      sets: [{ weightKg: 40, reps: 10 }],
+    });
+    const o = await getWeekOverview(db, now);
+    expect(o.progress.volumeKg).toBe(400);
+    expect(o.xp).toBe(10);
+  });
+
+  it('keeps an active workout from last week out of this week\'s progress', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const bench = await createExercise(db, 'Bankdrücken', 'Brust');
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench, startedAt: at(9, 18, 23), finishedAt: null,
+      sets: [{ weightKg: 40, reps: 10 }],
+    });
+    const o = await getWeekOverview(db, now);
+    expect(o.progress.volumeKg).toBe(0);
+    expect(o.xp).toBe(10);
+  });
+
   it('counts XP records only after three prior sessions, like the badge', async () => {
     const db = await freshDb();
     const gym = await createGym(db, 'Gym');

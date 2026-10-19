@@ -7,7 +7,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { getSetting } from '@/db/settings';
 import { performedSql } from '@/db/totals';
-import { getSessionMuscleTotals } from '@/db/workouts';
+import { getActiveWorkout, getSessionMuscleTotals } from '@/db/workouts';
 import {
   countPersonalRecords,
   currentWeekProgress,
@@ -20,7 +20,7 @@ import {
   type WeekGoal,
   type WeekProgress,
 } from '@/domain/week-stats';
-import { bucketByWeek, startOfWeekWindow, type WeekTotals } from '@/domain/weeks';
+import { bucketByWeek, isoWeekKey, isoWeekOf, startOfWeekWindow, type WeekTotals } from '@/domain/weeks';
 
 const WINDOW_WEEKS = 12;
 
@@ -37,28 +37,37 @@ export async function getWeekOverview(db: SQLiteDatabase, now: Date): Promise<We
   const rows = await getSessionMuscleTotals(db, since);
   const weeks = bucketByWeek(rows, now, WINDOW_WEEKS);
 
-  // The running workout isn't finished, so it is in no row above; its work counts
-  // toward this week right away. It is not a session yet.
-  const live = await db.getFirstAsync<{ volume: number | null; distance: number | null }>(
-    `SELECT SUM(s.weight_kg * s.reps) AS volume,
-            SUM(CASE WHEN ${performedSql('s.')} THEN s.distance_km END) AS distance
-     FROM workout_sets s
-     JOIN workouts w ON w.id = s.workout_id
-     WHERE w.finished_at IS NULL`,
-  );
+  // Only the latest unfinished workout is the running session; older ones are
+  // abandoned and count nowhere. The running one isn't in any row above, so its
+  // work counts toward this week right away (if it started this week). It is not
+  // a session yet.
+  const active = await getActiveWorkout(db);
+  const activeTotals = active
+    ? await db.getFirstAsync<{ volume: number | null; distance: number | null; sets: number }>(
+        `SELECT SUM(s.weight_kg * s.reps) AS volume,
+                SUM(CASE WHEN ${performedSql('s.')} THEN s.distance_km END) AS distance,
+                SUM(CASE WHEN ${performedSql('s.')} THEN 1 ELSE 0 END) AS sets
+         FROM workout_sets s WHERE s.workout_id = ?`,
+        active.id,
+      )
+    : null;
   const finished = currentWeekProgress(rows, now);
+  const startedThisWeek =
+    active !== null && isoWeekKey(isoWeekOf(new Date(active.startedAt))) === finished.weekKey;
   const progress: WeekProgress = {
     ...finished,
-    volumeKg: finished.volumeKg + (live?.volume ?? 0),
-    distanceKm: finished.distanceKm + (live?.distance ?? 0),
+    volumeKg: finished.volumeKg + (startedThisWeek ? (activeTotals?.volume ?? 0) : 0),
+    distanceKm: finished.distanceKm + (startedThisWeek ? (activeTotals?.distance ?? 0) : 0),
   };
 
   const dates = await db.getAllAsync<{ finished_at: string }>(
     'SELECT finished_at FROM workouts WHERE finished_at IS NOT NULL',
   );
 
-  const setCount = await db.getFirstAsync<{ n: number }>(
-    `SELECT COUNT(*) AS n FROM workout_sets s WHERE ${performedSql('s.')}`,
+  const finishedSetCount = await db.getFirstAsync<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM workout_sets s
+     JOIN workouts w ON w.id = s.workout_id
+     WHERE w.finished_at IS NOT NULL AND ${performedSql('s.')}`,
   );
   const prSets = await db.getAllAsync<{
     workout_id: number;
@@ -97,6 +106,6 @@ export async function getWeekOverview(db: SQLiteDatabase, now: Date): Promise<We
       now,
     ),
     goal,
-    xp: xpFor(setCount?.n ?? 0, countPersonalRecords(replay)),
+    xp: xpFor((finishedSetCount?.n ?? 0) + (activeTotals?.sets ?? 0), countPersonalRecords(replay)),
   };
 }
