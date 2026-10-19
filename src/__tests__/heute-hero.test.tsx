@@ -71,6 +71,13 @@ describe('WeekHero skins', () => {
     await waitFor(() => expect(view.getByText(/Level 1/)).toBeTruthy());
   });
 
+  it('arcade keeps the flame muted until a streak exists', async () => {
+    const empty = await renderHero('arcade');
+    const flame = await empty.findByTestId('streak-flame');
+    expect(JSON.stringify(flame.props.style)).toContain('#6B5E48'); // textSecondary
+    expect(JSON.stringify(flame.props.style)).not.toContain('#FF7A1A');
+  });
+
   it('instrument speaks KW', async () => {
     const view = await renderHero('instrument');
     await waitFor(() => expect(view.getByText(/KW \d+/)).toBeTruthy());

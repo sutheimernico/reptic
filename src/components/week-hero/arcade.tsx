@@ -90,7 +90,12 @@ export function ArcadeHero({ model }: { model: HeroModel }) {
           </ThemedText>
         </View>
         <View style={styles.flame}>
-          <Ionicons name="flame" size={26} color="#FF7A1A" />
+          <Ionicons
+            testID="streak-flame"
+            name="flame"
+            size={26}
+            color={model.streak > 0 ? '#FF7A1A' : c.textSecondary}
+          />
           <ThemedText variant="display" style={styles.flameCount}>{model.streak}</ThemedText>
         </View>
       </View>
