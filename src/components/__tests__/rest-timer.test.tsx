@@ -42,6 +42,17 @@ describe('RestTimerBanner', () => {
     expect(view.queryByText(/Pause/)).toBeNull();
   });
 
+  it('keeps the fill hidden until the bar is measured', async () => {
+    const view = await mount();
+    await fireEvent.press(view.getByLabelText('Satz abhaken'));
+    expect(view.queryByTestId('rest-fill')).toBeNull();
+
+    await fireEvent(view.getByLabelText(/^Pause, noch/), 'layout', {
+      nativeEvent: { layout: { width: 300, height: 40, x: 0, y: 0 } },
+    });
+    expect(view.getByTestId('rest-fill')).toBeTruthy();
+  });
+
   it('counts down from the configured duration and reports the end', async () => {
     const view = await mount();
     jest.useFakeTimers();

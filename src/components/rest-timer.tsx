@@ -189,8 +189,10 @@ export function RestTimerBanner() {
           borderRadius: shape.radius.md,
         },
       ]}>
-      {expired ? null : (
+      {/* Hidden until measured: translateX with barWidth 0 would flash the full-width fill. */}
+      {expired || barWidth === 0 ? null : (
         <Animated.View
+          testID="rest-fill"
           pointerEvents="none"
           style={[styles.fill, { backgroundColor: withAlpha(c.accent, 0.18) }, fillStyle]}
         />
