@@ -3,6 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { StrengthInsights } from '@/components/strength-insights';
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -72,48 +73,55 @@ export default function ExerciseProgressScreen() {
             message="Sobald du diese Übung in einer Einheit protokollierst, siehst du hier die Entwicklung."
           />
         ) : (
-          entries.map((entry, i) => {
-            const top = tops[i];
-            const summary = isCardio
-              ? formatCardioSetSummary(entry.sets)
-              : formatSetSummary(entry.sets);
-            const widthPct = top !== null && maxTop > 0 ? Math.max(top / maxTop, 0.08) : 0;
-            return (
-              <Card key={entry.workoutId} style={styles.card}>
-                <View style={styles.header}>
-                  <ThemedText type="smallBold">
-                    {formatSessionDate(entry.date)} · {entry.gymName}
-                  </ThemedText>
-                  {top !== null ? (
-                    <ThemedText type="small" themeColor="accent">
-                      {topLabel(top)}
+          <>
+            {!isCardio && !byReps ? <StrengthInsights exerciseId={exerciseId} /> : null}
+            {entries.map((entry, i) => {
+              const top = tops[i];
+              const summary = isCardio
+                ? formatCardioSetSummary(entry.sets)
+                : formatSetSummary(entry.sets);
+              const widthPct = top !== null && maxTop > 0 ? Math.max(top / maxTop, 0.08) : 0;
+              return (
+                <Card key={entry.workoutId} style={styles.card}>
+                  <View style={styles.header}>
+                    <ThemedText type="smallBold">
+                      {formatSessionDate(entry.date)} · {entry.gymName}
                     </ThemedText>
-                  ) : null}
-                </View>
-                <View
-                  style={[
-                    styles.track,
-                    { backgroundColor: c.backgroundSelected, borderRadius: shape.radius.sm },
-                  ]}>
+                    {top !== null ? (
+                      <ThemedText type="small" themeColor="accent">
+                        {topLabel(top)}
+                      </ThemedText>
+                    ) : null}
+                  </View>
                   <View
                     style={[
-                      styles.fill,
+                      styles.track,
                       {
-                        backgroundColor: c.accent,
-                        width: `${widthPct * 100}%`,
+                        backgroundColor: c.backgroundSelected,
                         borderRadius: shape.radius.sm,
                       },
                     ]}
-                  />
-                </View>
-                {summary ? (
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {summary}
-                  </ThemedText>
-                ) : null}
-              </Card>
-            );
-          })
+                  >
+                    <View
+                      style={[
+                        styles.fill,
+                        {
+                          backgroundColor: c.accent,
+                          width: `${widthPct * 100}%`,
+                          borderRadius: shape.radius.sm,
+                        },
+                      ]}
+                    />
+                  </View>
+                  {summary ? (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {summary}
+                    </ThemedText>
+                  ) : null}
+                </Card>
+              );
+            })}
+          </>
         )}
       </ScrollView>
     </View>
@@ -128,7 +136,11 @@ const styles = StyleSheet.create({
     paddingBottom: BottomTabInset + Spacing.four,
   },
   card: { gap: Spacing.two },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   track: { height: 8, overflow: 'hidden' },
   fill: { height: 8 },
 });
