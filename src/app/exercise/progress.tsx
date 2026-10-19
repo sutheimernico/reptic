@@ -90,11 +90,11 @@ export default function ExerciseProgressScreen() {
               return (
                 <Card key={entry.workoutId} style={styles.card}>
                   <View style={styles.header}>
-                    <ThemedText type="smallBold">
+                    <ThemedText type="smallBold" style={styles.headerTitle}>
                       {formatSessionDate(entry.date)} · {entry.gymName}
                     </ThemedText>
                     {top !== null ? (
-                      <ThemedText type="small" themeColor="accent">
+                      <ThemedText type="small" themeColor="accent" style={styles.headerValue}>
                         {topLabel(top)}
                       </ThemedText>
                     ) : null}
@@ -146,7 +146,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: Spacing.two,
   },
+  // The date line may wrap, the value ("105 kg") must not: it keeps its width and the title shrinks.
+  headerTitle: { flex: 1 },
+  headerValue: { flexShrink: 0 },
   track: { height: 8, overflow: 'hidden' },
   fill: { height: 8 },
 });
