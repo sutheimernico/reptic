@@ -17,6 +17,7 @@ jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => ({
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import SessionScreen from '@/app/session/[id]';
+import { SetEditor } from '@/components/set-editor';
 import {
   addWorkoutExercise,
   createExercise,
@@ -24,8 +25,10 @@ import {
   finishWorkout,
   getSetsForWorkoutExercise,
   insertSet,
+  setSetting,
   startWorkout,
 } from '@/db';
+import { breakAppliedKey } from '@/domain/break';
 import { createTestDb } from '@/test-support/db';
 import { act, fireEvent, renderWithProviders, waitFor } from '@/test-support/render';
 import { resetRouter, setRouteParams } from '@/test-support/router';
@@ -201,6 +204,25 @@ describe('break banner', () => {
     await view.findByText('Gewichte um 10 % gesenkt');
     await open(view, 'Brustpresse', 1);
     expect(view.getByLabelText('KG').props.value).toBe('72,5');
+  });
+
+  it('does not lower twice when an exercise opens in the moment Übernehmen is tapped', async () => {
+    await pastSession(pressId, 16, [100]);
+    const { workoutId, wes } = await newSession([pressId]);
+    // The factor is already stored, so the editor seeds lowered (100 -> 90) ...
+    await setSetting(db, breakAppliedKey(workoutId), '0.9');
+    const props = { workoutId, workoutExerciseId: wes[0], exerciseId: pressId };
+    const view = await renderWithProviders(<SetEditor {...props} breakApplyToken={0} />);
+    await waitFor(() => expect(view.getByLabelText('KG').props.value).toBe('90'));
+
+    // ... and then the banner's apply token arrives for the same factor.
+    await view.rerender(<SetEditor {...props} breakApplyToken={1} />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(view.getByLabelText('KG').props.value).toBe('90');
+    expect((await getSetsForWorkoutExercise(db, wes[0]))[0].weightKg).toBe(90);
   });
 
   it('uses 15 % after eight weeks', async () => {
