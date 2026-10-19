@@ -12,6 +12,7 @@ import { DATABASE_NAME } from '@/constants/app';
 import { migrateDbIfNeeded } from '@/db';
 import { installWebAlert } from '@/lib/web-alert';
 import { FONT_MAP } from '@/theme/fonts';
+import { stackHeaderOptions } from '@/theme/header';
 import { ThemeProvider, useThemeMode } from '@/theme/theme-provider';
 
 SplashScreen.preventAutoHideAsync();
@@ -58,7 +59,7 @@ function ThemedNavigation() {
     <NavThemeProvider value={navTheme}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <AnimatedSplashOverlay />
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false, ...stackHeaderOptions(theme) }} />
     </NavThemeProvider>
   );
 }
