@@ -1,5 +1,5 @@
-import type { ExerciseHistoryEntry } from "@/db/workouts";
-import { epleyE1rm } from "@/domain/personal-records";
+import type { ExerciseHistoryEntry } from '@/db/workouts';
+import { epleyE1rm } from '@/domain/personal-records';
 
 export interface StrengthPoint {
   date: string;
@@ -21,15 +21,15 @@ export interface ForecastPoint {
   high: number;
 }
 
-export type ForecastStatus = "rising" | "plateau" | "declining" | "unreliable";
+export type ForecastStatus = 'rising' | 'plateau' | 'declining' | 'unreliable';
 
 /**
  * `declining` and `unreliable` carry no curve and no plateau.
  * Otherwise `plateauKg === null` means "no plateau recognisable yet". */
 export type Forecast =
-  | { kind: "insufficient"; sessions: number }
+  | { kind: 'insufficient'; sessions: number }
   | {
-      kind: "fit";
+      kind: 'fit';
       status: ForecastStatus;
       plateauKg: number | null;
       k: number;
@@ -56,15 +56,11 @@ const DAY_MS = 86_400_000;
 /** Local calendar day number; avoids the 23/25 h days around DST that raw ms / 86400000 hits. */
 function localDayNumber(iso: string): number {
   const d = new Date(iso);
-  return Math.round(
-    Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY_MS,
-  );
+  return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY_MS);
 }
 
 /** Best estimated 1RM per finished session, oldest first. Sessions without a usable set are dropped. */
-export function strengthSeries(
-  entries: ExerciseHistoryEntry[],
-): StrengthPoint[] {
+export function strengthSeries(entries: ExerciseHistoryEntry[]): StrengthPoint[] {
   const raw: {
     date: string;
     day: number;
@@ -87,9 +83,7 @@ export function strengthSeries(
       workoutId: entry.workoutId,
     });
   }
-  raw.sort(
-    (a, b) => a.day - b.day || (a.date < b.date ? -1 : a.date > b.date ? 1 : 0),
-  );
+  raw.sort((a, b) => a.day - b.day || (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   if (raw.length === 0) return [];
   const first = raw[0].day;
   return raw.map((r) => ({
@@ -108,13 +102,7 @@ interface Fit {
   sse: number;
 }
 
-function sse(
-  t: number[],
-  y: number[],
-  k: number,
-  p: number,
-  y0: number,
-): number {
+function sse(t: number[], y: number[], k: number, p: number, y0: number): number {
   let sum = 0;
   for (let i = 0; i < t.length; i++) {
     const r = y[i] - (p - (p - y0) * Math.exp(-k * t[i]));
@@ -184,7 +172,7 @@ export function fitForecast(points: StrengthPoint[]): Forecast {
   const n = points.length;
   const span = n > 0 ? points[n - 1].dayIndex - points[0].dayIndex : 0;
   if (n < MIN_FORECAST_SESSIONS || span < MIN_FORECAST_SPAN_DAYS) {
-    return { kind: "insufficient", sessions: n };
+    return { kind: 'insufficient', sessions: n };
   }
 
   const t = points.map((p) => p.dayIndex - points[0].dayIndex);
@@ -192,10 +180,7 @@ export function fitForecast(points: StrengthPoint[]): Forecast {
   const maxY = Math.max(...y);
 
   const ratio = K_MAX / K_MIN;
-  const ks = Array.from(
-    { length: K_STEPS },
-    (_, i) => K_MIN * ratio ** (i / (K_STEPS - 1)),
-  );
+  const ks = Array.from({ length: K_STEPS }, (_, i) => K_MIN * ratio ** (i / (K_STEPS - 1)));
   const fits = ks.map((k) => fitAtK(t, y, k, maxY));
   const minSse = Math.min(...fits.map((f) => f.sse));
   let chosenIdx = 0;
@@ -205,11 +190,10 @@ export function fitForecast(points: StrengthPoint[]): Forecast {
   const chosen = fits[chosenIdx];
 
   const sigma = Math.sqrt(chosen.sse / (n - 2));
-  const value = (day: number) =>
-    chosen.p - (chosen.p - chosen.y0) * Math.exp(-chosen.k * day);
+  const value = (day: number) => chosen.p - (chosen.p - chosen.y0) * Math.exp(-chosen.k * day);
   const lastT = t[n - 1];
   const sigmaEff = Math.max(sigma, MIN_SIGMA_KG);
-  const base = { kind: "fit" as const, k: chosen.k, y0: chosen.y0, sigma };
+  const base = { kind: 'fit' as const, k: chosen.k, y0: chosen.y0, sigma };
 
   // The clamped rising model alone would turn a decline or a break into invented gain.
   let recentFrom = t.findIndex((x) => x >= lastT - RECENT_WINDOW_DAYS);
@@ -218,7 +202,7 @@ export function fitForecast(points: StrengthPoint[]): Forecast {
   if (recentSlope30 < -Math.max(1, sigmaEff / 2)) {
     return {
       ...base,
-      status: "declining",
+      status: 'declining',
       plateauKg: null,
       gainPerMonthKg: recentSlope30,
       curve: [],
@@ -226,12 +210,11 @@ export function fitForecast(points: StrengthPoint[]): Forecast {
   }
   // Compare against the model at the same two times, not its last value: on a steady rise the
   // mean of two actuals lags the last point by half a step and would read as a miss.
-  const lastTwoResidual =
-    (y[n - 1] - value(t[n - 1]) + (y[n - 2] - value(t[n - 2]))) / 2;
+  const lastTwoResidual = (y[n - 1] - value(t[n - 1]) + (y[n - 2] - value(t[n - 2]))) / 2;
   if (Math.abs(lastTwoResidual) > 2 * sigmaEff) {
     return {
       ...base,
-      status: "unreliable",
+      status: 'unreliable',
       plateauKg: null,
       gainPerMonthKg: 0,
       curve: [],
@@ -254,15 +237,13 @@ export function fitForecast(points: StrengthPoint[]): Forecast {
   if (isPlateau) {
     return {
       ...base,
-      status: "plateau",
+      status: 'plateau',
       plateauKg: level,
       gainPerMonthKg: 0,
       curve,
     };
   }
-  const plateauKg =
-    chosenIdx === 0 || chosen.p > PLATEAU_MAX_RATIO * maxY ? null : chosen.p;
-  const gainPerMonthKg =
-    (chosen.p - chosen.y0) * chosen.k * Math.exp(-chosen.k * lastT) * 30;
-  return { ...base, status: "rising", plateauKg, gainPerMonthKg, curve };
+  const plateauKg = chosenIdx === 0 || chosen.p > PLATEAU_MAX_RATIO * maxY ? null : chosen.p;
+  const gainPerMonthKg = (chosen.p - chosen.y0) * chosen.k * Math.exp(-chosen.k * lastT) * 30;
+  return { ...base, status: 'rising', plateauKg, gainPerMonthKg, curve };
 }
