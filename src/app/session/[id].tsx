@@ -10,6 +10,7 @@ import ReorderableList, {
 } from 'react-native-reorderable-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FadeInListItem } from '@/components/motion/fade-in-list-item';
 import { RestTimerBanner, useRestTimer } from '@/components/rest-timer';
 import { SessionClock } from '@/components/session-clock';
 import { SetEditor } from '@/components/set-editor';
@@ -257,7 +258,8 @@ export default function SessionScreen() {
         contentContainerStyle={styles.body}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
+          <FadeInListItem index={index}>
           <ExerciseRow
             we={item}
             workoutId={workoutId}
@@ -267,6 +269,7 @@ export default function SessionScreen() {
             onRemove={(close) => askRemoveExercise(item, close)}
             onSetsChanged={refreshProgress}
           />
+          </FadeInListItem>
         )}
         ListEmptyComponent={
           <EmptyState

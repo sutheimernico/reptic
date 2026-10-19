@@ -4,6 +4,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 
+import { FadeInListItem } from '@/components/motion/fade-in-list-item';
 import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
@@ -45,7 +46,8 @@ export default function PlansScreen() {
         keyExtractor={(plan) => String(plan.id)}
         contentContainerStyle={SCREEN_BODY_PADDING}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item: plan }) => (
+        renderItem={({ item: plan, index }) => (
+          <FadeInListItem index={index}>
           <ListRow
             title={plan.name}
             subtitle={plural(plan.exerciseIds.length, 'Übung', 'Übungen')}
@@ -53,6 +55,7 @@ export default function PlansScreen() {
             right={<Ionicons name="chevron-forward" size={18} color={c.textSecondary} />}
             onPress={() => router.push({ pathname: '/plan/edit', params: { id: String(plan.id) } })}
           />
+          </FadeInListItem>
         )}
         ListEmptyComponent={
           <EmptyState

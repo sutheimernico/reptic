@@ -2,7 +2,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import type { ColorValue } from 'react-native';
 
-import { useTheme } from '@/hooks/use-theme';
+import { TabBar } from '@/components/tab-bar';
+import { useAppTheme } from '@/hooks/use-app-theme';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -15,12 +16,15 @@ function tabIcon(outline: IoniconName, filled: IoniconName) {
 }
 
 export default function TabsLayout() {
-  const c = useTheme();
+  const { colors: c, variant } = useAppTheme();
 
   return (
     <Tabs
+      tabBar={(props) => <TabBar {...props} />}
       screenOptions={{
         headerShown: false,
+        // Screens cross-fade on a tab switch; arcade slides, to match its bouncier feel.
+        animation: variant === 'arcade' ? 'shift' : 'fade',
         tabBarActiveTintColor: c.accent,
         tabBarInactiveTintColor: c.textSecondary,
         tabBarStyle: {

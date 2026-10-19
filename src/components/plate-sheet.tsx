@@ -1,6 +1,12 @@
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
@@ -15,6 +21,10 @@ import {
 } from '@/domain/plates';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
+import { timingFor } from '@/theme/motion';
+
+const SLIDE_PX = 36;
+const AnimatedCard = Animated.createAnimatedComponent(Pressable);
 
 /**
  * Display-only sheet showing how to load a barbell for the weight in the kg
@@ -31,9 +41,32 @@ export function PlateSheet({
   onClose: () => void;
 }) {
   const c = useTheme();
-  const { shape } = useAppTheme();
+  const theme = useAppTheme();
+  const { shape } = theme;
+  const reduced = useReducedMotion();
   const db = useSQLiteContext();
   const [setup, setSetup] = useState<PlateSetup | null>(null);
+
+  // The Modal stays mounted while the close animation plays, then unmounts.
+  const [prevVisible, setPrevVisible] = useState(visible);
+  const [lingering, setLingering] = useState(false);
+  if (visible !== prevVisible) {
+    setPrevVisible(visible);
+    if (!visible) setLingering(true);
+  }
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.set(withTiming(visible ? 1 : 0, timingFor(theme, 'base')));
+    if (visible) return;
+    const handle = setTimeout(() => setLingering(false), theme.motion.durationMs.base);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.get() }));
+  const cardStyle = useAnimatedStyle(() => ({
+    opacity: progress.get(),
+    transform: [{ translateY: reduced ? 0 : (1 - progress.get()) * SLIDE_PX }],
+  }));
 
   useEffect(() => {
     if (!visible) return;
@@ -49,10 +82,15 @@ export function PlateSheet({
   const solution = setup && targetKg !== null ? solvePlates(targetKg, setup) : null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal
+      visible={visible || lingering}
+      transparent
+      animationType="none"
+      onRequestClose={onClose}>
+      <Animated.View style={[styles.dim, backdropStyle]} pointerEvents="none" />
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Schließen">
         {/* Swallow taps inside the card so they don't dismiss the sheet. */}
-        <Pressable
+        <AnimatedCard
           style={[
             styles.card,
             {
@@ -61,6 +99,7 @@ export function PlateSheet({
               borderWidth: shape.borderWidth,
               borderRadius: shape.radius.lg,
             },
+            cardStyle,
           ]}
           onPress={() => {}}>
           <ThemedText style={styles.title}>
@@ -101,16 +140,16 @@ export function PlateSheet({
           )}
 
           <Button label="Schließen" variant="secondary" onPress={onClose} />
-        </Pressable>
+        </AnimatedCard>
       </Pressable>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  dim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.5)' },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
     padding: Spacing.four,
   },

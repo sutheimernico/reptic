@@ -11,7 +11,13 @@ import {
   ToastAndroid,
   View,
 } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
+import { CheckPop } from '@/components/motion/check-pop';
 import { PlateSheet } from '@/components/plate-sheet';
 import { useRestTimer } from '@/components/rest-timer';
 import { ThemedText } from '@/components/themed-text';
@@ -63,6 +69,7 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
 import { haptic } from '@/lib/haptics';
+import { timingFor } from '@/theme/motion';
 
 interface Row {
   id: number;
@@ -98,6 +105,30 @@ function fieldsOf(r: Row) {
     level: parseReps(r.levelText),
     done: r.done,
   };
+}
+
+/**
+ * Tint behind a set row that crossfades in when the set is ticked. Opacity only and
+ * absolutely positioned, so it never moves the inputs or fights the keyboard.
+ */
+function RowSettle({ done }: { done: boolean }) {
+  const theme = useAppTheme();
+  const opacity = useSharedValue(done ? 1 : 0);
+  useEffect(() => {
+    opacity.set(withTiming(done ? 1 : 0, timingFor(theme, 'base')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done]);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.settle,
+        { backgroundColor: theme.colors.backgroundSelected, borderRadius: theme.shape.radius.md },
+        style,
+      ]}
+    />
+  );
 }
 
 function SetInput({
@@ -496,6 +527,7 @@ export function SetEditor({
         return (
           <View key={row.id} style={styles.setBlock}>
             <View style={styles.setRow}>
+              <RowSettle done={row.done} />
               <Pressable
                 onLongPress={() => removeSet(row, i + 1)}
                 style={[styles.badge, { borderColor: c.border, borderRadius: shape.radius.sm }]}>
@@ -547,6 +579,7 @@ export function SetEditor({
                   />
                 </>
               )}
+              <CheckPop checked={row.done}>
               <Pressable
                 onPress={() => toggleDone(row)}
                 accessibilityRole="checkbox"
@@ -566,6 +599,7 @@ export function SetEditor({
                   color={row.done ? c.onAccent : c.placeholder}
                 />
               </Pressable>
+              </CheckPop>
             </View>
             <View style={styles.subLine}>
               {refLabel ? (
@@ -616,6 +650,7 @@ export function SetEditor({
 const styles = StyleSheet.create({
   body: { gap: Spacing.two },
   setBlock: { gap: 2 },
+  settle: { position: 'absolute', top: -3, bottom: -3, left: -4, right: -4 },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   badge: {
     width: 30,

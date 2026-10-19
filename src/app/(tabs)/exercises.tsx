@@ -2,8 +2,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
-import { SectionList, StyleSheet, View } from 'react-native';
+import { SectionList, StyleSheet } from 'react-native';
 
+import { FadeInListItem } from '@/components/motion/fade-in-list-item';
 import { ThemedText } from '@/components/themed-text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
@@ -70,8 +71,8 @@ export default function ExercisesScreen() {
             {section.title}
           </ThemedText>
         )}
-        renderItem={({ item: exercise, section }) => (
-          <View style={styles.row}>
+        renderItem={({ item: exercise, section, index }) => (
+          <FadeInListItem index={index} style={styles.row}>
           <ListRow
             title={exercise.name}
             // Every exercise is the user's own (the starter set is seeded as
@@ -82,7 +83,7 @@ export default function ExercisesScreen() {
             }
             right={<Ionicons name="chevron-forward" size={18} color={c.textSecondary} />}
           />
-          </View>
+          </FadeInListItem>
         )}
         ListEmptyComponent={
           <EmptyState

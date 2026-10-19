@@ -24,3 +24,6 @@ jest.mock('expo-router', () => {
     Link: ({ children }: { children: unknown }) => children,
   };
 });
+
+// Reanimated's worklet runtime does not exist under Jest; components render in their end state.
+jest.mock('react-native-reanimated', () => require('@/test-support/reanimated-mock'));

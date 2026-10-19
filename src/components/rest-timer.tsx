@@ -10,6 +10,13 @@ import {
   useState,
 } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { Spacing } from '@/constants/theme';
 import { getSetting, setSetting } from '@/db';
@@ -25,6 +32,7 @@ import {
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 import { haptic } from '@/lib/haptics';
+import { withAlpha } from '@/theme/color';
 
 interface RestTimerContextValue {
   /** The running timer, or null when none was started (or it was dismissed). */
@@ -141,10 +149,35 @@ export function RestTimerBanner() {
     return () => clearInterval(handle);
   }, [timer, expired]);
 
+  // The fill is one linear tween over the whole rest, not a per-second jump. It is started
+  // from the wall-clock position so a banner mounted mid-rest (or after a background) is right.
+  // Reduced motion: no tween, the fill just steps with the per-second tick.
+  const reduced = useReducedMotion();
+  const [barWidth, setBarWidth] = useState(0);
+  const fill = useSharedValue(0);
+  const startedAtMs = timer?.startedAtMs;
+  const durationSec = timer?.durationSec;
+  useEffect(() => {
+    if (startedAtMs === undefined || durationSec === undefined) return;
+    const totalMs = durationSec * 1000;
+    const elapsed = Math.min(totalMs, Math.max(0, Date.now() - startedAtMs));
+    fill.set(elapsed / totalMs);
+    if (!reduced && elapsed < totalMs) {
+      fill.set(withTiming(1, { duration: totalMs - elapsed, easing: Easing.linear }));
+    }
+  }, [startedAtMs, durationSec, reduced, fill]);
+  useEffect(() => {
+    if (reduced && durationSec) fill.set(1 - remaining / durationSec);
+  }, [reduced, remaining, durationSec, fill]);
+  const fillStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: (fill.get() - 1) * barWidth }],
+  }));
+
   if (!timer) return null;
 
   return (
     <View
+      onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
       accessibilityRole="timer"
       accessibilityLabel={expired ? 'Pause vorbei' : `Pause, noch ${remaining} Sekunden`}
       style={[
@@ -156,6 +189,12 @@ export function RestTimerBanner() {
           borderRadius: shape.radius.md,
         },
       ]}>
+      {expired ? null : (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.fill, { backgroundColor: withAlpha(c.accent, 0.18) }, fillStyle]}
+        />
+      )}
       <Ionicons
         name={expired ? 'checkmark-circle' : 'time-outline'}
         size={18}
@@ -188,6 +227,7 @@ export function RestTimerBanner() {
 
 const styles = StyleSheet.create({
   bar: {
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
@@ -195,6 +235,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: Spacing.three,
   },
+  fill: { ...StyleSheet.absoluteFill },
   label: { flex: 1, fontSize: 15 },
   dismiss: { paddingHorizontal: Spacing.one },
   dismissText: { fontSize: 15 },

@@ -4,6 +4,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 
+import { FadeInListItem } from '@/components/motion/fade-in-list-item';
 import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
@@ -53,7 +54,7 @@ export default function HistoryScreen() {
         keyExtractor={(s) => String(s.id)}
         contentContainerStyle={SCREEN_BODY_PADDING}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item: s }) => {
+        renderItem={({ item: s, index }) => {
           const plans = s.planIds
             .map((id) => plansById.get(id))
             .filter((p): p is Plan => Boolean(p));
@@ -68,6 +69,7 @@ export default function HistoryScreen() {
             (plans.length ? `Pläne: ${plans.map((p) => p.name).join(', ')}. ` : '') +
             summary;
           return (
+            <FadeInListItem index={index}>
             <ListRow
               title={dateLabel}
               subtitle={summary}
@@ -84,6 +86,7 @@ export default function HistoryScreen() {
               right={<Ionicons name="chevron-forward" size={18} color={c.textSecondary} />}
               onPress={() => router.push({ pathname: '/workout/[id]', params: { id: String(s.id) } })}
             />
+            </FadeInListItem>
           );
         }}
         ListEmptyComponent={
