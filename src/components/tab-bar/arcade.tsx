@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -75,6 +75,7 @@ function ArcadeTab({
   const reduced = useReducedMotion();
   const lift = useSharedValue(item.focused ? 1 : 0);
   const fillOpacity = useSharedValue(item.focused ? 1 : 0);
+  const labelOpacity = useSharedValue(item.focused ? 1 : 0);
   // Gaps are constant between layouts, so only the unit-based widths matter for the slide.
   const move = useTabShift({ index, active, unit, weight: ACTIVE_WEIGHT });
 
@@ -83,11 +84,14 @@ function ArcadeTab({
     if (reduced) {
       lift.set(on);
       fillOpacity.set(on);
+      labelOpacity.set(on);
       return;
     }
     // The bouncy spring only drives movement; the colour fill uses a plain timing so it is done in 200 ms.
     lift.set(withSpring(on, springFor(theme)));
     fillOpacity.set(withTiming(on, timingFor(theme, 'base')));
+    // The label mounts with the focus, so it fades in instead of popping on top of the sliding fill.
+    labelOpacity.set(withTiming(on, timingFor(theme, 'fast')));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.focused, reduced]);
 
@@ -97,6 +101,7 @@ function ArcadeTab({
       : [{ translateY: -RAISE_PX * lift.get() }, { rotate: `${-2 * lift.get()}deg` }],
   }));
   const fill = useAnimatedStyle(() => ({ opacity: fillOpacity.get() }));
+  const labelFade = useAnimatedStyle(() => ({ opacity: labelOpacity.get() }));
   const color = item.focused ? c.onAccent : c.textSecondary;
 
   return (
@@ -115,9 +120,11 @@ function ArcadeTab({
           />
           {item.icon(color, 20)}
           {item.focused ? (
-            <Text numberOfLines={1} style={[styles.label, { color, fontFamily: fonts.label }]}>
+            <Animated.Text
+              numberOfLines={1}
+              style={[styles.label, { color, fontFamily: fonts.label }, labelFade]}>
               {item.title}
-            </Text>
+            </Animated.Text>
           ) : null}
         </Animated.View>
       </Animated.View>
