@@ -165,8 +165,8 @@ Lives on the existing exercise progress screen (`src/app/exercise/progress.tsx`)
     below −max(1 kg, σ/2) per 30 days: no curve, no plateau; gain shows that recent slope
     (negative); copy "Zuletzt rückläufig — nach einer Pause oder einem Deload normal. Die Prognose
     kommt wieder, sobald es aufwärts geht."
-  - `unreliable` — the model at the last point is more than 2σ away from the mean of the last 2
-    actual values: no curve, no plateau; copy "Der Verlauf ist gerade zu unruhig für eine
+  - `unreliable` — the mean residual of the last 2 points (actual minus model at the same days)
+    is more than 2·max(σ, 0.5 kg): no curve, no plateau; copy "Der Verlauf ist gerade zu unruhig für eine
     Prognose."
   - `plateau` — the fit sits at the slowest k and the total linear rise over the span is below
     2σ: plateau = mean of the last 3 values, flat curve with band, gain ≈ 0; "Plateau ~100 kg".
