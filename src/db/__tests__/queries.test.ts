@@ -28,16 +28,19 @@ import {
   getSetProgressForWorkout,
   getWeekOverview,
   getWorkout,
+  getSetting,
   gymHasWorkouts,
   importAllData,
   insertSet,
   setExerciseArchived,
   setPlanExercises,
+  setSetting,
   startWorkout,
 } from '@/db';
 import { migrateDbIfNeeded } from '@/db/schema';
 import { openDb, type QueryCounter } from '@/db/test-support/sqlite-adapter';
 import { parseBackup, serializeBackup } from '@/domain/backup';
+import { breakAppliedKey, breakDismissedKey } from '@/domain/break';
 
 async function freshDb(): Promise<SQLiteDatabase> {
   const { db } = openDb();
@@ -876,6 +879,23 @@ describe('carried-over and abandoned rows (2026-10-16 bug sweep)', () => {
     );
     expect(rows.map((r) => r.exercise_id)).toEqual([bench]);
     expect(progress.size).toBe(0);
+  });
+});
+
+describe('break answers and reused workout ids', () => {
+  it('does not carry a dismissed or applied break over to a new session that reuses the id', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Quakenbrück');
+    const first = await startWorkout(db, [], gym, '2026-08-01T10:00:00.000Z');
+    await setSetting(db, breakDismissedKey(first), '1');
+    await setSetting(db, breakAppliedKey(first), '0.9');
+    await deleteWorkout(db, first); // a discarded empty session
+
+    const second = await startWorkout(db, [], gym, '2026-08-02T10:00:00.000Z');
+
+    expect(second).toBe(first); // SQLite hands out the freed rowid again
+    expect(await getSetting(db, breakDismissedKey(second))).toBeNull();
+    expect(await getSetting(db, breakAppliedKey(second))).toBeNull();
   });
 });
 

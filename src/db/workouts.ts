@@ -25,6 +25,7 @@ import {
   sessionTotalsSql,
   type SessionTotalsRow,
 } from '@/db/totals';
+import { breakAppliedKey, breakDismissedKey } from '@/domain/break';
 import { mergePlanExercises, type PlanExercises } from '@/domain/plans';
 import { isPerformed } from '@/domain/sets';
 import type { SessionMuscleTotals } from '@/domain/weeks';
@@ -57,6 +58,13 @@ export async function startWorkout(
       gymId,
     );
     workoutId = res.lastInsertRowId;
+    // `workouts.id` has no AUTOINCREMENT, so a discarded or deleted last session hands its id to the
+    // next one. The per-workout break answers must not come along (they live in `settings`).
+    await db.runAsync(
+      'DELETE FROM settings WHERE key IN (?, ?)',
+      breakAppliedKey(workoutId),
+      breakDismissedKey(workoutId),
+    );
     let sort = 0;
     for (const exerciseId of mergedExerciseIds) {
       await db.runAsync(
