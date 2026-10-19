@@ -453,152 +453,162 @@ export function SetEditor({
 
   return (
     <View style={styles.body}>
-        {hint ? (
-          <View
-            style={[
-              styles.progression,
-              {
-                backgroundColor: c.backgroundElement,
-                borderColor: c.border,
-                borderRadius: shape.radius.md,
-              },
-            ]}>
-            <Ionicons
-              name={hint.kind === 'increase' ? 'trending-up' : 'repeat'}
-              size={18}
-              color={c.accent}
-            />
-            <View style={styles.progressionTexts}>
-              <Text style={[styles.progressionTitle, { color: c.text, fontFamily: fonts.bodyBold }]}>
-                {describeHint(hint).title}
-              </Text>
-              <ThemedText type="small" themeColor="textSecondary">
-                {describeHint(hint).detail}
-              </ThemedText>
-            </View>
-            {hint.kind === 'increase' && bumpable(rows).length > 0 ? (
-              <Pressable
-                onPress={applyHint}
-                accessibilityRole="button"
-                accessibilityLabel={`Vorschlag übernehmen: ${formatWeight(hint.toKg)} kg`}
-                hitSlop={8}>
-                <Text style={[styles.progressionAction, { color: c.accent, fontFamily: fonts.bodyBold }]}>Übernehmen</Text>
-              </Pressable>
-            ) : null}
+      {hint ? (
+        <View
+          style={[
+            styles.progression,
+            {
+              backgroundColor: c.backgroundElement,
+              borderColor: c.border,
+              borderRadius: shape.radius.md,
+            },
+          ]}>
+          <Ionicons
+            name={hint.kind === 'increase' ? 'trending-up' : 'repeat'}
+            size={18}
+            color={c.accent}
+          />
+          <View style={styles.progressionTexts}>
+            <Text style={[styles.progressionTitle, { color: c.text, fontFamily: fonts.bodyBold }]}>
+              {describeHint(hint).title}
+            </Text>
+            <ThemedText type="small" themeColor="textSecondary">
+              {describeHint(hint).detail}
+            </ThemedText>
           </View>
-        ) : null}
+          {hint.kind === 'increase' && bumpable(rows).length > 0 ? (
+            <Pressable
+              onPress={applyHint}
+              accessibilityRole="button"
+              accessibilityLabel={`Vorschlag übernehmen: ${formatWeight(hint.toKg)} kg`}
+              hitSlop={8}>
+              <Text
+                style={[styles.progressionAction, { color: c.accent, fontFamily: fonts.bodyBold }]}>
+                Übernehmen
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
 
-        {rows.map((row, i) => {
-          const refLabel = referenceFor(prior[i]);
-          return (
-            <View key={row.id} style={styles.setBlock}>
-              <View style={styles.setRow}>
-                <Pressable
-                  onLongPress={() => removeSet(row, i + 1)}
-                  style={[styles.badge, { borderColor: c.border, borderRadius: shape.radius.sm }]}>
-                  <Text
-                    style={[styles.badgeText, { color: c.textSecondary, fontFamily: fonts.numeric }]}>{i + 1}</Text>
-                </Pressable>
-                {isCardio ? (
-                  <>
-                    <SetInput
-                      label="KM"
-                      value={row.distanceText}
-                      onChangeText={(t) => setField(row.id, 'distanceText', t)}
-                                            keyboardType="decimal-pad"
-                    />
-                    <SetInput
-                      label="ZEIT (min:s)"
-                      value={row.timeText}
-                      onChangeText={(t) => setField(row.id, 'timeText', t)}
-                      onBlur={() => normalizeTime(row.id)}
-                                            keyboardType="default"
-                    />
-                    <SetInput
-                      label="STUFE"
-                      value={row.levelText}
-                      onChangeText={(t) => setField(row.id, 'levelText', t)}
-                                            keyboardType="number-pad"
-                    />
-                  </>
-                ) : (
-                  <>
-                    <SetInput
-                      label="KG"
-                      value={row.weightText}
-                      onChangeText={(t) => setField(row.id, 'weightText', t)}
-                                            keyboardType="decimal-pad"
-                      onLabelPress={() => {
-                        setPlateTarget(parseWeight(row.weightText));
-                        setPlateOpen(true);
-                      }}
-                      labelAccessibilityLabel={`Hantelscheiben für Satz ${i + 1} berechnen`}
-                    />
-                    <SetInput
-                      label="WDH"
-                      value={row.repsText}
-                      onChangeText={(t) => setField(row.id, 'repsText', t)}
-                                            keyboardType="number-pad"
-                    />
-                  </>
-                )}
-                <Pressable
-                  onPress={() => toggleDone(row)}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: row.done }}
-                  accessibilityLabel={`Satz ${i + 1} erledigt`}
-                  style={[
-                    styles.check,
-                    {
-                      borderRadius: shape.radius.sm,
-                      backgroundColor: row.done ? c.accent : 'transparent',
-                      borderColor: row.done ? c.accent : c.border,
-                    },
-                  ]}>
-                  <Ionicons name="checkmark" size={18} color={row.done ? c.onAccent : c.placeholder} />
-                </Pressable>
-              </View>
-              <View style={styles.subLine}>
-                {refLabel ? (
-                  <ThemedText type="small" themeColor="textSecondary" style={styles.refLine}>
-                    {referenceLabel(priorGymName)}: {refLabel}
-                  </ThemedText>
-                ) : (
-                  <View style={styles.refSpacer} />
-                )}
-                {records.get(row.id) ? (
-                  <Pressable
-                    onPress={() =>
-                      Alert.alert(
-                        'Persönlicher Rekord',
-                        `Satz ${i + 1}: ${describeRecords(records.get(row.id) ?? [])}.`,
-                      )
-                    }
-                    accessibilityRole="button"
-                    accessibilityLabel={`Rekord in Satz ${i + 1}: ${describeRecords(records.get(row.id) ?? [])}`}
-                    hitSlop={6}
-                    style={[styles.prBadge, { backgroundColor: c.success, borderRadius: shape.radius.sm }]}>
-                    <Ionicons name="trophy" size={11} color={c.onAccent} />
-                    <Text style={[styles.prText, { color: c.onAccent, fontFamily: fonts.label }]}>PR</Text>
-                  </Pressable>
-                ) : null}
-              </View>
+      {rows.map((row, i) => {
+        const refLabel = referenceFor(prior[i]);
+        return (
+          <View key={row.id} style={styles.setBlock}>
+            <View style={styles.setRow}>
+              <Pressable
+                onLongPress={() => removeSet(row, i + 1)}
+                style={[styles.badge, { borderColor: c.border, borderRadius: shape.radius.sm }]}>
+                <Text
+                  style={[styles.badgeText, { color: c.textSecondary, fontFamily: fonts.numeric }]}>
+                  {i + 1}
+                </Text>
+              </Pressable>
+              {isCardio ? (
+                <>
+                  <SetInput
+                    label="KM"
+                    value={row.distanceText}
+                    onChangeText={(t) => setField(row.id, 'distanceText', t)}
+                    keyboardType="decimal-pad"
+                  />
+                  <SetInput
+                    label="ZEIT (min:s)"
+                    value={row.timeText}
+                    onChangeText={(t) => setField(row.id, 'timeText', t)}
+                    onBlur={() => normalizeTime(row.id)}
+                    keyboardType="default"
+                  />
+                  <SetInput
+                    label="STUFE"
+                    value={row.levelText}
+                    onChangeText={(t) => setField(row.id, 'levelText', t)}
+                    keyboardType="number-pad"
+                  />
+                </>
+              ) : (
+                <>
+                  <SetInput
+                    label="KG"
+                    value={row.weightText}
+                    onChangeText={(t) => setField(row.id, 'weightText', t)}
+                    keyboardType="decimal-pad"
+                    onLabelPress={() => {
+                      setPlateTarget(parseWeight(row.weightText));
+                      setPlateOpen(true);
+                    }}
+                    labelAccessibilityLabel={`Hantelscheiben für Satz ${i + 1} berechnen`}
+                  />
+                  <SetInput
+                    label="WDH"
+                    value={row.repsText}
+                    onChangeText={(t) => setField(row.id, 'repsText', t)}
+                    keyboardType="number-pad"
+                  />
+                </>
+              )}
+              <Pressable
+                onPress={() => toggleDone(row)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: row.done }}
+                accessibilityLabel={`Satz ${i + 1} erledigt`}
+                style={[
+                  styles.check,
+                  {
+                    borderRadius: shape.radius.sm,
+                    backgroundColor: row.done ? c.accent : 'transparent',
+                    borderColor: row.done ? c.accent : c.border,
+                  },
+                ]}>
+                <Ionicons
+                  name="checkmark"
+                  size={18}
+                  color={row.done ? c.onAccent : c.placeholder}
+                />
+              </Pressable>
             </View>
-          );
-        })}
+            <View style={styles.subLine}>
+              {refLabel ? (
+                <ThemedText type="small" themeColor="textSecondary" style={styles.refLine}>
+                  {referenceLabel(priorGymName)}: {refLabel}
+                </ThemedText>
+              ) : (
+                <View style={styles.refSpacer} />
+              )}
+              {records.get(row.id) ? (
+                <Pressable
+                  onPress={() =>
+                    Alert.alert(
+                      'Persönlicher Rekord',
+                      `Satz ${i + 1}: ${describeRecords(records.get(row.id) ?? [])}.`,
+                    )
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={`Rekord in Satz ${i + 1}: ${describeRecords(records.get(row.id) ?? [])}`}
+                  hitSlop={6}
+                  style={[
+                    styles.prBadge,
+                    { backgroundColor: c.success, borderRadius: shape.radius.sm },
+                  ]}>
+                  <Ionicons name="trophy" size={11} color={c.onAccent} />
+                  <Text style={[styles.prText, { color: c.onAccent, fontFamily: fonts.label }]}>
+                    PR
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        );
+      })}
 
-        <Button label="Satz" icon="add" variant="secondary" onPress={addSet} />
-        <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
-          {isCardio
-            ? 'Tipp: Satz-Nummer lange drücken zum Löschen.'
-            : 'Tipp: Satz-Nummer lange drücken zum Löschen · „KG" antippen zeigt die Scheiben.'}
-        </ThemedText>
+      <Button label="Satz" icon="add" variant="secondary" onPress={addSet} />
+      <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
+        {isCardio
+          ? 'Tipp: Satz-Nummer lange drücken zum Löschen.'
+          : 'Tipp: Satz-Nummer lange drücken zum Löschen · „KG" antippen zeigt die Scheiben.'}
+      </ThemedText>
 
-      <PlateSheet
-        targetKg={plateTarget}
-        visible={plateOpen}
-        onClose={() => setPlateOpen(false)}
-      />
+      <PlateSheet targetKg={plateTarget} visible={plateOpen} onClose={() => setPlateOpen(false)} />
     </View>
   );
 }

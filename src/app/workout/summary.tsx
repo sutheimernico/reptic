@@ -73,14 +73,22 @@ function StatTile({
       accessibilityLabel={`${label}: ${value}${delta ? `, ${delta} gegenüber letztem Mal` : ''}`}>
       <View style={styles.tileHead}>
         <Ionicons name={icon} size={14} color={c.textSecondary} />
-        <Text style={[styles.tileLabel, { color: c.textSecondary, fontFamily: fonts.label }]}>{label}</Text>
+        <Text style={[styles.tileLabel, { color: c.textSecondary, fontFamily: fonts.label }]}>
+          {label}
+        </Text>
       </View>
       <Text
         style={[
           styles.tileValue,
           { color: c.text, fontFamily: fonts.numeric, fontVariant: ['tabular-nums'] },
-        ]}>{value}</Text>
-      {delta ? <Text style={[styles.tileDelta, { color: deltaColor, fontFamily: fonts.bodyBold }]}>{delta}</Text> : null}
+        ]}>
+        {value}
+      </Text>
+      {delta ? (
+        <Text style={[styles.tileDelta, { color: deltaColor, fontFamily: fonts.bodyBold }]}>
+          {delta}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -172,7 +180,12 @@ export default function WorkoutSummaryScreen() {
           {plans.length > 0 ? (
             <View style={styles.plans}>
               {plans.map((plan) => (
-                <View key={plan.id} style={[styles.planChip, { borderColor: c.border, borderRadius: shape.radius.md }]}>
+                <View
+                  key={plan.id}
+                  style={[
+                    styles.planChip,
+                    { borderColor: c.border, borderRadius: shape.radius.md },
+                  ]}>
                   <View style={[styles.dot, { backgroundColor: plan.color }]} />
                   <ThemedText type="small">{plan.name}</ThemedText>
                 </View>

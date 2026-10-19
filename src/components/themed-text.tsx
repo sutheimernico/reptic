@@ -11,7 +11,13 @@ export type ThemedTextProps = TextProps & {
   themeColor?: ThemeColor;
 };
 
-export function ThemedText({ style, type = 'default', variant, themeColor, ...rest }: ThemedTextProps) {
+export function ThemedText({
+  style,
+  type = 'default',
+  variant,
+  themeColor,
+  ...rest
+}: ThemedTextProps) {
   const { colors, fonts } = useAppTheme();
 
   const flat = StyleSheet.flatten([

@@ -9,19 +9,24 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { getSessionMuscleTotals } from '@/db';
 import { formatVolume, formatWeight } from '@/domain/format';
-import {
-  bucketByWeek,
-  rankMuscleGroups,
-  startOfWeekWindow,
-  type WeekTotals,
-} from '@/domain/weeks';
+import { bucketByWeek, rankMuscleGroups, startOfWeekWindow, type WeekTotals } from '@/domain/weeks';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 
 const WEEKS = 12;
 
 /** A labelled bar, scaled against the largest value in its own series. */
-function Bar({ label, value, max, caption }: { label: string; value: number; max: number; caption: string }) {
+function Bar({
+  label,
+  value,
+  max,
+  caption,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  caption: string;
+}) {
   const c = useTheme();
   const { shape } = useAppTheme();
   // Zero stays visibly zero: a week without training is information, and a
@@ -33,7 +38,10 @@ function Bar({ label, value, max, caption }: { label: string; value: number; max
         {label}
       </ThemedText>
       <View
-        style={[styles.track, { backgroundColor: c.backgroundSelected, borderRadius: shape.radius.sm }]}>
+        style={[
+          styles.track,
+          { backgroundColor: c.backgroundSelected, borderRadius: shape.radius.sm },
+        ]}>
         <View
           style={[
             styles.fill,
@@ -41,7 +49,10 @@ function Bar({ label, value, max, caption }: { label: string; value: number; max
           ]}
         />
       </View>
-      <ThemedText type="small" themeColor={value > 0 ? 'text' : 'placeholder'} style={styles.barValue}>
+      <ThemedText
+        type="small"
+        themeColor={value > 0 ? 'text' : 'placeholder'}
+        style={styles.barValue}>
         {caption}
       </ThemedText>
     </View>

@@ -3,7 +3,9 @@ import { Platform, type ViewStyle } from 'react-native';
 import type { AppTheme } from './themes';
 
 /** True where the hard shadow needs an offset View behind the surface (Android ignores shadowOffset). */
-export const HARD_SHADOW_NEEDS_VIEW = Platform.OS === 'android';
+export function hardShadowNeedsView(theme: AppTheme): boolean {
+  return Platform.OS === 'android' && theme.shape.shadow === 'hard';
+}
 export const HARD_SHADOW_OFFSET = 3;
 
 /** Per-theme shadow for a surface; hard shadows on Android are drawn by `ShadowFrame` instead. */

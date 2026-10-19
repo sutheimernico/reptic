@@ -122,7 +122,9 @@ export default function PlanEditScreen() {
 
   const toggleExercise = (exerciseId: number) => {
     setSelectedIds((prev) =>
-      prev.includes(exerciseId) ? prev.filter((existing) => existing !== exerciseId) : [...prev, exerciseId],
+      prev.includes(exerciseId)
+        ? prev.filter((existing) => existing !== exerciseId)
+        : [...prev, exerciseId],
     );
   };
 
@@ -211,10 +213,16 @@ export default function PlanEditScreen() {
                   accessibilityLabel={`Farbe ${PLAN_COLOR_NAMES[swatch] ?? swatch}`}
                   style={[
                     styles.swatchRing,
-                    { borderColor: active ? c.accent : 'transparent', borderRadius: shape.radius.xl },
+                    {
+                      borderColor: active ? c.accent : 'transparent',
+                      borderRadius: shape.radius.xl,
+                    },
                   ]}>
                   <View
-                    style={[styles.swatch, { backgroundColor: swatch, borderRadius: shape.radius.lg }]}
+                    style={[
+                      styles.swatch,
+                      { backgroundColor: swatch, borderRadius: shape.radius.lg },
+                    ]}
                   />
                 </Pressable>
               );

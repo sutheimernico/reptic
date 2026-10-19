@@ -35,7 +35,9 @@ export function SessionClock({ startedAt }: { startedAt: string | null }) {
       accessibilityRole="timer"
       accessibilityLabel={`Trainingsdauer ${Math.floor(seconds / 60)} Minuten`}>
       <Ionicons name="stopwatch-outline" size={16} color={c.textSecondary} />
-      <Text style={[styles.time, { color: c.text, fontFamily: fonts.numeric }]}>{formatElapsed(seconds)}</Text>
+      <Text style={[styles.time, { color: c.text, fontFamily: fonts.numeric }]}>
+        {formatElapsed(seconds)}
+      </Text>
     </View>
   );
 }
