@@ -4,6 +4,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { DuelCard } from '@/components/duel-card';
 import { FadeInListItem } from '@/components/motion/fade-in-list-item';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
@@ -82,6 +83,12 @@ export default function HeuteScreen() {
       {overview ? (
         <FadeInListItem index={0}>
           <WeekHero overview={overview} />
+        </FadeInListItem>
+      ) : null}
+
+      {overview ? (
+        <FadeInListItem index={1}>
+          <DuelCard overview={overview} />
         </FadeInListItem>
       ) : null}
 

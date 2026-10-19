@@ -10,11 +10,12 @@ import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
 import { SegmentedControl } from '@/components/ui/segmented-control';
+import { TextField } from '@/components/ui/text-field';
 import { ThemePicker } from '@/components/theme-picker';
 import { WeekGoalFields } from '@/components/week-goal-fields';
 import { APP_NAME } from '@/constants/app';
 import { Spacing } from '@/constants/theme';
-import { getGyms, getSetting, setSetting } from '@/db';
+import { deleteSetting, getGyms, getSetting, NAME_SETTING, setSetting } from '@/db';
 import { AUTO_BACKUP_KEEP, formatBackupAge } from '@/domain/auto-backup';
 import type { BackupData } from '@/domain/backup';
 import { formatDuration, formatWeight, plural } from '@/domain/format';
@@ -36,6 +37,7 @@ import {
   stepRepTarget,
 } from '@/domain/progression';
 import { REST_OFF, stepRestSeconds } from '@/domain/rest-timer';
+import { cleanName, MAX_NAME_LENGTH } from '@/domain/week-card';
 import type { Gym, ThemeMode } from '@/domain/types';
 import {
   type AutoBackupFile,
@@ -76,6 +78,7 @@ export default function SettingsScreen() {
   const [plates, setPlates] = useState<PlateSetup>(DEFAULT_PLATE_SETUP);
   const [repTarget, setRepTarget] = useState(DEFAULT_REP_TARGET);
   const [increment, setIncrement] = useState(DEFAULT_INCREMENT_KG);
+  const [displayName, setDisplayName] = useState('');
   const c = useTheme();
   const { shape, fonts } = useAppTheme();
 
@@ -96,6 +99,7 @@ export default function SettingsScreen() {
     getSetting(db, PLATE_SETUP_SETTING).then((v) => setPlates(parsePlateSetup(v)));
     getSetting(db, REP_TARGET_SETTING).then((v) => setRepTarget(parseRepTarget(v)));
     getSetting(db, INCREMENT_SETTING).then((v) => setIncrement(parseIncrement(v)));
+    getSetting(db, NAME_SETTING).then((v) => setDisplayName(v ?? ''));
     void loadBackupState();
   }, [db, loadBackupState]);
 
@@ -187,6 +191,12 @@ export default function SettingsScreen() {
     void setSetting(db, INCREMENT_SETTING, String(next));
   };
 
+  const saveName = (next: string) => {
+    setDisplayName(next);
+    const cleaned = cleanName(next);
+    void (cleaned ? setSetting(db, NAME_SETTING, cleaned) : deleteSetting(db, NAME_SETTING));
+  };
+
   const savePlates = (next: PlateSetup) => {
     setPlates(next);
     void setSetting(db, PLATE_SETUP_SETTING, serializePlateSetup(next));
@@ -232,6 +242,20 @@ export default function SettingsScreen() {
           WOCHENZIEL
         </ThemedText>
         <WeekGoalFields />
+      </View>
+
+      <View style={styles.block}>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.label}>
+          WOCHEN-DUELL
+        </ThemedText>
+        <TextField
+          label="Dein Name"
+          placeholder="So sehen dich deine Freunde"
+          value={displayName}
+          onChangeText={saveName}
+          maxLength={MAX_NAME_LENGTH}
+          returnKeyType="done"
+        />
       </View>
 
       <View style={styles.block}>

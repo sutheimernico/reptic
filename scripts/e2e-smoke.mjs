@@ -374,6 +374,34 @@ try {
     await expectVisible(button('Archivieren'), 'Archivieren (gym has history)');
   });
 
+  await step('duel: CTA on Heute, name prompt, share code, own code rejected, friend imported', async () => {
+    await page.goBack(); // leave the gym edit screen the previous step ended on
+    await goTab('Heute');
+    await click(button('Fordere Freunde heraus'));
+    await expectVisible(text('Noch kein Duell', { exact: false }), 'empty duel state');
+    await click(button('Wochenkarte teilen'));
+    await typeInto(field('Dein Name'), 'E2E Jörg');
+    await click(button('Name speichern und teilen'));
+    await expectVisible(button('Wochenkarte teilen'), 'share button back after naming');
+    const shared = lastDialog();
+    check(/Meine Repz-Woche KW \d+: .* Code: REPZ1\.[A-Za-z0-9_-]+\.[0-9a-z]{4}/.test(shared), `share message (${shared})`);
+    const own = shared.match(/REPZ1\.[A-Za-z0-9_-]+\.[0-9a-z]{4}/)[0];
+    await typeInto(field('Code eingeben'), `[12:00] Jörg: Hier meine Karte. ${own}.`);
+    await click(button('Importieren'));
+    await expectVisible(text('Das ist deine eigene Karte'), 'own card rejected');
+    const friendCode = 'REPZ1.eyJ2IjoxLCJuIjoiSm9uYXMiLCJ3IjoiMjAyNi1XNDMiLCJrZyI6MjEwNTAsImttIjo4LjEsInMiOjV9.v1eu';
+    await typeInto(field('Code eingeben'), friendCode.slice(0, -1) + 'x');
+    await click(button('Importieren'));
+    await expectVisible(text('Der Code ist beschädigt', { exact: false }), 'corrupt code rejected');
+    await typeInto(field('Code eingeben'), friendCode);
+    await click(button('Importieren'));
+    await expectVisible(text('Karte von Jonas importiert'), 'friend imported');
+    await expectVisible(text('Jonas', { exact: true }), 'friend name in the visual');
+    await page.screenshot({ path: `${SHOTS}/duel.png` }).catch(() => {});
+    await page.goBack();
+    await expectVisible(text('Duell mit Jonas'), 'Heute duel card with the friend');
+  });
+
   await step('no console/page errors during the whole run', async () => {
     check(problems.length === 0, `console/page errors:\n  ${problems.join('\n  ')}`);
   });
