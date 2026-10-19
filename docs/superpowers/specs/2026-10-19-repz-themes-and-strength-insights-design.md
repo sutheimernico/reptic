@@ -159,6 +159,18 @@ Lives on the existing exercise progress screen (`src/app/exercise/progress.tsx`)
   12-week horizon, but the plateau readout says "Noch kein Plateau erkennbar" instead of a number
   (**Claude's call** — a "Plateau ~300 kg" would be invented certainty). The fit returns this as an
   explicit state; tests include a linear-data case.
+- Sanity rules (**Claude's call**, added after review: the clamped rising model alone turns a
+  decline or a break into invented gain). After fitting, classify the result:
+  - `declining` — OLS slope over the points of the last 42 days (at least the last 3 points) is
+    below −max(1 kg, σ/2) per 30 days: no curve, no plateau; gain shows that recent slope
+    (negative); copy "Zuletzt rückläufig — nach einer Pause oder einem Deload normal. Die Prognose
+    kommt wieder, sobald es aufwärts geht."
+  - `unreliable` — the model at the last point is more than 2σ away from the mean of the last 2
+    actual values: no curve, no plateau; copy "Der Verlauf ist gerade zu unruhig für eine
+    Prognose."
+  - `plateau` — the fit sits at the slowest k and the total linear rise over the span is below
+    2σ: plateau = mean of the last 3 values, flat curve with band, gain ≈ 0; "Plateau ~100 kg".
+  - `rising` — everything else; the curve and readouts as described above.
 - Shown only with ≥ 6 sessions spanning ≥ 28 days; otherwise "Noch zu wenig Daten für eine
   Prognose (x von 6 Einheiten)".
 - Forecast horizon 12 weeks, dashed line, band = ± residual standard deviation, widening
