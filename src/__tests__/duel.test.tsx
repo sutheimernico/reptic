@@ -4,6 +4,12 @@
  */
 jest.mock('expo-sqlite', () => require('@/test-support/expo-sqlite-mock'));
 
+// Delegates to the real implementation; one test makes it fail to cover the load-error path.
+jest.mock('@/db', () => {
+  const actual = jest.requireActual('@/db');
+  return { ...actual, getWeekOverview: jest.fn(actual.getWeekOverview) };
+});
+
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { Alert, Share } from 'react-native';
 
@@ -66,6 +72,16 @@ describe('DuelScreen', () => {
     await renderWithProviders(<DuelScreen />);
     expect(await screen.findByText(/Noch kein Duell/)).toBeTruthy();
     expect(screen.queryByText(/fehlen/)).toBeNull();
+  });
+
+  it('says when the own week cannot be loaded instead of waiting forever', async () => {
+    (getWeekOverview as jest.Mock).mockRejectedValueOnce(new Error('db gone'));
+    await renderWithProviders(<DuelScreen />);
+    expect(await screen.findByText('Deine Woche konnte nicht geladen werden.')).toBeTruthy();
+    await importCode(encodeWeekCard(jonas));
+    expect(await screen.findByText(/konnte nicht geladen werden — öffne das Duell/)).toBeTruthy();
+    expect(screen.queryByText(/wird noch geladen/)).toBeNull();
+    expect(await getFriendCards(db)).toHaveLength(0);
   });
 
   it('imports a friend code and shows both names and the gap', async () => {

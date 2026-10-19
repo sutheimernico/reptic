@@ -52,10 +52,19 @@ export default function DuelScreen() {
   const [nameDraft, setNameDraft] = useState('');
   const [code, setCode] = useState('');
   const [message, setMessage] = useState('');
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const load = useCallback(() => {
     getSetting(db, NAME_SETTING).then((v) => setName(v ?? ''));
-    getWeekOverview(db, new Date()).then(setOverview).catch(() => setOverview(null));
+    getWeekOverview(db, new Date())
+      .then((value) => {
+        setOverview(value);
+        setLoadFailed(false);
+      })
+      .catch(() => {
+        setOverview(null);
+        setLoadFailed(true);
+      });
     getFriendCards(db).then(setFriends);
   }, [db]);
 
@@ -104,7 +113,11 @@ export default function DuelScreen() {
       return;
     }
     if (!myCard) {
-      setMessage('Deine Woche wird noch geladen — versuch es gleich nochmal.');
+      setMessage(
+        loadFailed
+          ? 'Deine Woche konnte nicht geladen werden — öffne das Duell bitte neu.'
+          : 'Deine Woche wird noch geladen — versuch es gleich nochmal.',
+      );
       return;
     }
     try {
@@ -141,6 +154,12 @@ export default function DuelScreen() {
         {weekKey && variant !== 'instrument' ? (
           <ThemedText type="small" themeColor="textSecondary">
             KW {weekNumberOf(weekKey)}
+          </ThemedText>
+        ) : null}
+
+        {loadFailed ? (
+          <ThemedText type="smallBold" accessibilityRole="alert" style={{ color: c.danger }}>
+            Deine Woche konnte nicht geladen werden.
           </ThemedText>
         ) : null}
 
