@@ -28,7 +28,8 @@ export function stackHeaderOptions(theme: AppTheme): NativeStackNavigationOption
     headerTitleStyle: {
       fontFamily: titleFont,
       color: colors.text,
-      fontSize: variant === 'instrument' ? 15 : 18,
+      // Small enough that "Einheit · <Gym>" clears the session clock on a 360 dp phone.
+      fontSize: variant === 'instrument' ? 14 : 17,
     },
   };
 }
