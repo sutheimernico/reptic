@@ -57,14 +57,27 @@ describe('theme switch inside a running session', () => {
     await waitFor(() => expect(view.getByLabelText('Satz 1 erledigt')).toBeTruthy());
 
     await fireEvent.changeText(view.getByLabelText('KG'), '82,5');
-    await fireEvent.press(view.getByLabelText('Satz 1 erledigt')); // starts the rest timer
-    await waitFor(() => expect(view.getByLabelText(/^Pause, noch/)).toBeTruthy());
+    const realNow = Date.now();
+    const now = jest.spyOn(Date, 'now').mockReturnValue(realNow);
+    try {
+      await fireEvent.press(view.getByLabelText('Satz 1 erledigt')); // starts the rest timer
+      await waitFor(() => expect(view.getByLabelText('Pause, noch 120 Sekunden')).toBeTruthy());
 
-    await act(async () => probe.theme?.setVariant('arcade'));
+      // 30 s of rest pass (the banner re-reads the clock on its 1 s tick), then the theme changes.
+      now.mockReturnValue(realNow + 30_000);
+      await waitFor(() => expect(view.getByLabelText('Pause, noch 90 Sekunden')).toBeTruthy(), {
+        timeout: 3000,
+      });
 
-    expect(probe.theme?.variant).toBe('arcade');
-    expect(view.getByLabelText('KG').props.value).toBe('82,5');
-    expect(view.getByLabelText('Satz 1 erledigt')).toBeTruthy();
-    expect(view.getByLabelText(/^Pause, noch/)).toBeTruthy();
+      await act(async () => probe.theme?.setVariant('arcade'));
+
+      expect(probe.theme?.variant).toBe('arcade');
+      expect(view.getByLabelText('KG').props.value).toBe('82,5');
+      expect(view.getByLabelText('Satz 1 erledigt')).toBeTruthy();
+      // A reset would read 120 again; the running timer must keep its start.
+      expect(view.getByLabelText('Pause, noch 90 Sekunden')).toBeTruthy();
+    } finally {
+      now.mockRestore();
+    }
   });
 });

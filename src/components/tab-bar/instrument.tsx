@@ -1,35 +1,35 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { timingFor } from '@/theme/motion';
 
-import { type TabBarProps, tabItems } from './shared';
+import { type TabBarProps, type TabItem, tabItems } from './shared';
+import { useFade, useSlidingIndicator, useTabShift } from './motion';
 
-/** E: flat bar, numbered mono labels, a glowing scan line that slides (linearly) over the active tab. */
+/** The active tab is this many "units" wide so `05 EINSTELLUNGEN` fits at 11 pt on 360 dp. */
+const ACTIVE_WEIGHT = 2.3;
+
+/**
+ * E: flat bar. Inactive tabs show only their number, the active one `NN LABEL`; a glowing
+ * scan line slides (linearly) along the top edge over the active tab.
+ */
 export function InstrumentTabBar(props: TabBarProps) {
   const theme = useAppTheme();
-  const { colors: c, fonts } = theme;
+  const { colors: c } = theme;
   const insets = useSafeAreaInsets();
-  const reduced = useReducedMotion();
   const items = tabItems(props);
   const [width, setWidth] = useState(0);
-  const slot = width / items.length;
+  const unit = width > 0 ? width / (items.length - 1 + ACTIVE_WEIGHT) : 0;
   const active = Math.max(0, items.findIndex((i) => i.focused));
-
-  const x = useSharedValue(active * slot);
-  useEffect(() => {
-    x.value = reduced ? active * slot : withTiming(active * slot, timingFor(theme, 'base'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, slot, reduced]);
-  const scan = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
+  const scan = useSlidingIndicator({
+    active,
+    target: active * unit,
+    ready: unit > 0,
+    max: (items.length - 1) * unit,
+    mode: 'timing',
+  });
 
   return (
     <View
@@ -43,46 +43,63 @@ export function InstrumentTabBar(props: TabBarProps) {
           borderTopColor: c.border,
         },
       ]}>
-      {slot > 0 ? (
+      {unit > 0 ? (
         <Animated.View
           pointerEvents="none"
           style={[
             styles.scan,
-            { width: slot, backgroundColor: c.accent, shadowColor: c.accent },
+            { width: unit * ACTIVE_WEIGHT, backgroundColor: c.accent, shadowColor: c.accent },
             scan,
           ]}
         />
       ) : null}
-      {items.map((item, i) => {
-        const color = item.focused ? c.accent : c.textSecondary;
-        return (
-          <Pressable
-            key={item.key}
-            accessibilityRole="tab"
-            accessibilityLabel={item.title}
-            accessibilityState={{ selected: item.focused }}
-            onPress={item.onPress}
-            onLongPress={item.onLongPress}
-            style={styles.tab}>
-            <Text style={[styles.index, { color, fontFamily: fonts.label }]}>
-              {String(i + 1).padStart(2, '0')}
-            </Text>
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.8}
-              style={[styles.label, { color, fontFamily: fonts.label }]}>
-              {item.title.toUpperCase()}
-            </Text>
-          </Pressable>
-        );
-      })}
+      {items.map((item, i) => (
+        <InstrumentTab key={item.key} item={item} index={i} active={active} unit={unit} />
+      ))}
     </View>
   );
 }
 
+function InstrumentTab({
+  item,
+  index,
+  active,
+  unit,
+}: {
+  item: TabItem;
+  index: number;
+  active: number;
+  unit: number;
+}) {
+  const { colors: c, fonts } = useAppTheme();
+  const move = useTabShift({ index, active, unit, weight: ACTIVE_WEIGHT });
+  const fade = useFade(item.focused);
+  const color = item.focused ? c.accent : c.textSecondary;
+  const number = String(index + 1).padStart(2, '0');
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityLabel={item.title}
+      accessibilityState={{ selected: item.focused }}
+      onPress={item.onPress}
+      onLongPress={item.onLongPress}
+      style={{ flex: item.focused ? ACTIVE_WEIGHT : 1 }}>
+      <Animated.View style={[styles.tab, move]}>
+        <Text style={[styles.text, { color, fontFamily: fonts.label }]}>{number}</Text>
+        {item.focused ? (
+          <Animated.View style={fade}>
+            <Text numberOfLines={1} style={[styles.text, { color, fontFamily: fonts.label }]}>
+              {item.title.toUpperCase()}
+            </Text>
+          </Animated.View>
+        ) : null}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', paddingTop: 10, borderTopWidth: 1 },
+  bar: { flexDirection: 'row', paddingTop: 12, borderTopWidth: 1 },
   scan: {
     position: 'absolute',
     top: -1,
@@ -92,7 +109,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 0 },
   },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 2 },
-  index: { fontSize: 9, opacity: 0.6 },
-  label: { fontSize: 8.5, letterSpacing: 0.2 },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8 },
+  text: { fontSize: 11, letterSpacing: 0.2 },
 });

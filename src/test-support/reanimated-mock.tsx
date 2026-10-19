@@ -35,7 +35,13 @@ const Easing = {
   bezier: () => (t: number) => t,
 };
 
+let reducedMotion = false;
+
 module.exports = {
+  /** Test hook: flips what `useReducedMotion()` returns. */
+  __setReducedMotion: (value: boolean) => {
+    reducedMotion = value;
+  },
   __esModule: true,
   default: {
     View: AnimatedView,
@@ -45,7 +51,7 @@ module.exports = {
   Easing,
   useSharedValue: (initial: unknown) => box(initial),
   useAnimatedStyle: (factory: () => object) => factory(),
-  useReducedMotion: () => false,
+  useReducedMotion: () => reducedMotion,
   withTiming: passthrough,
   withSpring: passthrough,
   withDelay: (_ms: number, value: unknown) => value,

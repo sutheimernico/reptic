@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import type { ColorValue } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import { TabBar } from '@/components/tab-bar';
 import { useAppTheme } from '@/hooks/use-app-theme';
@@ -17,14 +18,15 @@ function tabIcon(outline: IoniconName, filled: IoniconName) {
 
 export default function TabsLayout() {
   const { colors: c, variant } = useAppTheme();
+  const reducedMotion = useReducedMotion();
 
   return (
     <Tabs
       tabBar={(props) => <TabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        // Screens cross-fade on a tab switch; arcade slides, to match its bouncier feel.
-        animation: variant === 'arcade' ? 'shift' : 'fade',
+        // Screens cross-fade on a tab switch; arcade slides, to match its bouncier feel. No transition with reduced motion.
+        animation: reducedMotion ? 'none' : variant === 'arcade' ? 'shift' : 'fade',
         tabBarActiveTintColor: c.accent,
         tabBarInactiveTintColor: c.textSecondary,
         tabBarStyle: {
