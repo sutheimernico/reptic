@@ -20,9 +20,11 @@ import { GaugeTick, GoalHint } from './parts';
 
 const TICKS = 34;
 const GAUGE_W = 220;
-const GAUGE_H = 128;
+const GAUGE_H = 136;
 const CX = 110;
 const CY = 106;
+/** Tallest day bar: keeps it clear of the gauge above. */
+const BAR_MAX = 30;
 
 const percentText = (pct: number) => `${(pct * 100).toFixed(1).replace('.', ',')} %`;
 
@@ -80,7 +82,7 @@ function DayBar({ ratio, kind, label, index }: { ratio: number; kind: 'past' | '
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const style = useAnimatedStyle(() => ({ transform: [{ scaleY: scale.value }] }));
-  const height = kind === 'future' ? 8 : Math.max(2, Math.round(ratio * 38));
+  const height = kind === 'future' ? 8 : Math.max(2, Math.round(ratio * BAR_MAX));
   return (
     <View style={styles.dayCol}>
       <View style={styles.dayBarArea}>
@@ -189,14 +191,14 @@ const styles = StyleSheet.create({
   cornerBr: { position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderBottomWidth: 2, borderRightWidth: 2 },
   panelHead: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   mono: { fontSize: 10, letterSpacing: 1.2 },
-  gauge: { alignItems: 'center', height: 116, overflow: 'hidden' },
+  gauge: { alignItems: 'center', height: GAUGE_H },
   read: { position: 'absolute', top: 46, left: 0, right: 0, alignItems: 'center' },
   readValue: { fontSize: 32, lineHeight: 34, letterSpacing: -1 },
   readUnit: { fontSize: 10, letterSpacing: 1, lineHeight: 18 },
   readPct: { fontSize: 11 },
-  days: { flexDirection: 'row', gap: 6, height: 62, borderTopWidth: 1, borderStyle: 'dashed', paddingTop: 8 },
+  days: { flexDirection: 'row', gap: 6, marginTop: 14, borderTopWidth: 1, borderStyle: 'dashed', paddingTop: 10 },
   dayCol: { flex: 1, justifyContent: 'flex-end', gap: 4 },
-  dayBarArea: { height: 38, justifyContent: 'flex-end' },
+  dayBarArea: { height: BAR_MAX, justifyContent: 'flex-end' },
   dayLabel: { fontSize: 9, textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tile: { flexBasis: '47%', flexGrow: 1, borderWidth: 1, paddingHorizontal: 11, paddingVertical: 8 },

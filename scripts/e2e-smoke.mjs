@@ -339,6 +339,35 @@ try {
     await click(button('System', { exact: true }));
   });
 
+  await step('arcade theme: no screen is offset sideways after tab switches', async () => {
+    await click(vis(page.getByRole('radio', { name: 'Arcade' })).last());
+    for (const name of ['Heute', 'Verlauf', 'Einstellungen', 'Heute']) {
+      await goTab(name);
+      await page.waitForTimeout(500);
+      const title = await vis(page.getByText(name, { exact: true })).first().boundingBox();
+      check(title !== null && title.x >= 16, `${name} title not clipped at the left (x=${title?.x})`);
+      const scrolled = await page.evaluate(
+        () => [...document.querySelectorAll('*')].filter((e) => e.scrollLeft > 0).length,
+      );
+      check(scrolled === 0, `no container scrolled sideways after switching to ${name} (${scrolled})`);
+    }
+    // The offset used to appear when coming back to the tabs from a pushed screen.
+    await goTab('Pläne');
+    await click(button('Plan hinzufügen'));
+    await field('Name').fill('Arcade Plan');
+    await click(button('Speichern'));
+    await goTab('Heute');
+    await page.waitForTimeout(800);
+    const back = await vis(page.getByText('Heute', { exact: true })).first().boundingBox();
+    check(back !== null && back.x >= 16, `Heute title not clipped after saving a plan (x=${back?.x})`);
+    const scrolledBack = await page.evaluate(
+      () => [...document.querySelectorAll('*')].filter((e) => e.scrollLeft > 0).length,
+    );
+    check(scrolledBack === 0, `no container scrolled sideways after saving a plan (${scrolledBack})`);
+    await goTab('Einstellungen');
+    await click(vis(page.getByRole('radio', { name: 'Repz Evolved' })).last());
+  });
+
   await step('gym listed in Einstellungen; archive offered (has workouts)', async () => {
     await expectVisible(text(GYM, { exact: true }), 'gym in settings');
     await click(row(GYM));

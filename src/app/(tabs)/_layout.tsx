@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
-import type { ColorValue } from 'react-native';
+import { Platform, type ColorValue } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { TabBar } from '@/components/tab-bar';
@@ -25,8 +25,8 @@ export default function TabsLayout() {
       tabBar={(props) => <TabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        // Screens cross-fade on a tab switch; arcade slides, to match its bouncier feel. No transition with reduced motion.
-        animation: reducedMotion ? 'none' : variant === 'arcade' ? 'shift' : 'fade',
+        // Screens cross-fade on a tab switch; arcade slides, to match its bouncier feel. Not on web: there the slide leaves the overflow-hidden tab container scrolled sideways (scrollLeft ~24) after a tab switch, which clips the whole screen. No transition with reduced motion.
+        animation: reducedMotion ? 'none' : variant === 'arcade' && Platform.OS !== 'web' ? 'shift' : 'fade',
         tabBarActiveTintColor: c.accent,
         tabBarInactiveTintColor: c.textSecondary,
         tabBarStyle: {
