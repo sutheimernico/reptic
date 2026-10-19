@@ -383,6 +383,8 @@ try {
     await typeInto(field('Dein Name'), 'E2E Jörg');
     await click(button('Name speichern und teilen'));
     await expectVisible(button('Wochenkarte teilen'), 'share button back after naming');
+    // The share alert opens after an async re-read of the week; wait for it instead of racing.
+    for (let i = 0; i < 50 && !lastDialog().includes('REPZ1.'); i++) await page.waitForTimeout(100);
     const shared = lastDialog();
     check(/Meine Repz-Woche KW \d+: .* Code: REPZ1\.[A-Za-z0-9_-]+\.[0-9a-z]{4}/.test(shared), `share message (${shared})`);
     const own = shared.match(/REPZ1\.[A-Za-z0-9_-]+\.[0-9a-z]{4}/)[0];

@@ -119,7 +119,12 @@ export function encodeWeekCard(card: WeekCard): string {
   return `REPZ1.${payload}.${checksumOf(payload)}`;
 }
 
-const isCount = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 0;
+const isCount = (x: unknown, max: number): x is number =>
+  typeof x === 'number' && Number.isFinite(x) && x >= 0 && x <= max;
+// Generous ceilings: a hand-edited code must not blow up bars and layouts.
+const MAX_KG = 10_000_000;
+const MAX_KM = 100_000;
+const MAX_SESSIONS = 1_000;
 
 export function isWeekCard(x: unknown): x is WeekCard {
   if (typeof x !== 'object' || x === null || Array.isArray(x)) return false;
@@ -130,9 +135,9 @@ export function isWeekCard(x: unknown): x is WeekCard {
     c.n.trim().length > 0 &&
     typeof c.w === 'string' &&
     WEEK_PATTERN.test(c.w) &&
-    isCount(c.kg) &&
-    isCount(c.km) &&
-    isCount(c.s) &&
+    isCount(c.kg, MAX_KG) &&
+    isCount(c.km, MAX_KM) &&
+    isCount(c.s, MAX_SESSIONS) &&
     Number.isInteger(c.s)
   );
 }
@@ -181,10 +186,18 @@ const tenth = (km: number) => Math.round(km * 10);
 /** The one-line verdict shown on the duel screen and the Heute card. */
 export function duelStatus(me: WeekCard, friend: WeekCard): string {
   if (friend.w !== me.w) {
-    return `${genitive(friend.n)} Karte ist von KW ${weekNumberOf(friend.w)} — schick ihm deine aktuelle`;
+    const week = weekNumberOf(friend.w);
+    return friend.w > me.w
+      ? `${genitive(friend.n)} Karte ist schon von KW ${week}.`
+      : `${genitive(friend.n)} Karte ist von KW ${week} — schick deine aktuelle Wochenkarte.`;
   }
   const kgGap = Math.round(friend.kg) - Math.round(me.kg);
   const kmGap = tenth(friend.km) - tenth(me.km);
+  if (kgGap === 0 && kmGap === 0) return 'Gleichstand bei kg und Cardio.';
+  if (kgGap > 0 && kmGap > 0) {
+    return `${friend.n} führt bei kg und Cardio — dir fehlen ${groupThousands(kgGap)} kg.`;
+  }
+  if (kgGap < 0 && kmGap < 0) return 'Du führst bei kg und Cardio.';
   const kg =
     kgGap > 0
       ? `${friend.n} führt bei den kg, dir fehlen ${groupThousands(kgGap)} kg.`

@@ -172,13 +172,13 @@ describe('DuelScreen', () => {
     await screen.findByText('Karte von Mia importiert');
     expect(screen.getByRole('radio', { name: 'Jonas' })).toBeTruthy();
     await fireEvent.press(screen.getByRole('radio', { name: 'Jonas' }));
-    expect(await screen.findByText(/Jonas führt bei den kg/)).toBeTruthy();
+    expect(await screen.findByText(/Jonas führt bei kg und Cardio/)).toBeTruthy();
   });
 
   it('says so when the friend card is from another week', async () => {
     await renderWithProviders(<DuelScreen />);
     await importCode(encodeWeekCard({ ...jonas, w: '2020-W10' }));
-    expect(await screen.findByText(/Karte ist von KW 10 — schick ihm deine aktuelle/)).toBeTruthy();
+    expect(await screen.findByText(/Karte ist von KW 10 — schick deine aktuelle Wochenkarte\./)).toBeTruthy();
   });
 });
 
@@ -188,6 +188,13 @@ describe('DuelCard on Heute', () => {
     await renderWithProviders(<DuelCard overview={overview} />);
     await fireEvent.press(await screen.findByText('Fordere Freunde heraus'));
     expect(routerMock.push).toHaveBeenCalledWith('/duel');
+  });
+
+  it('survives a damaged friend_cards setting', async () => {
+    await setSetting(db, 'friend_cards', '{{{ nope');
+    const overview = await getWeekOverview(db, new Date());
+    await renderWithProviders(<DuelCard overview={overview} />);
+    expect(await screen.findByText('Fordere Freunde heraus')).toBeTruthy();
   });
 
   it('shows you vs. the top friend once a card exists', async () => {

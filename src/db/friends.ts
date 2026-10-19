@@ -47,15 +47,8 @@ export async function importFriendCard(
   me: { name: string; card: WeekCard },
   now: Date,
 ): Promise<ImportResult> {
-  if (
-    sameName(card.n, me.name) &&
-    card.w === me.card.w &&
-    card.kg === me.card.kg &&
-    card.km === me.card.km &&
-    card.s === me.card.s
-  ) {
-    return 'own';
-  }
+  // Own older codes (before more training) carry my name too: name + week is enough.
+  if (sameName(card.n, me.name) && card.w === me.card.w) return 'own';
 
   const cutoff = isoWeekKey(lastIsoWeeks(now, KEEP_WEEKS)[0]);
   const existing = await getFriendCards(db);

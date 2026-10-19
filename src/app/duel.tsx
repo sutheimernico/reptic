@@ -43,7 +43,7 @@ const FAILURE_TEXT = {
 export default function DuelScreen() {
   const db = useSQLiteContext();
   const c = useTheme();
-  const { shape } = useAppTheme();
+  const { shape, variant } = useAppTheme();
   const [name, setName] = useState('');
   const [overview, setOverview] = useState<WeekOverview | null>(null);
   const [friends, setFriends] = useState<FriendCard[]>([]);
@@ -103,7 +103,10 @@ export default function DuelScreen() {
       setMessage(FAILURE_TEXT[result.reason]);
       return;
     }
-    if (!myCard) return;
+    if (!myCard) {
+      setMessage('Deine Woche wird noch geladen — versuch es gleich nochmal.');
+      return;
+    }
     try {
       const outcome = await importFriendCard(
         db,
@@ -135,7 +138,7 @@ export default function DuelScreen() {
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
-        {weekKey ? (
+        {weekKey && variant !== 'instrument' ? (
           <ThemedText type="small" themeColor="textSecondary">
             KW {weekNumberOf(weekKey)}
           </ThemedText>

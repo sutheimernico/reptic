@@ -92,11 +92,19 @@ describe('encodeWeekCard / extractAndDecode', () => {
     ['bad week', '{"v":1,"n":"A","w":"2026-43","kg":5,"km":1,"s":1}'],
     ['week 54', '{"v":1,"n":"A","w":"2026-W54","kg":5,"km":1,"s":1}'],
     ['empty name', '{"v":1,"n":" ","w":"2026-W43","kg":5,"km":1,"s":1}'],
+    ['kg above the cap', '{"v":1,"n":"A","w":"2026-W43","kg":10000001,"km":1,"s":1}'],
+    ['km above the cap', '{"v":1,"n":"A","w":"2026-W43","kg":5,"km":100001,"s":1}'],
+    ['sessions above the cap', '{"v":1,"n":"A","w":"2026-W43","kg":5,"km":1,"s":1001}'],
     ['wrong v', '{"v":2,"n":"A","w":"2026-W43","kg":5,"km":1,"s":1}'],
     ['not json', 'nope'],
     ['an array', '[1,2,3]'],
   ])('rejects %s as corrupt (valid checksum)', (_label, json) => {
     expect(extractAndDecode(codeFor(json))).toEqual({ ok: false, reason: 'corrupt' });
+  });
+
+  it('accepts values exactly at the caps', () => {
+    const json = '{"v":1,"n":"A","w":"2026-W43","kg":10000000,"km":100000,"s":1000}';
+    expect(extractAndDecode(codeFor(json)).ok).toBe(true);
   });
 
   it('accepts a well-formed hand-signed payload', () => {
@@ -131,18 +139,41 @@ describe('duelStatus', () => {
     );
   });
 
-  it('handles ties', () => {
-    expect(duelStatus(me, { ...jonas, kg: me.kg, km: me.km })).toBe(
-      'Bei den kg steht es unentschieden. Beim Cardio steht es unentschieden.',
+  it('friend leads both', () => {
+    expect(duelStatus(me, { ...jonas, km: 20 })).toBe(
+      'Jonas führt bei kg und Cardio — dir fehlen 2.650 kg.',
     );
   });
 
-  it('says so when the friend card is from another week', () => {
+  it('you lead both', () => {
+    expect(duelStatus({ ...jonas, n: 'Nico', km: 20 }, { ...me, n: 'Jonas' })).toBe('Du führst bei kg und Cardio.');
+  });
+
+  it('tie in both', () => {
+    expect(duelStatus(me, { ...me, n: 'Jonas' })).toBe('Gleichstand bei kg und Cardio.');
+  });
+
+  it('kg tie with a cardio lead keeps the split wording', () => {
+    expect(duelStatus(me, { ...jonas, kg: me.kg })).toBe(
+      'Bei den kg steht es unentschieden. Beim Cardio liegst du vorn.',
+    );
+    expect(duelStatus(me, { ...jonas, km: me.km })).toBe(
+      'Jonas führt bei den kg, dir fehlen 2.650 kg. Beim Cardio steht es unentschieden.',
+    );
+  });
+
+  it('friend card from an older week', () => {
     expect(duelStatus(me, { ...jonas, w: '2026-W42' })).toBe(
-      "Jonas' Karte ist von KW 42 — schick ihm deine aktuelle",
+      "Jonas' Karte ist von KW 42 — schick deine aktuelle Wochenkarte.",
     );
     expect(duelStatus(me, { ...jonas, n: 'Mia', w: '2026-W42' })).toBe(
-      'Mias Karte ist von KW 42 — schick ihm deine aktuelle',
+      'Mias Karte ist von KW 42 — schick deine aktuelle Wochenkarte.',
+    );
+  });
+
+  it('friend card from a newer week', () => {
+    expect(duelStatus(me, { ...jonas, n: 'Mia', w: '2026-W44' })).toBe(
+      'Mias Karte ist schon von KW 44.',
     );
   });
 });
