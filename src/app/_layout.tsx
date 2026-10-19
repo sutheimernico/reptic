@@ -33,7 +33,8 @@ export default function RootLayout() {
 }
 
 function ThemedNavigation() {
-  const { scheme, colors } = useThemeMode();
+  const { theme } = useThemeMode();
+  const { scheme, colors } = theme;
   const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
   const navTheme = {
     ...base,

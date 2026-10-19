@@ -10,6 +10,7 @@ import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
 import { SegmentedControl } from '@/components/ui/segmented-control';
+import { ThemePicker } from '@/components/theme-picker';
 import { APP_NAME } from '@/constants/app';
 import { Radius, Spacing } from '@/constants/theme';
 import { getGyms, getSetting, setSetting } from '@/db';
@@ -63,7 +64,7 @@ const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e)
 export default function SettingsScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
-  const { mode, setMode } = useThemeMode();
+  const { mode, setMode, variant } = useThemeMode();
   const { durationSec: restSeconds, setDurationSec: setRestSeconds } = useRestTimer();
   const [gyms, setGyms] = useState<Gym[]>([]);
   const [lastAutoBackup, setLastAutoBackup] = useState<string | null>(null);
@@ -209,10 +210,19 @@ export default function SettingsScreen() {
     <Screen title="Einstellungen">
       <View style={styles.block}>
         <ThemedText type="small" themeColor="textSecondary" style={styles.label}>
-          DARSTELLUNG
+          DESIGN
         </ThemedText>
-        <SegmentedControl options={THEME_OPTIONS} value={mode} onChange={setMode} />
+        <ThemePicker />
       </View>
+
+      {variant === 'evolved' && (
+        <View style={styles.block}>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.label}>
+            DARSTELLUNG
+          </ThemedText>
+          <SegmentedControl options={THEME_OPTIONS} value={mode} onChange={setMode} />
+        </View>
+      )}
 
       <View style={styles.block}>
         <ThemedText type="small" themeColor="textSecondary" style={styles.label}>

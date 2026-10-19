@@ -9,20 +9,28 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 import { useColorScheme as useRNColorScheme } from 'react-native';
 
-import { Colors, type ThemeColor } from '@/constants/theme';
 import { getSetting, setSetting } from '@/db';
 import type { ThemeMode } from '@/domain/types';
 
-type ResolvedScheme = 'light' | 'dark';
+import {
+  type AppTheme,
+  parseThemeVariant,
+  resolveTheme,
+  THEME_VARIANT_SETTING,
+  type ThemeColors,
+  type ThemeVariant,
+} from './themes';
 
-/** Widened token map (the `as const` palette has per-hex literal types otherwise). */
-export type ThemeColors = Record<ThemeColor, string>;
+export type { ThemeColors };
 
 export interface ThemeContextValue {
   mode: ThemeMode;
-  scheme: ResolvedScheme;
+  variant: ThemeVariant;
+  scheme: 'light' | 'dark';
+  theme: AppTheme;
   colors: ThemeColors;
   setMode: (mode: ThemeMode) => void;
+  setVariant: (variant: ThemeVariant) => void;
 }
 
 export const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -37,6 +45,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const db = useSQLiteContext();
   const systemScheme = useRNColorScheme();
   const [mode, setModeState] = useState<ThemeMode>('system');
+  const [variant, setVariantState] = useState<ThemeVariant>('evolved');
 
   // Hydrate the persisted override once the db is available.
   useEffect(() => {
@@ -44,21 +53,29 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     getSetting(db, THEME_SETTING_KEY).then((value) => {
       if (active && isThemeMode(value)) setModeState(value);
     });
+    getSetting(db, THEME_VARIANT_SETTING).then((value) => {
+      if (active) setVariantState(parseThemeVariant(value));
+    });
     return () => {
       active = false;
     };
   }, [db]);
 
-  const scheme: ResolvedScheme =
-    mode === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : mode;
+  const theme = resolveTheme(variant, mode, systemScheme === 'dark' ? 'dark' : 'light');
 
   const setMode = (next: ThemeMode) => {
     setModeState(next);
     void setSetting(db, THEME_SETTING_KEY, next);
   };
 
+  const setVariant = (next: ThemeVariant) => {
+    setVariantState(next);
+    void setSetting(db, THEME_VARIANT_SETTING, next);
+  };
+
   return (
-    <ThemeContext.Provider value={{ mode, scheme, colors: Colors[scheme], setMode }}>
+    <ThemeContext.Provider
+      value={{ mode, variant, scheme: theme.scheme, theme, colors: theme.colors, setMode, setVariant }}>
       {children}
     </ThemeContext.Provider>
   );
