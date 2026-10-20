@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useIsFocused, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -65,7 +65,12 @@ export default function HeuteScreen() {
   }, [db, refreshNow]);
 
   useFocusEffect(useCallback(() => load(), [load]));
-  useOnResume(load);
+  // A resume while Heute is behind another screen only moves the date (useNow does that); the full
+  // overview loads when the tab is focused again.
+  const focused = useIsFocused();
+  useOnResume(() => {
+    if (focused) load();
+  });
 
   const toggle = (id: number) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));

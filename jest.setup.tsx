@@ -17,6 +17,7 @@ jest.mock('expo-router', () => {
     // useFocusEffect is the screens' "load your data" hook; in a test the
     // screen is always focused, so it is just an effect.
     useFocusEffect: (callback: () => void | (() => void)) => React.useEffect(callback, [callback]),
+    useIsFocused: () => true,
     useRouter: () => routerMock,
     useNavigation: () => ({ addListener: jest.fn(() => jest.fn()), dispatch: jest.fn() }),
     useLocalSearchParams: () => getRouteParams(),
