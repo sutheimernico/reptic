@@ -83,6 +83,18 @@ describe('WeekHero skins', () => {
     await waitFor(() => expect(view.getByText(/KW \d+/)).toBeTruthy());
   });
 
+  it('instrument shows days since the last workout instead of XP', async () => {
+    const empty = await renderHero('instrument');
+    await waitFor(() => expect(empty.getByText('NOCH KEINE EINHEIT')).toBeTruthy());
+    expect(empty.queryByText(/LEVEL|XP/)).toBeNull();
+    empty.unmount();
+
+    await seedWeek();
+    const view = await renderHero('instrument');
+    await waitFor(() => expect(view.getByText('heute')).toBeTruthy());
+    expect(view.queryByText(/LEVEL|XP/)).toBeNull();
+  });
+
   it('opens the settings from the suggestion label', async () => {
     const view = await renderHero('evolved');
     await fireEvent.press(view.getByText('Vorschlag · anpassen'));

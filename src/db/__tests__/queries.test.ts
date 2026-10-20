@@ -992,6 +992,23 @@ describe('getWeekOverview', () => {
   });
 });
 
+describe('getWeekOverview lastWorkoutDaysAgo', () => {
+  const now = new Date(2026, 9, 21, 12);
+
+  it('is null before the first workout and counts local calendar days after', async () => {
+    const db = await freshDb();
+    expect((await getWeekOverview(db, now)).lastWorkoutDaysAgo).toBeNull();
+    const gym = await createGym(db, 'Gym');
+    const bench = await createExercise(db, 'Bankdrücken', 'Brust');
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench, startedAt: new Date(2026, 9, 18, 23, 30).toISOString(),
+      finishedAt: new Date(2026, 9, 19, 0, 30).toISOString(), sets: [{ weightKg: 50, reps: 5 }],
+    });
+    expect((await getWeekOverview(db, now)).lastWorkoutDaysAgo).toBe(2);
+    expect((await getWeekOverview(db, new Date(2026, 9, 19, 23))).lastWorkoutDaysAgo).toBe(0);
+  });
+});
+
 describe('getWeekProgress', () => {
   const now = new Date(2026, 9, 21, 12);
   const at = (m0: number, d: number, h = 10) => new Date(2026, m0, d, h).toISOString();

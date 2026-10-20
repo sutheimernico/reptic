@@ -133,6 +133,13 @@ function Tile({ label, value, sub, spark }: { label: string; value: string; sub:
   );
 }
 
+/** Fills the grid when no cardio tile is there; only Arcade shows XP (spec §4.2). */
+function LastTile({ daysAgo }: { daysAgo: number | null }) {
+  if (daysAgo === null) return <Tile label="LETZTE" value="—" sub="NOCH KEINE EINHEIT" />;
+  if (daysAgo === 0) return <Tile label="LETZTE" value="heute" sub="EINHEIT" />;
+  return <Tile label="LETZTE" value={String(daysAgo)} sub={daysAgo === 1 ? 'TAG HER' : 'TAGE HER'} />;
+}
+
 export function InstrumentHero({ model }: { model: HeroModel }) {
   const { colors: c, fonts } = useAppTheme();
   const maxDay = Math.max(0, ...model.days.map((d) => d.volumeKg));
@@ -178,7 +185,7 @@ export function InstrumentHero({ model }: { model: HeroModel }) {
         <Tile label="SERIE" value={String(model.streak)} sub="WOCHEN" />
         <Tile label="EINHEITEN" value={String(model.sessions)} sub="DIESE WOCHE" />
         <Tile label="REKORDE" value={String(model.weekPrs)} sub="DIESE WOCHE" />
-        {!hasKm ? <Tile label="XP" value={formatKg(model.xp)} sub={`LEVEL ${model.level}`} /> : null}
+        {!hasKm ? <LastTile daysAgo={model.lastWorkoutDaysAgo} /> : null}
       </View>
     </View>
   );

@@ -30,6 +30,7 @@ export interface HeroModel {
   weekPrs: number;
   sessions: number;
   xp: number;
+  lastWorkoutDaysAgo: number | null;
   /** Km per week, oldest first, running week last — the cardio sparkline. */
   weeklyKm: number[];
   /** Screen-reader sentence; also what tests read. */
@@ -67,6 +68,7 @@ export function heroModel(overview: WeekOverview, now: Date = new Date()): HeroM
     weekPrs: overview.weekPrs,
     sessions: progress.sessions,
     xp: overview.xp,
+    lastWorkoutDaysAgo: overview.lastWorkoutDaysAgo,
     weeklyKm: overview.weeks.map((w) => w.distanceKm),
     summary:
       `Wochenfortschritt: ${kgText}` +

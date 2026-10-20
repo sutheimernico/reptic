@@ -36,6 +36,8 @@ export interface WeekOverview {
   /** Personal records set in finished workouts this week. */
   weekPrs: number;
   xp: number;
+  /** Calendar days since the last finished workout (0 = today); null before the first one. */
+  lastWorkoutDaysAgo: number | null;
 }
 
 /**
@@ -84,6 +86,15 @@ export async function getWeekProgress(
 ): Promise<{ progress: WeekProgress; goal: WeekGoal }> {
   const { progress, goal } = await loadWeekBase(db, now);
   return { progress, goal };
+}
+
+const dayNumber = (d: Date) => Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000);
+
+/** Local calendar days between `now` and the newest timestamp (DST-safe); null for none. */
+export function daysSinceLast(finishedAt: string[], now: Date): number | null {
+  if (finishedAt.length === 0) return null;
+  const newest = finishedAt.reduce((a, b) => (a > b ? a : b));
+  return Math.max(0, dayNumber(now) - dayNumber(new Date(newest)));
 }
 
 export async function getWeekOverview(db: SQLiteDatabase, now: Date): Promise<WeekOverview> {
@@ -143,6 +154,7 @@ export async function getWeekOverview(db: SQLiteDatabase, now: Date): Promise<We
     ),
     goal,
     weekPrs: totalPrs - countPersonalRecords(before),
+    lastWorkoutDaysAgo: daysSinceLast(dates.map((d) => d.finished_at), now),
     xp: xpFor((finishedSetCount?.n ?? 0) + (activeTotals?.sets ?? 0), totalPrs),
   };
 }
