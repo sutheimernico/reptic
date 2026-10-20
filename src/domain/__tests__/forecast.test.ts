@@ -196,7 +196,18 @@ describe('fitForecast', () => {
     if (f.kind !== 'fit') throw new Error('expected fit');
     expect(f.sigma).toBeGreaterThan(0);
     const last = f.curve[f.curve.length - 1];
+    expect(f.sigma).toBeGreaterThan(0.5); // noisy enough that the floor does not apply
     expect((last.high - last.low) / 2).toBeCloseTo(f.sigma * (1 + (0.5 * 84) / 120), 6);
+  });
+
+  it('keeps a visible band on exact data by flooring sigma at 0.5 kg', () => {
+    const f = fitForecast(points(DAYS10, DAYS10.map(curve)));
+    if (f.kind !== 'fit') throw new Error('expected fit');
+    expect(f.status).toBe('rising');
+    expect(f.sigma).toBeLessThan(0.5);
+    for (const c of f.curve) expect(c.high - c.low).toBeGreaterThanOrEqual(2 * 0.5 - 1e-9);
+    const last = f.curve[f.curve.length - 1];
+    expect((last.high - last.low) / 2).toBeCloseTo(0.5 * (1 + (0.5 * 84) / 120), 6);
   });
 
   it('clamps P to the observed max when the free fit would undershoot it', () => {

@@ -5,6 +5,7 @@
 jest.mock('expo-sqlite', () => require('@/test-support/expo-sqlite-mock'));
 
 import type { SQLiteDatabase } from 'expo-sqlite';
+import { Alert } from 'react-native';
 
 import ExerciseProgressScreen from '@/app/exercise/progress';
 import {
@@ -81,7 +82,10 @@ beforeEach(async () => {
   gymB = await createGym(db, 'Hotel-Gym');
   exerciseId = await createExercise(db, 'Bankdrücken', 'Brust');
 });
-afterEach(() => reanimated.__setReducedMotion(false));
+afterEach(() => {
+  jest.restoreAllMocks();
+  reanimated.__setReducedMotion(false);
+});
 
 describe('exercise progress', () => {
   it('shows an honest empty state without history', async () => {
@@ -140,6 +144,42 @@ describe('exercise progress', () => {
     expect(
       view.getByText('Noch zu wenig Daten für eine Prognose (1 von 6 Einheiten)'),
     ).toBeTruthy();
+  });
+
+  it('crops the range relative to today: after a break 3M is empty but the forecast stays', async () => {
+    const plan: [number, number][] = [
+      [260, 60], [250, 62.5], [240, 65], [230, 67.5], [220, 70], [210, 72.5], [205, 75], [200, 77.5],
+    ];
+    for (const [d, w] of plan) await logSession(gymA, d, w);
+    const view = await renderScreen();
+    await waitFor(() => expect(view.getByText('8 Einheiten')).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('3M'));
+    expect(view.getByText('Keine Einheiten in diesem Zeitraum')).toBeTruthy();
+    expect(view.queryByLabelText('Kraftverlauf mit Prognose')).toBeNull();
+    expect(view.getByText(/pro Monat/)).toBeTruthy(); // forecast readouts are not range-bound
+    await fireEvent.press(view.getByLabelText('1J'));
+    expect(view.queryByText('Keine Einheiten in diesem Zeitraum')).toBeNull();
+  });
+
+  it('tags the month labels with a two-digit year on a span longer than a year', async () => {
+    for (let d = 450; d >= 0; d -= 30) await logSession(gymA, d, 60 + (450 - d) / 30);
+    const view = await renderScreen();
+    const chart = await waitFor(() => view.getByLabelText('Kraftverlauf mit Prognose'));
+    await fireEvent(chart, 'layout', { nativeEvent: { layout: { width: 340, height: 210 } } });
+    // SVG text is not reachable through getByText; read the rendered tree instead.
+    expect(JSON.stringify(view.toJSON())).toMatch(/"(Jan|Feb|Mär|Apr|Mai|Jun|Jul|Aug|Sep|Okt|Nov|Dez) \d{2}"/);
+  });
+
+  it('reports a failed strength load instead of leaving a rejected promise', async () => {
+    await seedEight();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    const getFirst = db.getFirstAsync.bind(db);
+    // Only the gym-filter read fails, so the screen's own loading stays out of the picture.
+    jest.spyOn(db, 'getFirstAsync').mockImplementation(((sql: string, ...args: unknown[]) =>
+      String(args[0]).startsWith('progress_gyms_') ? Promise.reject(new Error('db gone')) : getFirst(sql, ...args)) as never);
+    await renderScreen();
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('Speichern fehlgeschlagen', 'db gone'));
   });
 
   it('shows a plateau for flat noisy data', async () => {

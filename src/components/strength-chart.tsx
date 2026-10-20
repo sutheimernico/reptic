@@ -165,7 +165,11 @@ export function StrengthChart({ points, curve, plateauKg, originDate }: Strength
     const cursor = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 1);
     while (cursor.getTime() <= startDate.getTime() + spanDays * DAY_MS) {
       const day = Math.round((cursor.getTime() - origin.getTime()) / DAY_MS);
-      labels.push({ x: x(day), text: MONTHS_SHORT[cursor.getMonth()] });
+      const month = cursor.getMonth();
+      // A bare month name is ambiguous across years: tag January and every label on a long span.
+      const withYear = month === 0 || spanDays > 365;
+      const yy = String(cursor.getFullYear() % 100).padStart(2, '0');
+      labels.push({ x: x(day), text: withYear ? `${MONTHS_SHORT[month]} ${yy}` : MONTHS_SHORT[month] });
       cursor.setMonth(cursor.getMonth() + 1);
     }
     const keepEvery = Math.max(1, Math.ceil(labels.length / Math.max(1, Math.floor(plotW / 56))));

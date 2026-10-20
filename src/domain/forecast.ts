@@ -226,7 +226,7 @@ export function fitForecast(points: StrengthPoint[]): Forecast {
   const curve: ForecastPoint[] = [];
   for (let dt = 0; dt <= FORECAST_HORIZON_DAYS; dt += CURVE_STEP_DAYS) {
     const v = isPlateau ? level : value(lastT + dt);
-    const half = sigma * (1 + (0.5 * dt) / span);
+    const half = sigmaEff * (1 + (0.5 * dt) / span); // never a zero-width band on smooth data
     curve.push({
       dayIndex: points[n - 1].dayIndex + dt,
       value: v,

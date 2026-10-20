@@ -31,6 +31,8 @@ import {
   toggleGym,
 } from '@/domain/gym-filter';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useNow } from '@/hooks/use-resume';
+import { showSaveError } from '@/lib/alerts';
 import { Spacing } from '@/constants/theme';
 
 const RANGES = [
@@ -39,6 +41,8 @@ const RANGES = [
   { label: '1J', days: 365 },
   { label: 'Alles', days: null },
 ] as const;
+
+const DAY_MS = 86_400_000;
 
 const kg = formatKg;
 
@@ -92,6 +96,8 @@ export function StrengthInsights({
   const [gyms, setGyms] = useState<{ id: number; name: string }[]>([]);
   const [filter, setFilter] = useState<GymFilter>('all');
   const [rangeIdx, setRangeIdx] = useState(3);
+  // State-backed so it follows the clock on resume (see useNow).
+  const [now] = useNow();
 
   useFocusEffect(
     useCallback(() => {
@@ -113,7 +119,7 @@ export function StrengthInsights({
             withHistory.map((g) => g.id),
           ),
         );
-      })();
+      })().catch(showSaveError);
       return () => {
         live = false;
       };
@@ -123,8 +129,11 @@ export function StrengthInsights({
   const onToggle = (gymId: number | 'all') => {
     const next = toggleGym(filter, gymId);
     setFilter(next);
-    if (next === 'all') void deleteSetting(db, gymFilterKey(exerciseId));
-    else void setSetting(db, gymFilterKey(exerciseId), JSON.stringify(next));
+    const write =
+      next === 'all'
+        ? deleteSetting(db, gymFilterKey(exerciseId))
+        : setSetting(db, gymFilterKey(exerciseId), JSON.stringify(next));
+    write.catch(showSaveError);
   };
 
   const series = useMemo(
@@ -146,10 +155,11 @@ export function StrengthInsights({
 
   const last = series[series.length - 1];
   const rangeDays = RANGES[rangeIdx].days;
+  // Relative to today, not to the last session: after a break "3M" must show the last three
+  // calendar months (possibly empty), not the three months before the break.
+  const cutoff = rangeDays === null ? null : now.getTime() - rangeDays * DAY_MS;
   const visible =
-    last && rangeDays !== null
-      ? series.filter((p) => p.dayIndex >= last.dayIndex - rangeDays)
-      : series;
+    cutoff === null ? series : series.filter((p) => new Date(p.date).getTime() >= cutoff);
   const first = visible[0];
   const delta = last && first && visible.length > 1 ? last.e1rm - first.e1rm : null;
   const sinceMonth = first ? MONTHS_DE[new Date(first.date).getMonth()] : '';
@@ -195,7 +205,11 @@ export function StrengthInsights({
         </View>
       ) : null}
 
-      {last ? (
+      {last && visible.length === 0 ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Keine Einheiten in diesem Zeitraum
+        </ThemedText>
+      ) : last ? (
         <Card style={styles.chartCard}>
           <StrengthChart
             points={visible}
