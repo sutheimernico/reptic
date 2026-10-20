@@ -33,7 +33,16 @@ no account. The UI is in German.
   bars), a month calendar, and **Trends**: volume per ISO week, per muscle group and
   weekly cardio distance over the last 12 weeks (untrained weeks shown as zero, never
   interpolated).
-- **Einstellungen** — system/light/dark theme, rest duration, rep target + progression
+- **Designs** — four looks (Evolved, Warm, Arcade, Instrument) with their own fonts, shapes,
+  tab bars and motion, picked in Einstellungen → Design; Evolved follows system/light/dark.
+  Animations respect the OS reduced-motion setting.
+- **Wochenziel** — weekly goal in kg and km, streak, XP/level and a week hero on Heute;
+  goals and personal records are celebrated next to the input.
+- **Kraftverlauf** — per exercise an e1RM chart with a saturating forecast (only when the
+  history supports one; declining or noisy data gets no curve), range chips and a saved gym filter.
+- **Pause-Hinweis** — after a 14+ day break the session offers lighter carried-over weights.
+- **Duell** — compare weeks with a friend via a share code (WhatsApp text), no server.
+- **Einstellungen** — design, system/light/dark theme, week goal, name, rest duration, rep target + progression
   step, vibration, plate setup,
   gyms, an **automatic daily on-device backup** (newest 7, restorable in-app) and JSON
   **backup export/import** (share to Drive/Files, restore on a new device).
@@ -73,6 +82,18 @@ Gate (green before every commit):
 npm run typecheck     # tsc --noEmit
 npm test              # jest (domain, db against real SQLite, and screens)
 npm run lint          # expo lint
+```
+
+Jest pins `TZ=Europe/Berlin` (`jest.global-setup.js`): week and break maths are DST-sensitive,
+so results do not depend on the machine's timezone.
+
+Browser click-through (needs `npx expo start`, web on :8081; uses a Playwright clock, so it is
+date-independent):
+
+```bash
+npm run e2e                                 # one run (E2E_THEME=warm|arcade|instrument|evolved-dark, E2E_URL)
+npm run e2e:all                             # the same click-through in all 5 looks
+npm run screenshots                         # scripts/screenshots.mjs -> $TMPDIR/reptic-shots/<size>/<look>/
 ```
 
 Two things that bite when writing tests here: in `@testing-library/react-native` v14

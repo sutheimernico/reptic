@@ -243,14 +243,31 @@ in the phone frame (`scratchpad` Playwright script, real mouse, hit-tested targe
 - [x] Settings reload after an import, calendar month race, web notices for backup/export,
       "Eigene Übung" noise dropped, history detail rows open the exercise's progress
 
+## Phase 18 — Themes, motion and strength insights (2026-10-19) 🟡 built, awaiting Nico's live check
+
+Plan + Outcome: `docs/superpowers/plans/2026-10-19-themes-and-strength-insights.md`, spec:
+`docs/superpowers/specs/2026-10-19-repz-themes-and-strength-insights-design.md` (amended twice
+for forecast sanity rules). Branch `feat/themes-insights`, jest 494, `npm run e2e:all` green over
+5 looks. Not merged, no build; versionCode bump to 6 follows Nico's sign-off (APK via EAS
+`preview`, no store).
+
+- [x] Four themes (Evolved, Warm, Arcade, Instrument) with a Design picker, bundled fonts, themed headers
+- [x] Motion: skinned tab bars, press/list/count-up animations, all reduced-motion aware
+- [x] Week goal (kg/km), streak, XP/level, themed week hero, goal and PR celebrations
+- [x] Strength chart with e1RM forecast (rising/plateau/declining/unreliable), ranges, gym filter
+- [x] Break detection: lighter carried-over weights after a 14+ day gap
+- [x] Weekly duel via share codes (WhatsApp), no server
+- [ ] Device check list (haptics, fonts, Android shadows, SVG, safe area, 360 dp, share sheet):
+      end of the plan's Outcome section
+
 ## Needs Nico
 
 - [x] On-device verify of the gym-save fix (2026-07-07, Nico via Expo Go tunnel: gyms +
       exercises save and survive an app kill; failures would now surface as alerts)
 - [x] APK/EAS build (2026-07-07: EAS project @nico_su2004/reptic linked, cloud keystore,
       preview APK built — build 575c3575; `production` profile ready for a future store release)
-- [ ] Visual / feel sign-off on a real device — two smoke-test checklists, both at the end
-      of their plans: v1.1 in `docs/superpowers/plans/2026-07-21-daily-gym-companion.md`,
+- [ ] Visual / feel sign-off on a real device — three checklists, at the end of their plans
+      (v1.3 themes: Outcome of `docs/superpowers/plans/2026-10-19-themes-and-strength-insights.md`): v1.1 in `docs/superpowers/plans/2026-07-21-daily-gym-companion.md`,
       v1.2 in `docs/superpowers/plans/2026-09-27-v1.2-trainingsbegleiter.md`; then build
       versionCode 6
 - [ ] Feel-veto on the v1.1 defaults: rest 2:00, haptic strength, plate stock (bar 20 kg,

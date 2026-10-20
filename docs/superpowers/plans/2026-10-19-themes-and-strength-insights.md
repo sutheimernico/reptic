@@ -252,3 +252,95 @@
 - [ ] Append an **Outcome** section to this plan (what shipped, deviations, open points, device-check list: haptics, animation smoothness, fonts on device, hard shadows on Android).
 - [ ] Update `PLAN.md` (new phase entry) and `README.md` (themes, e2e commands).
 - [ ] Commit `docs: record themes and strength insights outcome`.
+
+## Outcome (2026-10-20)
+
+Built on `feat/themes-insights` (`a4e91c5..0708535`), all 11 tasks reviewed. **Awaiting
+Nico's live check on a device**; nothing is merged or built yet.
+
+### What shipped
+
+- **Four themes** — Evolved (light/dark/system, the old look), Warm, Arcade, Instrument, picked in
+  Einstellungen → Design (persisted as `theme_variant`). Bundled fonts per theme, per-theme shape
+  tokens (radius, border, hard shadows) in the shared components, native stack headers themed.
+- **Motion** — skinned tab bars (sliding indicator, active-only label), `PressableScale`,
+  `FadeInListItem` (stagger capped at 200 ms), `CountUp`, tab transition; all gated by reduced motion.
+- **Week goal, streak, XP** — weekly goal in kg and km (Einstellungen → Wochenziel), streak, XP and
+  level, goal suggestion; themed week hero on Heute; goal and PR celebrations next to the input.
+- **Strength chart + forecast** — per-exercise e1RM series with a saturating forecast and band,
+  range chips (view only), saved gym filter; the session list follows the filter.
+- **Break detection** — after a long gap (> 14 days) the session offers lighter carried-over weights
+  (plate-rounded, 15 % after 60 days); "Übernehmen" / "Später", only carried-over weights change.
+- **Weekly duel** — compare weeks with a friend via a share code (`REPZ1…`, checksum), no server;
+  name in Einstellungen, share sheet, import from a pasted WhatsApp message, 8-week retention.
+- **Verification** — jest 494/494 (3 consecutive runs), `npm run e2e:all` green 3× over 5 looks
+  (evolved, evolved-dark, warm, arcade, instrument; ~243 assertions each, Playwright clock),
+  `npx expo export --platform android` ok, typecheck + lint clean, 310 screenshots reviewed
+  (390×844 and 360×800).
+
+### Deviations from plan / spec
+
+- **XP level curve** `round(100·(n−1)^1.5)` (plan) instead of the spec's `100·n^1.5`, so level 1
+  starts at 0 XP.
+- **Range chips crop only the view**; the forecast fits the full gym-filtered series (spec silent).
+- **Forecast sanity rules added to spec §4.3** after the Task 6 review: status
+  `rising | plateau | declining | unreliable`. Declining = 42-day OLS slope < −max(1 kg, σ/2)/30 d;
+  unreliable = mean residual of the last 2 points > 2·max(σ, 0.5) (the literal rule flagged a steady
+  rise); plateau = mean of the last 3. No curve is drawn for declining/unreliable. Thresholds are
+  untuned on real data.
+- **Inactive tabs icon-only** (number-only in one design), label only on the
+  active tab — the only way to fit "Einstellungen" at ≥ 11 pt in 360 px. A11y names keep full titles.
+- **`react-native-svg` installed in Task 5** (plan: Task 7) — the week ring needed it first.
+- **Arcade 'shift' tab transition on web is 'fade'** (the shift container left a 24 px scroll
+  offset); native keeps 'shift' — unverified on device.
+- **Reveal animations (hero count-up, chart draw-in) up to 1 s**; the 150–400 ms rule applies to UI
+  transitions only. Celebrations never block input.
+- **Native stack headers themed in Task 10** (system font on ~10 screens before); screen titles
+  smaller so long session titles clear the clock at 360 px.
+- **Duel copy** deviates from the plan text ("schick ihm" dropped as gendered/misleading); own card
+  recognised by same name + same week; kg/km/s values capped.
+- **Jest timezone pinned to Europe/Berlin** (`jest.global-setup.js`) — the break and week tests
+  depend on DST-correct day maths; run jest from any TZ.
+
+### Open points / parked
+
+- **Parked (rare, needs persisted carry info):** delete a set → collapse/remount → "Übernehmen"
+  re-maps carried weights by renumbered set number (also in `lowerUntouchedWeights`). Cost: one set
+  lowered or missed in a delete + collapse + break flow in one session.
+- **Performance:** `getWeekOverview` replays all performed sets per Heute focus and per set change
+  (est. 100–250 ms at ~17k sets) — cache or derive set count if it shows up.
+- **Duel:** an overview load error shows "wird noch geladen" forever (catch → null swallows it);
+  two mixed `duelStatus` combos unpinned.
+- **Goals:** `checkGoals` drops a concurrent call (no dirty re-run); a celebration can fire on load
+  when a lowered goal is already met but unflagged; `parseGoal` needs the setter to normalise "12,5".
+- **Break:** the hint returns after "Später" (acceptable per spec); typed kg without reps in a
+  collapsed seeded exercise gets lowered.
+- **Code hygiene:** hard-coded hex colours in skin files; duplicated sliding-indicator logic across 3
+  tab bars and avatar components across skins; leftover `fontWeight` styles; dead `tabBar*` options
+  in `(tabs)/_layout.tsx`; mid-session theme switch covered by a screen test only (e2e pops the
+  session first); reanimated jest mock collapses timing, so motion components are barely unit-tested.
+- **Test gaps:** the jest "no NaN" chart test cannot fail (svg mock) — only e2e covers it; the
+  "I lead" duel rendering is unit-tested only; banner-absence e2e uses a 1.2 s settle, not a
+  positive signal.
+- **Weak spots:** forecast unreliable-branch test sits near its threshold; RNW drops `aria-checked`
+  on the theme picker (web a11y only); calendar grid month stays on resume across a month boundary.
+
+### Device check for Nico (the web preview cannot prove these)
+
+- [ ] Haptics: set tick, PR, goal celebration, tab press feel right in all four themes
+- [ ] Animation smoothness on device: tab slide, list stagger, count-up, chart draw-in, ring
+- [ ] Bundled fonts render on Android (all four themes, headers included, no system-font fallback)
+- [ ] Arcade hard shadows on Android (Card, ListRow, Button; no clipping or 3 px offset)
+- [ ] Native arcade 'shift' tab transition (no offset or flicker)
+- [ ] SVG week ring and strength chart (forecast band, readout, dark mode, Instrument faint band)
+- [ ] Safe area at the bottom: tab bars and sheets clear the gesture bar
+- [ ] 360 dp layouts: hero, chart legend, session title next to the clock, tab bar
+- [ ] Share sheet to WhatsApp, and import from a real WhatsApp message (code survives the paste)
+- [ ] Break banner after a real 14+ day gap (lighter weights, "Später", only carried-over weights)
+- [ ] Theme switch mid-session (input, ticked sets and rest timer survive)
+- [ ] Feel-veto on the defaults: goal suggestion, XP curve, forecast wording/thresholds on real data
+
+### Distribution
+
+No Play / App Store (Nico, 2026-10-19). After his live sign-off: APK via the EAS `preview`
+profile, with `versionCode` bumped to 6 in `app.json` then. Not done here.
