@@ -29,6 +29,7 @@ import {
   startWorkout,
 } from '@/db';
 import { breakAppliedKey } from '@/domain/break';
+import { pressAlertButton, spyOnAlert } from '@/test-support/alert';
 import { createTestDb } from '@/test-support/db';
 import { act, fireEvent, renderWithProviders, waitFor } from '@/test-support/render';
 import { resetRouter, setRouteParams } from '@/test-support/router';
@@ -223,6 +224,46 @@ describe('break banner', () => {
 
     expect(view.getByLabelText('KG').props.value).toBe('90');
     expect((await getSetsForWorkoutExercise(db, wes[0]))[0].weightKg).toBe(90);
+  });
+
+  it('keeps the weight of a set the user added with "Satz"', async () => {
+    await pastSession(pressId, 16, [100]);
+    const { workoutId, wes } = await newSession([pressId]);
+    const view = await openScreen(workoutId);
+    await view.findByText(/nicht im Gym/);
+    await open(view, 'Brustpresse', 1);
+    await fireEvent.press(view.getByText('Satz'));
+    await waitFor(() => expect(view.getAllByLabelText('KG')).toHaveLength(2));
+    expect(view.getAllByLabelText('KG').map((i) => i.props.value)).toEqual(['100', '100']);
+
+    await fireEvent.press(view.getByText('Übernehmen'));
+
+    await waitFor(() => expect(view.getAllByLabelText('KG')[0].props.value).toBe('90'));
+    expect(view.getAllByLabelText('KG').map((i) => i.props.value)).toEqual(['90', '100']);
+    await waitFor(async () => {
+      const saved = await getSetsForWorkoutExercise(db, wes[0]);
+      expect(saved.map((s) => s.weightKg)).toEqual([90, 100]);
+    });
+  });
+
+  it('lowers the right carried-over sets after set 1 was deleted', async () => {
+    await pastSession(pressId, 16, [80, 90, 100]);
+    const { workoutId } = await newSession([pressId]);
+    const alert = spyOnAlert();
+    const view = await openScreen(workoutId);
+    await view.findByText(/nicht im Gym/);
+    await open(view, 'Brustpresse', 3);
+    await fireEvent(view.getByText('1'), 'longPress'); // the set-number badge of set 1
+    await act(async () => pressAlertButton(alert, 'Löschen'));
+    await waitFor(() => expect(view.getAllByLabelText('KG')).toHaveLength(2));
+    expect(view.getAllByLabelText('KG').map((i) => i.props.value)).toEqual(['90', '100']);
+
+    await fireEvent.press(view.getByText('Übernehmen'));
+
+    // 90 -> 81 -> 80 and 100 -> 90 on the plate grid, each once and none left behind.
+    await waitFor(() =>
+      expect(view.getAllByLabelText('KG').map((i) => i.props.value)).toEqual(['80', '90']),
+    );
   });
 
   it('uses 15 % after eight weeks', async () => {

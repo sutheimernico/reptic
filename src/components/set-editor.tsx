@@ -269,8 +269,11 @@ export function SetEditor({
 
   const [isCardio, setIsCardio] = useState(false);
   const [prior, setPrior] = useState<PriorSet[]>([]);
-  /** Same as `prior`, for the banner effect that must not read a stale render's copy. */
-  const priorRef = useRef<PriorSet[]>([]);
+  /**
+   * Per row id: the weight last time put into that row (what seeding carried over). Keyed by id, so
+   * deleting or reordering rows cannot misalign it; rows added with "Satz" are not in it.
+   */
+  const carriedRef = useRef(new Map<number, number | null>());
   const [priorGymName, setPriorGymName] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const rowsRef = useRef<Row[]>([]);
@@ -385,7 +388,9 @@ export function SetEditor({
         setIsCardio(cardio);
         setHint(nextHint);
         setPrior(priorSets);
-        priorRef.current = priorSets;
+        carriedRef.current = new Map(
+          current.map((set) => [set.id, priorSets[set.setNumber - 1]?.weightKg ?? null]),
+        );
         setPriorGymName(sourceGymName);
         const loaded = toRows(current);
         rowsRef.current = loaded;
@@ -415,13 +420,14 @@ export function SetEditor({
       // Read after the awaits: rowsRef holds the latest keystroke.
       const current = rowsRef.current;
       const changed: number[] = [];
-      const next = current.map((r, index) => {
+      const next = current.map((r) => {
         if (r.done || editedWeights.current.has(r.id) || isPerformed(fieldsOf(r))) return r;
         const kg = parseWeight(r.weightText);
-        // Only the raw carried-over weight is lowered. A row seeded after the factor was stored
-        // (tapping "Übernehmen" and opening the exercise in the same moment) is already lowered
-        // and must not be lowered a second time when the banner's token arrives.
-        if (kg === null || kg !== (priorRef.current[index]?.weightKg ?? null)) return r;
+        // Only a row that still holds its raw carried-over weight is lowered. One seeded after the
+        // factor was stored (tapping "Übernehmen" and opening the exercise in the same moment) is
+        // already lowered; a row the user added with "Satz" was never carried over.
+        const carried = carriedRef.current.get(r.id) ?? null;
+        if (kg === null || carried === null || kg !== carried) return r;
         const lower = lowered(kg, config);
         if (lower === null || lower === kg) return r;
         changed.push(r.id);
