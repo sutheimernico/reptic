@@ -34,7 +34,7 @@ export function Sparkline({
   const last = values.length - 1;
 
   return (
-    <Svg width={width} height={height} accessible={false}>
+    <Svg width={width} height={height}>
       <Path
         d={d}
         fill="none"
