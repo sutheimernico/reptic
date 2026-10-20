@@ -12,6 +12,7 @@ import {
   type FriendCard,
   getFriendCards,
   getSetting,
+  duelProgress,
   getWeekOverview,
   importFriendCard,
   NAME_SETTING,
@@ -55,7 +56,9 @@ export default function DuelScreen() {
   const [loadFailed, setLoadFailed] = useState(false);
 
   const load = useCallback(() => {
-    getSetting(db, NAME_SETTING).then((v) => setName(v ?? ''));
+    getSetting(db, NAME_SETTING)
+      .then((v) => setName(v ?? ''))
+      .catch(showSaveError);
     getWeekOverview(db, new Date())
       .then((value) => {
         setOverview(value);
@@ -65,13 +68,13 @@ export default function DuelScreen() {
         setOverview(null);
         setLoadFailed(true);
       });
-    getFriendCards(db).then(setFriends);
+    getFriendCards(db).then(setFriends).catch(showSaveError);
   }, [db]);
 
   useFocusEffect(load);
 
   const weekKey = overview?.progress.weekKey ?? '';
-  const myCard = overview ? cardFromProgress(name || 'Du', overview.progress) : null;
+  const myCard = overview ? cardFromProgress(name || 'Du', duelProgress(overview)) : null;
   const sorted = sortFriendCards(friends, weekKey);
   const thisWeek = sorted.filter((f) => f.card.w === weekKey);
   // Without a friend card for this week, show the latest one — the status says it is from another week.
@@ -80,8 +83,12 @@ export default function DuelScreen() {
 
   const share = async (shareName: string) => {
     // Re-read at share time so the code carries the numbers of this very moment.
-    const fresh = await getWeekOverview(db, new Date());
-    await shareWeekCard(shareMessage(cardFromProgress(shareName, fresh.progress)));
+    try {
+      const fresh = await getWeekOverview(db, new Date());
+      await shareWeekCard(shareMessage(cardFromProgress(shareName, duelProgress(fresh))));
+    } catch (error) {
+      showSaveError(error);
+    }
   };
 
   const onShare = () => {

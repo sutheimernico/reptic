@@ -180,6 +180,48 @@ describe('DuelScreen', () => {
     await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
   });
 
+  it('reports a failed re-read at share time instead of dropping the rejection', async () => {
+    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    await setSetting(db, NAME_SETTING, 'Nico');
+    await renderWithProviders(<DuelScreen />);
+    await screen.findByText('Wochenkarte teilen');
+    (getWeekOverview as jest.Mock).mockRejectedValueOnce(new Error('db gone'));
+    await fireEvent.press(screen.getByText('Wochenkarte teilen'));
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('Speichern fehlgeschlagen', 'db gone'));
+    expect(share).not.toHaveBeenCalled();
+  });
+
+  it('counts the running workout in the shared session number, like it does in kg', async () => {
+    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
+    await setSetting(db, NAME_SETTING, 'Nico');
+    await seedWorkout(); // one finished session
+    const gymId = await createGym(db, 'Gym 2');
+    const exerciseId = await createExercise(db, 'Kniebeuge', 'Beine');
+    const workoutId = await startWorkout(db, [], gymId, new Date().toISOString());
+    const workoutExerciseId = await addWorkoutExercise(db, workoutId, exerciseId);
+    await insertSet(db, {
+      workoutId, workoutExerciseId, exerciseId, setNumber: 1, weightKg: 100, reps: 5, done: true,
+    });
+    const overview = await getWeekOverview(db, new Date());
+    expect(overview.progress.sessions).toBe(1);
+    expect(overview.duelSessions).toBe(2);
+
+    await renderWithProviders(<DuelScreen />);
+    await screen.findByText('Wochenkarte teilen');
+    await fireEvent.press(screen.getByText('Wochenkarte teilen'));
+    await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+    expect(share.mock.calls[0][0].message as string).toContain('2 Einheiten');
+  });
+
+  it('does not count a running workout without a performed set', async () => {
+    const gymId = await createGym(db, 'Gym');
+    await startWorkout(db, [], gymId, new Date().toISOString());
+    const overview = await getWeekOverview(db, new Date());
+    expect(overview.duelSessions).toBe(0);
+  });
+
   it('offers a picker when several friends sent a card this week', async () => {
     await renderWithProviders(<DuelScreen />);
     await importCode(encodeWeekCard(jonas));

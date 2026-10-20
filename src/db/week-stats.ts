@@ -26,6 +26,12 @@ import { bucketByWeek, isoWeekKey, isoWeekOf, startOfIsoWeek, startOfWeekWindow,
 
 const WINDOW_WEEKS = 12;
 
+/** The numbers a duel card carries: the week's progress with the running workout counted. */
+export const duelProgress = (o: WeekOverview): WeekProgress => ({
+  ...o.progress,
+  sessions: o.duelSessions,
+});
+
 export interface WeekOverview {
   progress: WeekProgress;
   weeks: WeekTotals[];
@@ -36,6 +42,11 @@ export interface WeekOverview {
   /** Personal records set in finished workouts this week. */
   weekPrs: number;
   xp: number;
+  /**
+   * Sessions for the duel card: finished ones plus the running workout once it has a performed set
+   * this week — the same work the kg total already includes.
+   */
+  duelSessions: number;
   /** Calendar days since the last finished workout (0 = today); null before the first one. */
   lastWorkoutDaysAgo: number | null;
 }
@@ -154,6 +165,8 @@ export async function getWeekOverview(db: SQLiteDatabase, now: Date): Promise<We
     ),
     goal,
     weekPrs: totalPrs - countPersonalRecords(before),
+    duelSessions:
+      progress.sessions + (startedThisWeek && (activeTotals?.sets ?? 0) > 0 ? 1 : 0),
     lastWorkoutDaysAgo: daysSinceLast(dates.map((d) => d.finished_at), now),
     xp: xpFor((finishedSetCount?.n ?? 0) + (activeTotals?.sets ?? 0), totalPrs),
   };

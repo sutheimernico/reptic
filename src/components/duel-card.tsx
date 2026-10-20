@@ -10,7 +10,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
-import { type FriendCard, getFriendCards, getSetting, NAME_SETTING, sortFriendCards, type WeekOverview } from '@/db';
+import { duelProgress, type FriendCard, getFriendCards, getSetting, NAME_SETTING, sortFriendCards, type WeekOverview } from '@/db';
 import { formatVolume } from '@/domain/format';
 import { cardFromProgress, duelStatus, weekNumberOf } from '@/domain/week-card';
 import { useTheme } from '@/hooks/use-theme';
@@ -53,7 +53,7 @@ export function DuelCard({ overview }: { overview: WeekOverview }) {
     );
   }
 
-  const me = cardFromProgress(name || 'Du', overview.progress);
+  const me = cardFromProgress(name || 'Du', duelProgress(overview));
   const status = duelStatus(me, top.card);
   const sameWeek = top.card.w === me.w;
   return (
