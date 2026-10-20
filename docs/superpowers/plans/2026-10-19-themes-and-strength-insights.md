@@ -269,8 +269,9 @@ Nico's live check on a device**; nothing is merged or built yet.
   level, goal suggestion; themed week hero on Heute; goal and PR celebrations next to the input.
 - **Strength chart + forecast** — per-exercise e1RM series with a saturating forecast and band,
   range chips (view only), saved gym filter; the session list follows the filter.
-- **Break detection** — after a long gap (> 14 days) the session offers lighter carried-over weights
-  (plate-rounded, 15 % after 60 days); "Übernehmen" / "Später", only carried-over weights change.
+- **Break detection** — after a gap of ≥ 14 days the session offers lighter carried-over weights
+  (plate-rounded, −10 %; −15 % from ≥ 56 days, see `src/domain/break.ts`); "Übernehmen" / "Später",
+  only carried-over weights change.
 - **Weekly duel** — compare weeks with a friend via a share code (`REPZ1…`, checksum), no server;
   name in Einstellungen, share sheet, import from a pasted WhatsApp message, 8-week retention.
 - **Verification** — jest 494/494 (3 consecutive runs), `npm run e2e:all` green 3× over 5 looks
@@ -288,7 +289,7 @@ Nico's live check on a device**; nothing is merged or built yet.
   unreliable = mean residual of the last 2 points > 2·max(σ, 0.5) (the literal rule flagged a steady
   rise); plateau = mean of the last 3. No curve is drawn for declining/unreliable. Thresholds are
   untuned on real data.
-- **Inactive tabs icon-only** (number-only in one design), label only on the
+- **Inactive tabs icon-only** (number-only in Instrument (E)), label only on the
   active tab — the only way to fit "Einstellungen" at ≥ 11 pt in 360 px. A11y names keep full titles.
 - **`react-native-svg` installed in Task 5** (plan: Task 7) — the week ring needed it first.
 - **Arcade 'shift' tab transition on web is 'fade'** (the shift container left a 24 px scroll
@@ -302,19 +303,67 @@ Nico's live check on a device**; nothing is merged or built yet.
 - **Jest timezone pinned to Europe/Berlin** (`jest.global-setup.js`) — the break and week tests
   depend on DST-correct day maths; run jest from any TZ.
 
+### Final-review fix wave (2026-10-20)
+
+Whole-branch review findings, fixed on `feat/themes-insights` after the Outcome above:
+
+- **Hot path (Important):** `checkGoals` used `getWeekOverview` and so replayed every performed set
+  on each tick/add/delete/expand (127–420 ms at 17.5k sets). New lean `getWeekProgress(db, now)`
+  (12-week totals + live totals + goal; ~5 ms at 17k sets, guarded by a perf test); `getWeekOverview`
+  reuses its base. `checkGoals` exits early when both `celebrated_kg_<week>` and `celebrated_km_<week>`
+  are set (the km flag only exists after a km celebration, so users without a km goal still take the
+  lean path), and a call that arrives while one is in flight triggers exactly one follow-up run
+  (replaces the drop-guard).
+- **Heute:** an AppState resume while Heute is not focused only moves the date (`useNow`); the full
+  overview loads on focus.
+- **Instrument hero:** no XP tile (only Arcade shows XP, spec §4.2); without cardio it shows
+  "LETZTE · n TAGE HER" (`heute` for 0, `—` before the first workout), from `lastWorkoutDaysAgo`.
+- **Range chips** crop relative to today, not the last session; after a break "3M" says "Keine
+  Einheiten in diesem Zeitraum" and keeps the forecast readouts. Month labels carry a two-digit year
+  on January and on any span > 12 months.
+- **Forecast band** uses `max(σ, 0.5)` for all curves (rising and plateau), so it is visible on
+  smooth data; `sigma` in the result stays raw.
+- **Duel card sessions** include the running workout once it has a performed set this week
+  (`duelSessions`), matching the kg total; the hero's "EINHEITEN" tile still counts finished sessions.
+- **Errors:** unhandled promises in duel (loads, share) and in strength-insights (focus load, gym
+  filter writes) now go to `showSaveError`.
+- **Resolved open points:** the duel overview error no longer shows "wird noch geladen" forever
+  (fixed `4dd7c0a`: separate load-failed message); `parseGoal` "12,5" is handled by
+  `normalizeGoalInput` in the setter; typed kg in a collapsed seeded exercise is now only lowered
+  when it equals the raw carried weight.
+
+### Known differences (documented, not changed)
+
+- **PR count vs live badge:** XP and "Rekorde diese Woche" replay all *performed* sets (spec §4.0:
+  reps entered count even if unticked), while the live PR badge fires only on the tick. A set with
+  reps typed but never ticked can count as a record in the XP/week total without ever showing the
+  badge.
+- **Arcade "+50 XP":** the celebration shows it live at the record, the XP bar only moves after the
+  workout is finished (XP is derived from finished work plus the running set count).
+- **Heute resume while unfocused** is not unit-tested (the expo-router jest mock is always focused).
+
+### Decisions in this wave (deviations from the brief-level spec)
+
+- `getWeekProgress` is an exported helper in `src/db/week-stats.ts`; early exit needs both flags.
+- The instrument tile needed a new overview field (`lastWorkoutDaysAgo`), not a UI-only change.
+- Plateau forecasts also use the σ floor (the brief named `rising`; a flat curve is the same
+  invisible-band case).
+- `duelSessions`/`duelProgress` instead of changing `progress.sessions`, so the hero keeps
+  "finished sessions" semantics.
+- Load failures reuse `showSaveError` ("Speichern fehlgeschlagen") although the wording fits writes
+  better; a dedicated load-error alert was out of scope.
+
 ### Open points / parked
 
 - **Parked (rare, needs persisted carry info):** delete a set → collapse/remount → "Übernehmen"
   re-maps carried weights by renumbered set number (also in `lowerUntouchedWeights`). Cost: one set
   lowered or missed in a delete + collapse + break flow in one session.
-- **Performance:** `getWeekOverview` replays all performed sets per Heute focus and per set change
-  (est. 100–250 ms at ~17k sets) — cache or derive set count if it shows up.
-- **Duel:** an overview load error shows "wird noch geladen" forever (catch → null swallows it);
-  two mixed `duelStatus` combos unpinned.
-- **Goals:** `checkGoals` drops a concurrent call (no dirty re-run); a celebration can fire on load
-  when a lowered goal is already met but unflagged; `parseGoal` needs the setter to normalise "12,5".
-- **Break:** the hint returns after "Später" (acceptable per spec); typed kg without reps in a
-  collapsed seeded exercise gets lowered.
+- **Performance:** `getWeekOverview` still replays all performed sets per Heute focus (127–420 ms
+  at ~17k sets in node, est. 100–250 ms on device) — acceptable once per focus; cache or derive the
+  set count if it shows up. The set-logging hot path no longer does (see final fix wave).
+- **Duel:** two mixed `duelStatus` combos unpinned.
+- **Goals:** a celebration can fire on load when a lowered goal is already met but unflagged.
+- **Break:** the hint returns after "Später" (acceptable per spec).
 - **Code hygiene:** hard-coded hex colours in skin files; duplicated sliding-indicator logic across 3
   tab bars and avatar components across skins; leftover `fontWeight` styles; dead `tabBar*` options
   in `(tabs)/_layout.tsx`; mid-session theme switch covered by a screen test only (e2e pops the
