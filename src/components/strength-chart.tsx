@@ -30,6 +30,7 @@ import Svg, {
 import { formatKg, formatWeight } from '@/domain/format';
 import type { ForecastPoint, StrengthPoint } from '@/domain/forecast';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { revealMs } from '@/theme/motion';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedG = Animated.createAnimatedComponent(G);
@@ -92,7 +93,7 @@ export function StrengthChart({ points, curve, plateauKg, originDate }: Strength
     progress.value = reduced
       ? 1
       : withTiming(1, {
-          duration: theme.motion.durationMs.slow * 3,
+          duration: revealMs(theme, 3),
           easing: Easing.out(Easing.cubic),
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -102,8 +103,8 @@ export function StrengthChart({ points, curve, plateauKg, originDate }: Strength
     forecastProgress.value = reduced
       ? 1
       : withDelay(
-          theme.motion.durationMs.slow * 2,
-          withTiming(1, { duration: theme.motion.durationMs.slow * 2 }),
+          revealMs(theme, 2) / 2,
+          withTiming(1, { duration: revealMs(theme, 2) / 2 }),
         );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reduced]);

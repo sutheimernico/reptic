@@ -3,6 +3,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import { ThemedText, type ThemedTextProps } from '@/components/themed-text';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { revealMs } from '@/theme/motion';
 
 /** Counted in JS, not on the UI thread: Text content cannot be animated by transform/opacity. */
 function useCountedValue(target: number, durationMs: number, enabled: boolean): number {
@@ -39,7 +40,7 @@ export function CountUp({
 }: { value: number; format?: (n: number) => string } & Omit<ThemedTextProps, 'children'>) {
   const theme = useAppTheme();
   const reduced = useReducedMotion();
-  const shown = useCountedValue(value, theme.motion.durationMs.slow * 2, !reduced);
+  const shown = useCountedValue(value, revealMs(theme, 2), !reduced);
   return (
     <ThemedText {...rest} accessibilityLabel={format(value)}>
       {format(shown)}

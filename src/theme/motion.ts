@@ -28,3 +28,11 @@ export function timingFor(theme: AppTheme, speed: 'fast' | 'base' | 'slow'): Wit
   const easing = theme.variant === 'instrument' ? Easing.linear : Easing.out(Easing.cubic);
   return { duration: theme.motion.durationMs[speed], easing };
 }
+
+/** Decorative reveals (hero count-up, chart draw-in) never run longer than this, even in the calm themes. */
+export const REVEAL_CAP_MS = 1000;
+
+/** Duration for a reveal built from the theme's slow pace: `slow * factor`, capped. */
+export function revealMs(theme: AppTheme, factor: number): number {
+  return Math.min(theme.motion.durationMs.slow * factor, REVEAL_CAP_MS);
+}
