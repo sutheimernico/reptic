@@ -13,6 +13,7 @@ import { buildMonthGrid, localDayOf, monthTitle, shiftMonth } from '@/domain/cal
 import { formatSessionDate, formatVolume, plural } from '@/domain/format';
 import type { Plan } from '@/domain/types';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useNow } from '@/hooks/use-resume';
 import { useTheme } from '@/hooks/use-theme';
 
 const WEEKDAY_HEADERS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -23,7 +24,8 @@ export default function HistoryCalendarScreen() {
   const c = useTheme();
   const { shape } = useAppTheme();
 
-  const now = new Date();
+  // State, not `new Date()` in render: the React Compiler would pin "today" to the day of mounting.
+  const [now, refreshNow] = useNow();
   const [year, setYear] = useState(now.getFullYear());
   const [month0, setMonth0] = useState(now.getMonth());
   const [sessions, setSessions] = useState<WorkoutSummary[]>([]);
@@ -45,7 +47,12 @@ export default function HistoryCalendarScreen() {
     };
   }, [db, year, month0]);
 
-  useFocusEffect(useCallback(() => load(), [load]));
+  useFocusEffect(
+    useCallback(() => {
+      refreshNow();
+      return load();
+    }, [load, refreshNow]),
+  );
 
   const shift = (delta: -1 | 1) => {
     const next = shiftMonth(year, month0, delta);

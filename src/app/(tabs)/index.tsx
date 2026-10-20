@@ -26,11 +26,12 @@ import {
 } from '@/db';
 import { plural } from '@/domain/format';
 import type { Gym, PlanWithExercises, Workout } from '@/domain/types';
+import { useOnResume, useNow } from '@/hooks/use-resume';
 import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
 
-function todayLabel(): string {
-  return new Date().toLocaleDateString('de-DE', {
+function todayLabel(now: Date): string {
+  return now.toLocaleDateString('de-DE', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -46,12 +47,12 @@ export default function HeuteScreen() {
   const [selected, setSelected] = useState<number[]>([]);
   const [gym, setGym] = useState<Gym | null>(null);
   const [overview, setOverview] = useState<WeekOverview | null>(null);
-  // State, not a render-time call: the React Compiler would cache `todayLabel()` for the lifetime of
+  // State, not a render-time call: the React Compiler would cache `new Date()` for the lifetime of
   // the mounted tab, so the date would stay on the day the app was opened.
-  const [today, setToday] = useState(todayLabel);
+  const [now, refreshNow] = useNow();
 
   const load = useCallback(() => {
-    setToday(todayLabel());
+    refreshNow();
     getActiveWorkout(db).then(setActive);
     getPlansWithExercises(db).then(setPlans);
     getWeekOverview(db, new Date()).then(setOverview)
@@ -61,9 +62,10 @@ export default function HeuteScreen() {
     getSetting(db, LAST_GYM_SETTING)
       .then((value) => (value ? getGym(db, Number(value)) : null))
       .then((g) => setGym(g && !g.archived ? g : null));
-  }, [db]);
+  }, [db, refreshNow]);
 
   useFocusEffect(useCallback(() => load(), [load]));
+  useOnResume(load);
 
   const toggle = (id: number) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -83,7 +85,7 @@ export default function HeuteScreen() {
   };
 
   return (
-    <Screen title="Heute" subtitle={today}>
+    <Screen title="Heute" subtitle={todayLabel(now)}>
       {overview ? (
         <FadeInListItem index={0}>
           <WeekHero overview={overview} />

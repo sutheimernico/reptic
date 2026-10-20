@@ -54,6 +54,7 @@ import {
   setHapticsEnabled,
 } from '@/lib/haptics';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useNow } from '@/hooks/use-resume';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemeMode } from '@/theme/theme-provider';
 
@@ -72,6 +73,8 @@ export default function SettingsScreen() {
   const { durationSec: restSeconds, setDurationSec: setRestSeconds } = useRestTimer();
   const [gyms, setGyms] = useState<Gym[]>([]);
   const [lastAutoBackup, setLastAutoBackup] = useState<string | null>(null);
+  // State, not `new Date()` in render: the React Compiler would freeze the age text.
+  const [now, refreshNow] = useNow();
   const [autoBackups, setAutoBackups] = useState<AutoBackupFile[]>([]);
   const [busy, setBusy] = useState(false);
   const [haptics, setHaptics] = useState(true);
@@ -94,6 +97,7 @@ export default function SettingsScreen() {
   // Also run after a restore: the tab stays mounted, so focus alone would keep
   // showing the replaced gyms and settings.
   const loadAll = useCallback(() => {
+    refreshNow();
     getGyms(db, { includeArchived: true }).then(setGyms);
     getSetting(db, HAPTICS_SETTING).then((v) => setHaptics(parseHapticsSetting(v)));
     getSetting(db, PLATE_SETUP_SETTING).then((v) => setPlates(parsePlateSetup(v)));
@@ -101,7 +105,7 @@ export default function SettingsScreen() {
     getSetting(db, INCREMENT_SETTING).then((v) => setIncrement(parseIncrement(v)));
     getSetting(db, NAME_SETTING).then((v) => setDisplayName(v ?? ''));
     void loadBackupState();
-  }, [db, loadBackupState]);
+  }, [db, loadBackupState, refreshNow]);
 
   useFocusEffect(loadAll);
 
@@ -415,7 +419,7 @@ export default function SettingsScreen() {
         </ThemedText>
         <ListRow
           title="Letztes Auto-Backup"
-          subtitle={formatBackupAge(lastAutoBackup, new Date().toISOString())}
+          subtitle={formatBackupAge(lastAutoBackup, now.toISOString())}
         />
         <Button
           label="Jetzt sichern"
