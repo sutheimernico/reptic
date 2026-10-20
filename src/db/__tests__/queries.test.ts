@@ -17,6 +17,7 @@ import {
   exportAllData,
   finishWorkout,
   getExerciseHistoryAll,
+  getRecentTopWeights,
   getExerciseSessionHistory,
   getExerciseBests,
   getFinishedWorkoutSummaries,
@@ -1033,6 +1034,36 @@ describe('getWeekProgress', () => {
     // The PR replay selects every performed set, ordered for the replay.
     expect(queries.statements.filter((sql) => sql.includes('ORDER BY w.finished_at, w.id, s.id'))).toEqual([]);
     expect(queries.statements.filter((sql) => sql.includes('COUNT(*)'))).toEqual([]);
+  });
+});
+
+describe('getRecentTopWeights', () => {
+  it('keeps the last N finished sessions per exercise, oldest first, lifted weight only', async () => {
+    const db = await freshDb();
+    const gym = await createGym(db, 'Gym');
+    const bench = await createExercise(db, 'Bankdrücken', 'Brust');
+    const squat = await createExercise(db, 'Kniebeuge', 'Beine');
+    for (let i = 1; i <= 5; i++) {
+      await loggedSession(db, {
+        gymId: gym, exerciseId: bench,
+        startedAt: `2026-08-0${i}T10:00:00.000Z`, finishedAt: `2026-08-0${i}T11:00:00.000Z`,
+        sets: [{ weightKg: 60 + i, reps: 5 }, { weightKg: 50, reps: 10 }, { weightKg: 200, reps: null }],
+      });
+    }
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench,
+      startedAt: '2026-08-09T10:00:00.000Z', finishedAt: null, // still running
+      sets: [{ weightKg: 150, reps: 5 }],
+    });
+    await loggedSession(db, {
+      gymId: gym, exerciseId: squat,
+      startedAt: '2026-08-02T10:00:00.000Z', finishedAt: '2026-08-02T11:00:00.000Z',
+      sets: [{ weightKg: 0, reps: 10 }], // bodyweight only
+    });
+
+    const trends = await getRecentTopWeights(db, 3);
+    expect(trends.get(bench)).toEqual([63, 64, 65]);
+    expect(trends.has(squat)).toBe(false);
   });
 });
 

@@ -2,30 +2,41 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
-import { SectionList, StyleSheet } from 'react-native';
+import { SectionList, StyleSheet, View } from 'react-native';
 
 import { FadeInListItem } from '@/components/motion/fade-in-list-item';
+import { Sparkline } from '@/components/sparkline';
 import { ThemedText } from '@/components/themed-text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { ListRow } from '@/components/ui/list-row';
 import { Screen, SCREEN_BODY_PADDING } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
-import { getExercises } from '@/db';
-import { plural } from '@/domain/format';
+import { getExercises, getRecentTopWeights } from '@/db';
+import { formatKg, plural } from '@/domain/format';
+import { showSaveError } from '@/lib/alerts';
 import { MUSCLE_GROUPS, type Exercise } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
+
+// Enough sessions to see a direction at a glance; the full history lives on the progress screen.
+const TREND_SESSIONS = 8;
 
 export default function ExercisesScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const c = useTheme();
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [trends, setTrends] = useState<Map<number, number[]>>(new Map());
 
   const load = useCallback(() => {
     // Archived exercises stay reachable here (own section at the bottom) so
     // they can be reactivated — mirrors the gym list in Einstellungen.
-    getExercises(db, { includeArchived: true }).then(setExercises);
+    Promise.all([getExercises(db, { includeArchived: true }), getRecentTopWeights(db, TREND_SESSIONS)])
+      .then(([list, top]) => {
+        setExercises(list);
+        setTrends(top);
+      })
+      .catch(showSaveError);
   }, [db]);
 
   useFocusEffect(useCallback(() => load(), [load]));
@@ -71,7 +82,10 @@ export default function ExercisesScreen() {
             {section.title}
           </ThemedText>
         )}
-        renderItem={({ item: exercise, section, index }) => (
+        renderItem={({ item: exercise, section, index }) => {
+          const trend = trends.get(exercise.id);
+          const top = trend?.[trend.length - 1];
+          return (
           <FadeInListItem index={index} style={styles.row}>
           <ListRow
             title={exercise.name}
@@ -81,10 +95,24 @@ export default function ExercisesScreen() {
             onPress={() =>
               router.push({ pathname: '/exercise/edit', params: { id: String(exercise.id) } })
             }
-            right={<Ionicons name="chevron-forward" size={18} color={c.textSecondary} />}
+            accessibilityLabel={
+              top !== undefined ? `${exercise.name}, zuletzt ${formatKg(top)}` : undefined
+            }
+            right={
+              <View style={styles.right}>
+                {trend ? <Sparkline values={trend} /> : null}
+                {top !== undefined ? (
+                  <ThemedText type="smallBold" variant="numeric">
+                    {formatKg(top)}
+                  </ThemedText>
+                ) : null}
+                <Ionicons name="chevron-forward" size={18} color={c.textSecondary} />
+              </View>
+            }
           />
           </FadeInListItem>
-        )}
+          );
+        }}
         ListEmptyComponent={
           <EmptyState
             icon="barbell-outline"
@@ -102,6 +130,7 @@ const styles = StyleSheet.create({
   // from the body's `gap` is carried by the rows and headers themselves.
   list: { ...SCREEN_BODY_PADDING, gap: 0 },
   row: { marginBottom: Spacing.two },
+  right: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   sectionTitle: {
     textTransform: 'uppercase',
     letterSpacing: 0.6,

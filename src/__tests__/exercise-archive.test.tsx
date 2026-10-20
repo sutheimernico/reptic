@@ -13,8 +13,10 @@ import {
   addWorkoutExercise,
   createExercise,
   createGym,
+  finishWorkout,
   getExercise,
   getExercises,
+  insertSet,
   setExerciseArchived,
   startWorkout,
 } from '@/db';
@@ -111,5 +113,27 @@ describe('exercise list', () => {
     // The archived one is not counted — "2 Übungen" would mean archiving does
     // not remove it from the picker.
     expect(view.getByText('1 Übung')).toBeTruthy();
+  });
+
+  it('shows the last top weight on exercises with history', async () => {
+    await db.runAsync('DELETE FROM exercises');
+    const gymId = await createGym(db, 'Gym');
+    const id = await createExercise(db, 'Bankdrücken', 'Brust');
+    await createExercise(db, 'Neu', 'Brust');
+    for (const [day, kg] of [['01', 60], ['08', 62.5]] as const) {
+      const at = `2026-08-${day}T10:00:00.000Z`;
+      const workoutId = await startWorkout(db, [], gymId, at);
+      const workoutExerciseId = await addWorkoutExercise(db, workoutId, id);
+      await insertSet(db, {
+        workoutId, workoutExerciseId, exerciseId: id, setNumber: 1, weightKg: kg, reps: 8, done: true,
+      });
+      await finishWorkout(db, workoutId, at);
+    }
+
+    const view = await renderWithProviders(<ExercisesScreen />);
+
+    await waitFor(() => expect(view.getByText('62,5 kg')).toBeTruthy());
+    expect(view.getByLabelText('Bankdrücken, zuletzt 62,5 kg')).toBeTruthy();
+    expect(view.getByText('Neu')).toBeTruthy(); // no history: plain row, no weight
   });
 });

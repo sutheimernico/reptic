@@ -417,6 +417,39 @@ export async function getExerciseHistoryAll(
 }
 
 /**
+ * The heaviest lifted weight of each of the last `sessions` finished sessions, per
+ * exercise, oldest first — the sparklines in the exercise list. One query for the
+ * whole list; same rule as the progress chart's weight metric (weight > 0 and reps).
+ */
+export async function getRecentTopWeights(
+  db: SQLiteDatabase,
+  sessions: number,
+): Promise<Map<number, number[]>> {
+  const rows = await db.getAllAsync<{ exercise_id: number; top: number }>(
+    `SELECT exercise_id, top FROM (
+       SELECT s.exercise_id, w.id AS workout_id, w.finished_at, MAX(s.weight_kg) AS top,
+              ROW_NUMBER() OVER (
+                PARTITION BY s.exercise_id ORDER BY w.finished_at DESC, w.id DESC
+              ) AS rn
+       FROM workout_sets s
+       JOIN workouts w ON w.id = s.workout_id
+       WHERE w.finished_at IS NOT NULL AND s.weight_kg > 0 AND s.reps >= 1
+       GROUP BY s.exercise_id, w.id
+     )
+     WHERE rn <= ?
+     ORDER BY exercise_id, finished_at ASC, workout_id ASC`,
+    sessions,
+  );
+  const byExercise = new Map<number, number[]>();
+  for (const r of rows) {
+    const list = byExercise.get(r.exercise_id);
+    if (list) list.push(r.top);
+    else byExercise.set(r.exercise_id, [r.top]);
+  }
+  return byExercise;
+}
+
+/**
  * Per-session, per-muscle-group totals for the weekly trends, in one aggregate
  * query. Bucketing into weeks happens in `@/domain/weeks`, not here: ISO weeks
  * depend on the device's local calendar, which SQLite has no notion of.
