@@ -111,7 +111,9 @@ try {
     await expectVisible(text(`Einheit · ${GYM}`), 'session header with gym');
     await expectVisible(button(`${STRENGTH}, Sätze aufklappen`), 'strength row');
     await expectVisible(button(`${CARDIO}, Sätze aufklappen`), 'cardio row');
-    // A first-ever session has no history: no break banner.
+    // A first-ever session has no history: no break banner. The rows above prove the screen has
+    // rendered; the banner's lookup is async and fades in, so give it time before asserting absence.
+    await settle(1200);
     check((await page.getByText(/Tage nicht im Gym/).count()) === 0, 'no break banner on the very first session');
   });
 
