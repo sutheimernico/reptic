@@ -15,10 +15,17 @@ jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => ({
   default: ({ children }: { children: unknown }) => children,
 }));
 
+jest.mock('@/db/week-stats', () => {
+  const actual = jest.requireActual('@/db/week-stats');
+  return { ...actual, getWeekProgress: jest.fn(actual.getWeekProgress) };
+});
+
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import SessionScreen from '@/app/session/[id]';
 import { addWorkoutExercise, createExercise, createGym, getSetting, setSetting, startWorkout } from '@/db';
+import { getWeekProgress } from '@/db/week-stats';
+import { isoWeekKey, isoWeekOf } from '@/domain/weeks';
 import { createTestDb } from '@/test-support/db';
 import { fireEvent, renderWithProviders, waitFor } from '@/test-support/render';
 import { resetRouter, setRouteParams } from '@/test-support/router';
@@ -26,6 +33,7 @@ import { resetRouter, setRouteParams } from '@/test-support/router';
 let db: SQLiteDatabase;
 
 beforeEach(async () => {
+  jest.clearAllMocks();
   resetRouter();
   db = await createTestDb();
 });
@@ -67,5 +75,44 @@ describe('week goal celebration in the session', () => {
 
     await waitFor(() => expect(view.getByLabelText('Satz 1 erledigt').props.accessibilityState.checked).toBe(true));
     expect(view.queryByText('Wochenziel geschafft')).toBeNull();
+  });
+
+  it('does not look at the week again once both goals are celebrated', async () => {
+    await setSetting(db, 'week_goal_kg', '500');
+    const view = await openSession();
+    const week = isoWeekKey(isoWeekOf(new Date()));
+    await setSetting(db, `celebrated_kg_${week}`, '1');
+    await setSetting(db, `celebrated_km_${week}`, '1');
+    (getWeekProgress as jest.Mock).mockClear();
+
+    await fireEvent.changeText(view.getByLabelText('KG'), '60');
+    await fireEvent.changeText(view.getByLabelText('WDH'), '10');
+    await fireEvent.press(view.getByLabelText('Satz 1 erledigt'));
+
+    await waitFor(() => expect(view.getByLabelText('Satz 1 erledigt').props.accessibilityState.checked).toBe(true));
+    expect(getWeekProgress).not.toHaveBeenCalled();
+  });
+
+  it('re-checks once after a tick that arrived while a check was in flight', async () => {
+    await setSetting(db, 'week_goal_kg', '500');
+    const view = await openSession();
+    const actual = jest.requireActual('@/db/week-stats').getWeekProgress;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    (getWeekProgress as jest.Mock).mockClear();
+    (getWeekProgress as jest.Mock).mockImplementationOnce(async (...args: unknown[]) => {
+      await gate;
+      return actual(...args);
+    });
+
+    await fireEvent.changeText(view.getByLabelText('KG'), '60');
+    await fireEvent.changeText(view.getByLabelText('WDH'), '10');
+    await fireEvent.press(view.getByLabelText('Satz 1 erledigt')); // check A starts, blocked on the gate
+    await waitFor(() => expect(getWeekProgress).toHaveBeenCalledTimes(1));
+    await fireEvent.press(view.getByLabelText('Satz 1 erledigt')); // untick while A is in flight
+    expect(getWeekProgress).toHaveBeenCalledTimes(1); // not run concurrently
+
+    release();
+    await waitFor(() => expect(getWeekProgress).toHaveBeenCalledTimes(2)); // the follow-up run
   });
 });

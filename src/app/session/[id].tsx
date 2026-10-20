@@ -28,7 +28,7 @@ import {
   getLastFinishedWorkoutDate,
   getSetProgressForWorkout,
   getSetting,
-  getWeekOverview,
+  getWeekProgress,
   getWorkout,
   getWorkoutExercises,
   lowerUntouchedWeights,
@@ -48,10 +48,11 @@ import {
 import { plural } from '@/domain/format';
 import { parsePlateSetup, PLATE_SETUP_SETTING } from '@/domain/plates';
 import { INCREMENT_SETTING, parseIncrement } from '@/domain/progression';
+import { isoWeekKey, isoWeekOf } from '@/domain/weeks';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useTheme } from '@/hooks/use-theme';
 import { showSaveError } from '@/lib/alerts';
-import { markGoalCelebrated, shouldCelebrateGoal } from '@/lib/celebrations';
+import { allGoalsCelebrated, markGoalCelebrated, shouldCelebrateGoal } from '@/lib/celebrations';
 import { haptic } from '@/lib/haptics';
 
 /**
@@ -236,34 +237,54 @@ export default function SessionScreen() {
   /** The goal celebration that is playing (its start time doubles as the key), or null. */
   const [goalShout, setGoalShout] = useState<{ key: number; label: string } | null>(null);
   const checkingGoals = useRef(false);
+  const goalsDirty = useRef(false);
 
   /** A week goal reached by this tick is celebrated once per week and goal, then remembered. */
   const checkGoals = useCallback(async () => {
-    if (checkingGoals.current) return; // two quick ticks must not both see "not celebrated yet"
+    // Two quick ticks must not both see "not celebrated yet". The second one is not dropped: the
+    // in-flight run may have read totals before it, so one follow-up run covers it.
+    if (checkingGoals.current) {
+      goalsDirty.current = true;
+      return;
+    }
     checkingGoals.current = true;
     try {
-      const { progress, goal } = await getWeekOverview(db, new Date());
-      const labels: string[] = [];
-      if (progress.volumeKg > 0 && progress.volumeKg >= goal.kg) {
-        if (await shouldCelebrateGoal(db, 'kg', progress.weekKey)) {
-          await markGoalCelebrated(db, 'kg', progress.weekKey);
-          labels.push('Wochenziel geschafft');
-        }
-      }
-      if (goal.km !== null && progress.distanceKm > 0 && progress.distanceKm >= goal.km) {
-        if (await shouldCelebrateGoal(db, 'km', progress.weekKey)) {
-          await markGoalCelebrated(db, 'km', progress.weekKey);
-          labels.push('Cardio-Ziel geschafft');
-        }
-      }
-      if (labels.length > 0) {
-        haptic('record');
-        setGoalShout({ key: Date.now(), label: labels.length > 1 ? 'Beide Wochenziele geschafft' : labels[0] });
-      }
-    } catch {
-      // A missed celebration is not worth an alert; the set itself is already saved.
+      do {
+        goalsDirty.current = false;
+        await runGoalCheck();
+      } while (goalsDirty.current);
     } finally {
       checkingGoals.current = false;
+    }
+
+    async function runGoalCheck() {
+      try {
+        const now = new Date();
+        if (await allGoalsCelebrated(db, isoWeekKey(isoWeekOf(now)))) return;
+        const { progress, goal } = await getWeekProgress(db, now);
+        const labels: string[] = [];
+        if (progress.volumeKg > 0 && progress.volumeKg >= goal.kg) {
+          if (await shouldCelebrateGoal(db, 'kg', progress.weekKey)) {
+            await markGoalCelebrated(db, 'kg', progress.weekKey);
+            labels.push('Wochenziel geschafft');
+          }
+        }
+        if (goal.km !== null && progress.distanceKm > 0 && progress.distanceKm >= goal.km) {
+          if (await shouldCelebrateGoal(db, 'km', progress.weekKey)) {
+            await markGoalCelebrated(db, 'km', progress.weekKey);
+            labels.push('Cardio-Ziel geschafft');
+          }
+        }
+        if (labels.length > 0) {
+          haptic('record');
+          setGoalShout({
+            key: Date.now(),
+            label: labels.length > 1 ? 'Beide Wochenziele geschafft' : labels[0],
+          });
+        }
+      } catch {
+        // A missed celebration is not worth an alert; the set itself is already saved.
+      }
     }
   }, [db]);
 

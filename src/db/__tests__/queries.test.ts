@@ -27,6 +27,7 @@ import {
   getSessionTotals,
   getSetProgressForWorkout,
   getWeekOverview,
+  getWeekProgress,
   getWorkout,
   getSetting,
   gymHasWorkouts,
@@ -988,6 +989,33 @@ describe('getWeekOverview', () => {
     }
     const o = await getWeekOverview(db, now);
     expect(o.xp).toBe(10 * 4 + 50 * 1);
+  });
+});
+
+describe('getWeekProgress', () => {
+  const now = new Date(2026, 9, 21, 12);
+  const at = (m0: number, d: number, h = 10) => new Date(2026, m0, d, h).toISOString();
+
+  it('matches the overview progress and goal, and never replays the performed sets', async () => {
+    const { db, queries } = await countedDb();
+    const gym = await createGym(db, 'Gym');
+    const bench = await createExercise(db, 'Bankdrücken', 'Brust');
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench, startedAt: at(9, 19, 9), finishedAt: at(9, 19, 10),
+      sets: [{ weightKg: 100, reps: 10 }],
+    });
+    await loggedSession(db, {
+      gymId: gym, exerciseId: bench, startedAt: at(9, 21, 9), finishedAt: null,
+      sets: [{ weightKg: 40, reps: 10 }],
+    });
+    const overview = await getWeekOverview(db, now);
+
+    queries.statements.length = 0;
+    const lean = await getWeekProgress(db, now);
+    expect(lean).toEqual({ progress: overview.progress, goal: overview.goal });
+    // The PR replay selects every performed set, ordered for the replay.
+    expect(queries.statements.filter((sql) => sql.includes('ORDER BY w.finished_at, w.id, s.id'))).toEqual([]);
+    expect(queries.statements.filter((sql) => sql.includes('COUNT(*)'))).toEqual([]);
   });
 });
 

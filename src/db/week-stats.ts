@@ -38,7 +38,11 @@ export interface WeekOverview {
   xp: number;
 }
 
-export async function getWeekOverview(db: SQLiteDatabase, now: Date): Promise<WeekOverview> {
+/**
+ * Everything the lean path needs plus the intermediates the full overview reuses.
+ * No performed-set replay: this runs on every tick in a workout.
+ */
+async function loadWeekBase(db: SQLiteDatabase, now: Date) {
   const since = startOfWeekWindow(now, WINDOW_WEEKS).toISOString();
   const rows = await getSessionMuscleTotals(db, since);
   const weeks = bucketByWeek(rows, now, WINDOW_WEEKS);
@@ -65,6 +69,28 @@ export async function getWeekOverview(db: SQLiteDatabase, now: Date): Promise<We
     volumeKg: finished.volumeKg + (startedThisWeek ? (activeTotals?.volume ?? 0) : 0),
     distanceKm: finished.distanceKm + (startedThisWeek ? (activeTotals?.distance ?? 0) : 0),
   };
+  const goal = resolveWeekGoal(
+    await getSetting(db, WEEK_GOAL_KG_SETTING),
+    await getSetting(db, WEEK_GOAL_KM_SETTING),
+    weeks,
+  );
+  return { rows, weeks, activeTotals, startedThisWeek, progress, goal };
+}
+
+/** This week's progress and resolved goal — the lean part of the overview (no PR replay). */
+export async function getWeekProgress(
+  db: SQLiteDatabase,
+  now: Date,
+): Promise<{ progress: WeekProgress; goal: WeekGoal }> {
+  const { progress, goal } = await loadWeekBase(db, now);
+  return { progress, goal };
+}
+
+export async function getWeekOverview(db: SQLiteDatabase, now: Date): Promise<WeekOverview> {
+  const { rows, weeks, activeTotals, startedThisWeek, progress, goal } = await loadWeekBase(
+    db,
+    now,
+  );
 
   const dates = await db.getAllAsync<{ finished_at: string }>(
     'SELECT finished_at FROM workouts WHERE finished_at IS NOT NULL',
@@ -103,12 +129,6 @@ export async function getWeekOverview(db: SQLiteDatabase, now: Date): Promise<We
   const weekStartMs = startOfIsoWeek(now).getTime();
   const before = prSets.filter((r) => new Date(r.finished_at).getTime() < weekStartMs).map(toReplay);
   const totalPrs = countPersonalRecords(replay);
-
-  const goal = resolveWeekGoal(
-    await getSetting(db, WEEK_GOAL_KG_SETTING),
-    await getSetting(db, WEEK_GOAL_KM_SETTING),
-    weeks,
-  );
 
   return {
     progress,

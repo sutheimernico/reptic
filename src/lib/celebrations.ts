@@ -26,3 +26,10 @@ export async function markGoalCelebrated(
 ): Promise<void> {
   await setSetting(db, keyFor(goal, weekKey), '1');
 }
+
+/** Both goals already celebrated this week: nothing left for a tick to find out. */
+export async function allGoalsCelebrated(db: SQLiteDatabase, weekKey: string): Promise<boolean> {
+  return (
+    !(await shouldCelebrateGoal(db, 'kg', weekKey)) && !(await shouldCelebrateGoal(db, 'km', weekKey))
+  );
+}
