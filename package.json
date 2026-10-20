@@ -64,7 +64,8 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "e2e": "node scripts/e2e-smoke.mjs",
-    "e2e:all": "node scripts/e2e-all.mjs"
+    "e2e:all": "node scripts/e2e-all.mjs",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "jest": {
     "preset": "jest-expo",

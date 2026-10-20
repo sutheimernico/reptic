@@ -11,7 +11,6 @@
 import {
   createKit,
   daysBefore,
-  de,
   friendCode,
   THEME_ORDER,
   THEMES,
@@ -395,6 +394,8 @@ try {
     await expectCount(rows, 9, '9 sessions in Verlauf');
     await goTab('Heute');
     await waitHero(/^Wochenfortschritt: 0 kg von 2\.000 kg/, 'new week starts at 0 kg');
+    // The tab stayed mounted across the jump: its date must follow the clock, not the day it was opened.
+    await expectVisible(text('Mittwoch, 4. November'), 'Heute shows the new date');
     await expectNoGarbage('Heute on a new week');
   });
 
@@ -441,7 +442,10 @@ try {
       await page.waitForTimeout(100);
       kg1 = parseKg(await firstKg().inputValue());
     }
-    check(Number.isFinite(kg1) && kg1 > 70 && kg1 < kg0, `weight lowered to a sane value (${kg0} -> ${kg1})`);
+    await page.waitForTimeout(600); // a second (wrong) lowering would land after the first
+    kg1 = parseKg(await firstKg().inputValue());
+    // 102,5 kg x 0,9 = 92,25 -> the largest loadable weight below it is 90 (lowered exactly once).
+    check(kg1 === 90, `weight lowered once to 90 (${kg0} -> ${kg1})`);
     // A fresh PR on top of the lowered start.
     await typeInto(firstKg(), '110');
     await typeInto(vis(page.getByLabel('WDH', { exact: true })).first(), '8');
