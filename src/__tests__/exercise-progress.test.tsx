@@ -239,6 +239,17 @@ describe('exercise progress', () => {
   it('keeps the per-session list', async () => {
     await seedEight();
     const view = await renderScreen();
-    await waitFor(() => expect(view.getByText('77,5 kg')).toBeTruthy());
+    // Headline (weight metric, last session's top set) plus that session's row in the list.
+    await waitFor(() => expect(view.getAllByText('77,5 kg')).toHaveLength(2));
+  });
+
+  it('defaults to the lifted weight and switches to the estimated 1RM', async () => {
+    await logCurve([0, 7], [60, 72]); // 6 reps: top sets 50 kg and 60 kg
+    const view = await renderScreen();
+    await waitFor(() => expect(view.getByText(/^schwerster Satz/)).toBeTruthy());
+    expect(view.getAllByText('60 kg').length).toBeGreaterThan(0);
+    await fireEvent.press(view.getByLabelText('1RM'));
+    await waitFor(() => expect(view.getByText(/^geschätztes 1RM \(e1RM\)/)).toBeTruthy());
+    expect(view.getByText('72 kg')).toBeTruthy();
   });
 });

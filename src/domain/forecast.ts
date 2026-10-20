@@ -5,7 +5,8 @@ export interface StrengthPoint {
   date: string;
   /** Whole local calendar days since the first point. */
   dayIndex: number;
-  e1rm: number;
+  /** kg in the series' metric: best estimated 1RM or heaviest lifted weight of the session. */
+  value: number;
   gymId: number | null;
   workoutId: number;
 }
@@ -59,26 +60,40 @@ function localDayNumber(iso: string): number {
   return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY_MS);
 }
 
-/** Best estimated 1RM per finished session, oldest first. Sessions without a usable set are dropped. */
-export function strengthSeries(entries: ExerciseHistoryEntry[]): StrengthPoint[] {
+/** What a strength series plots: the heaviest weight actually lifted, or the estimated 1RM. */
+export type StrengthMetric = 'weight' | 'e1rm';
+
+/** A set's value in `metric`, or null when the set does not count for it. */
+function setValue(metric: StrengthMetric, weightKg: number | null, reps: number | null): number | null {
+  if (metric === 'e1rm') return epleyE1rm(weightKg, reps);
+  // Any rep count: a 15-rep top set is still the weight you moved. A weight without reps was never lifted.
+  if (weightKg === null || reps === null || weightKg <= 0 || reps < 1) return null;
+  return weightKg;
+}
+
+/** Best value per finished session in `metric`, oldest first. Sessions without a usable set are dropped. */
+export function strengthSeries(
+  entries: ExerciseHistoryEntry[],
+  metric: StrengthMetric = 'e1rm',
+): StrengthPoint[] {
   const raw: {
     date: string;
     day: number;
-    e1rm: number;
+    value: number;
     gymId: number | null;
     workoutId: number;
   }[] = [];
   for (const entry of entries) {
     let best: number | null = null;
     for (const s of entry.sets) {
-      const v = epleyE1rm(s.weightKg, s.reps);
+      const v = setValue(metric, s.weightKg, s.reps);
       if (v !== null && (best === null || v > best)) best = v;
     }
     if (best === null) continue;
     raw.push({
       date: entry.date,
       day: localDayNumber(entry.date),
-      e1rm: best,
+      value: best,
       gymId: entry.gymId,
       workoutId: entry.workoutId,
     });
@@ -89,7 +104,7 @@ export function strengthSeries(entries: ExerciseHistoryEntry[]): StrengthPoint[]
   return raw.map((r) => ({
     date: r.date,
     dayIndex: r.day - first,
-    e1rm: r.e1rm,
+    value: r.value,
     gymId: r.gymId,
     workoutId: r.workoutId,
   }));
@@ -176,7 +191,7 @@ export function fitForecast(points: StrengthPoint[]): Forecast {
   }
 
   const t = points.map((p) => p.dayIndex - points[0].dayIndex);
-  const y = points.map((p) => p.e1rm);
+  const y = points.map((p) => p.value);
   const maxY = Math.max(...y);
 
   const ratio = K_MAX / K_MIN;

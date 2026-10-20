@@ -405,8 +405,11 @@ try {
     await goTab('Verlauf');
     await click(vis(page.getByRole('button', { name: new RegExp(`${GYM}.*Übung`) })).first());
     await click(button(`${STRENGTH}: Fortschritt ansehen`));
-    await expectVisible(text('geschätztes 1RM (e1RM)', { exact: false }), 'e1RM headline');
+    await expectVisible(text('schwerster Satz', { exact: false }), 'weight headline by default');
     await expectVisible(text('Prognose', { exact: true }), 'Prognose heading');
+    await click(button('1RM', { exact: true }));
+    await expectVisible(text('geschätztes 1RM (e1RM)', { exact: false }), 'e1RM headline');
+    await expectVisible(text('Prognose', { exact: true }), 'Prognose heading on 1RM');
     await expectVisible(text('pro Monat', { exact: false }), 'gain per month');
     await expectVisible(text('9 Einheiten', { exact: true }), '9 Einheiten stat');
     check((await page.getByText('Noch zu wenig Daten').count()) === 0, 'no "too little data" text');

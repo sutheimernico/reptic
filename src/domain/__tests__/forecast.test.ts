@@ -10,7 +10,7 @@ function points(days: number[], values: number[]): StrengthPoint[] {
   return days.map((d, i) => ({
     date: `d${d}`,
     dayIndex: d,
-    e1rm: values[i],
+    value: values[i],
     gymId: null,
     workoutId: i + 1,
   }));
@@ -271,8 +271,8 @@ describe('strengthSeries', () => {
       entry(3, '2026-08-10T12:00:00', [{ weightKg: 50, reps: 20 }]), // no usable set
     ]);
     expect(series.map((p) => p.workoutId)).toEqual([1, 2]);
-    expect(series[0].e1rm).toBeCloseTo(Math.max(80 * (1 + 10 / 30), 90 * (1 + 3 / 30)));
-    expect(series[1].e1rm).toBeCloseTo(100 * (1 + 5 / 30));
+    expect(series[0].value).toBeCloseTo(Math.max(80 * (1 + 10 / 30), 90 * (1 + 3 / 30)));
+    expect(series[1].value).toBeCloseTo(100 * (1 + 5 / 30));
     expect(series[0].dayIndex).toBe(0);
     expect(series[1].dayIndex).toBe(7);
     expect(series[0].gymId).toBe(1);
@@ -280,5 +280,24 @@ describe('strengthSeries', () => {
 
   it('returns an empty series for no history', () => {
     expect(strengthSeries([])).toEqual([]);
+  });
+
+  it('weight metric: heaviest lifted weight at any rep count, never a weight without reps', () => {
+    const series = strengthSeries(
+      [
+        entry(1, '2026-08-01T12:00:00', [
+          { weightKg: 80, reps: 10 },
+          { weightKg: 90, reps: 3 },
+          { weightKg: 120, reps: null }, // carried over, never lifted
+        ]),
+        entry(2, '2026-08-08T12:00:00', [{ weightKg: 50, reps: 20 }]), // counts despite 20 reps
+        entry(3, '2026-08-15T12:00:00', [{ weightKg: 0, reps: 10 }]), // bodyweight only
+      ],
+      'weight',
+    );
+    expect(series.map((p) => [p.workoutId, p.value])).toEqual([
+      [1, 90],
+      [2, 50],
+    ]);
   });
 });

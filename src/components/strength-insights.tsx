@@ -1,6 +1,6 @@
 /**
- * Strength section of the exercise progress screen: e1RM headline, range and gym
- * chips, the chart, and the forecast readouts. The forecast is always fitted on
+ * Strength section of the exercise progress screen: weight / e1RM headline, metric,
+ * range and gym chips, the chart, and the forecast readouts. The forecast is always fitted on
  * the full gym-filtered series; the range only crops what is drawn, so toggling
  * it never moves the prediction.
  */
@@ -21,7 +21,12 @@ import {
   getSetting,
   setSetting,
 } from '@/db';
-import { fitForecast, MIN_FORECAST_SESSIONS, strengthSeries } from '@/domain/forecast';
+import {
+  fitForecast,
+  MIN_FORECAST_SESSIONS,
+  type StrengthMetric,
+  strengthSeries,
+} from '@/domain/forecast';
 import { formatKg, formatSigned, MONTHS_DE, plural } from '@/domain/format';
 import {
   applyGymFilter,
@@ -43,6 +48,13 @@ const RANGES = [
 ] as const;
 
 const DAY_MS = 86_400_000;
+
+// Weight first: it is the number you actually put on the bar; e1RM makes sets with
+// different rep counts comparable but is never a weight you lifted.
+const METRICS: { key: StrengthMetric; label: string; caption: string }[] = [
+  { key: 'weight', label: 'Gewicht', caption: 'schwerster Satz' },
+  { key: 'e1rm', label: '1RM', caption: 'geschätztes 1RM (e1RM)' },
+];
 
 const kg = formatKg;
 
@@ -96,6 +108,8 @@ export function StrengthInsights({
   const [gyms, setGyms] = useState<{ id: number; name: string }[]>([]);
   const [filter, setFilter] = useState<GymFilter>('all');
   const [rangeIdx, setRangeIdx] = useState(3);
+  const [metricIdx, setMetricIdx] = useState(0);
+  const metric = METRICS[metricIdx];
   // State-backed so it follows the clock on resume (see useNow).
   const [now] = useNow();
 
@@ -137,8 +151,8 @@ export function StrengthInsights({
   };
 
   const series = useMemo(
-    () => applyGymFilter(strengthSeries(history ?? []), filter),
-    [history, filter],
+    () => applyGymFilter(strengthSeries(history ?? [], metric.key), filter),
+    [history, filter, metric.key],
   );
   const forecast = useMemo(() => fitForecast(series), [series]);
 
@@ -161,7 +175,7 @@ export function StrengthInsights({
   const visible =
     cutoff === null ? series : series.filter((p) => new Date(p.date).getTime() >= cutoff);
   const first = visible[0];
-  const delta = last && first && visible.length > 1 ? last.e1rm - first.e1rm : null;
+  const delta = last && first && visible.length > 1 ? last.value - first.value : null;
   const sinceMonth = first ? MONTHS_DE[new Date(first.date).getMonth()] : '';
 
   const fit = forecast.kind === 'fit' ? forecast : null;
@@ -169,6 +183,16 @@ export function StrengthInsights({
 
   return (
     <View style={styles.wrap}>
+      <View style={styles.chips}>
+        {METRICS.map((m, i) => (
+          <Chip
+            key={m.key}
+            label={m.label}
+            selected={i === metricIdx}
+            onPress={() => setMetricIdx(i)}
+          />
+        ))}
+      </View>
       <View style={styles.chips}>
         {RANGES.map((r, i) => (
           <Chip
@@ -196,10 +220,10 @@ export function StrengthInsights({
       {last ? (
         <View>
           <ThemedText variant="numeric" style={styles.big}>
-            {kg(last.e1rm)}
+            {kg(last.value)}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            geschätztes 1RM (e1RM)
+            {metric.caption}
             {delta !== null ? ` · ${formatSigned(delta, kg)} seit ${sinceMonth}` : ''}
           </ThemedText>
         </View>
@@ -227,7 +251,9 @@ export function StrengthInsights({
         </Card>
       ) : (
         <ThemedText type="small" themeColor="textSecondary">
-          Keine auswertbaren Sätze (Gewicht und 1–12 Wiederholungen) in dieser Auswahl.
+          {metric.key === 'e1rm'
+            ? 'Keine auswertbaren Sätze (Gewicht und 1–12 Wiederholungen) in dieser Auswahl.'
+            : 'Keine Sätze mit Gewicht und Wiederholungen in dieser Auswahl.'}
         </ThemedText>
       )}
 

@@ -118,7 +118,7 @@ export function StrengthChart({ points, curve, plateauKg, originDate }: Strength
     const lastDay = curve.length > 0 ? curve[curve.length - 1].dayIndex : lastPoint.dayIndex;
     const spanDays = Math.max(lastDay - firstDay, 1);
     const values = [
-      ...points.map((p) => p.e1rm),
+      ...points.map((p) => p.value),
       ...curve.flatMap((c) => [c.low, c.high]),
       ...(plateauKg !== null ? [plateauKg] : []),
     ];
@@ -137,7 +137,7 @@ export function StrengthChart({ points, curve, plateauKg, originDate }: Strength
     const x = (day: number) => PAD.l + ((day - firstDay) / spanDays) * plotW;
     const y = (v: number) => PAD.t + (1 - (v - yMin) / (yMax - yMin)) * plotH;
 
-    const history = points.map((p): [number, number] => [x(p.dayIndex), y(p.e1rm)]);
+    const history = points.map((p): [number, number] => [x(p.dayIndex), y(p.value)]);
     const last = history[history.length - 1];
     const forecast: [number, number][] =
       curve.length > 0
