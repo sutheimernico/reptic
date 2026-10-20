@@ -46,6 +46,7 @@ import {
   readAutoBackup,
   runAutoBackup,
 } from '@/lib/auto-backup';
+import { runningBundleLabel } from '@/lib/app-version';
 import { exportBackup, pickBackup, restoreBackup } from '@/lib/backup';
 import {
   HAPTICS_SETTING,
@@ -452,6 +453,8 @@ export default function SettingsScreen() {
 
       <ThemedText type="small" themeColor="textSecondary" style={styles.footer}>
         {APP_NAME} — alle Daten bleiben lokal auf deinem Gerät.
+        {'\n'}
+        {runningBundleLabel()}
       </ThemedText>
     </Screen>
   );

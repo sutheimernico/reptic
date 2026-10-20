@@ -28,6 +28,7 @@
     "expo-status-bar": "~57.0.0",
     "expo-symbols": "~57.0.0",
     "expo-system-ui": "~57.0.0",
+    "expo-updates": "~57.0.26",
     "expo-web-browser": "~57.0.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -64,6 +65,7 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "e2e": "node scripts/e2e-smoke.mjs",
+    "ship": "scripts/ship.sh",
     "e2e:all": "node scripts/e2e-all.mjs",
     "screenshots": "node scripts/screenshots.mjs"
   },

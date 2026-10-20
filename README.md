@@ -109,7 +109,14 @@ The build environment here has no Java/Android SDK, so the following are done by
 
 - **Run on device / APK**: `npx expo start` (Expo Go) for day-to-day; an
   [EAS build](https://docs.expo.dev/build/introduction/) (needs an Expo login) for a
-  standalone APK.
+  standalone APK: `npx -y eas-cli@25.2.0 build -p android --profile preview`.
+- **Updates without reinstalling**: APKs from the `preview` profile listen on the EAS
+  Update channel `preview`. `npm run ship` (clean tree required) runs typecheck, lint and
+  jest, then publishes the current commit; the phone picks it up on the next cold start
+  (it waits up to 3 s, otherwise the start after that). Einstellungen shows the running
+  bundle ("Update vom …"). The runtime version is a native fingerprint: after adding a
+  native module or changing native config, `eas update` finds no compatible build — build
+  a new APK instead.
 - **Cloud backup (planned, Phase 8b)**: an optional Google Sign-In that backs up to the
   user's own Google Drive (`appDataFolder`) — no backend. It needs a Google Cloud OAuth
   client (Web + Android client ID with the signing SHA-1) and a dev build (native module,
