@@ -177,7 +177,7 @@ describe('exercise progress', () => {
     const getFirst = db.getFirstAsync.bind(db);
     // Only the gym-filter read fails, so the screen's own loading stays out of the picture.
     jest.spyOn(db, 'getFirstAsync').mockImplementation(((sql: string, ...args: unknown[]) =>
-      String(args[0]).startsWith('progress_gyms_') ? Promise.reject(new Error('db gone')) : getFirst(sql, ...args)) as never);
+      String(args[0]).startsWith('progress_gyms_') ? Promise.reject(new Error('db gone')) : getFirst(sql, ...(args as never[]))) as never);
     await renderScreen();
     await waitFor(() => expect(alert).toHaveBeenCalledWith('Speichern fehlgeschlagen', 'db gone'));
   });
