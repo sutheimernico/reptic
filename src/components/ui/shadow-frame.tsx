@@ -12,17 +12,24 @@ export function ShadowFrame({
   children,
   radius,
   style,
+  enabled = true,
 }: {
   children: ReactNode;
   radius: number;
+  /**
+   * False for surfaces that carry no shadow (secondary or disabled buttons): their background is
+   * transparent or faded, so the ink block behind them would show through.
+   */
+  enabled?: boolean;
   /** Layout style for the frame; only applied while the frame is active. */
   style?: StyleProp<ViewStyle>;
 }) {
   const theme = useAppTheme();
-  if (!hardShadowNeedsView(theme)) return <>{children}</>;
+  if (!enabled || !hardShadowNeedsView(theme)) return <>{children}</>;
   return (
     <View style={[styles.frame, style]}>
       <View
+        testID="hard-shadow"
         pointerEvents="none"
         style={[styles.offset, { backgroundColor: theme.colors.border, borderRadius: radius }]}
       />

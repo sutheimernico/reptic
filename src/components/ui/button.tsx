@@ -42,11 +42,12 @@ export function Button({
   // Arcade outlines every button in ink; other themes only outline the secondary one.
   const borderColor = variant === 'secondary' || shape.shadow === 'hard' ? c.border : 'transparent';
   const isDisabled = disabled || loading;
+  const hasShadow = variant !== 'secondary' && !isDisabled;
   // While the Android hard-shadow frame is active it owns the caller's layout style.
-  const framed = hardShadowNeedsView(theme);
+  const framed = hasShadow && hardShadowNeedsView(theme);
 
   return (
-    <ShadowFrame radius={shape.radius.md} style={style}>
+    <ShadowFrame radius={shape.radius.md} style={style} enabled={hasShadow}>
       <Pressable
         onPress={onPress}
         disabled={isDisabled}
@@ -59,7 +60,7 @@ export function Button({
             borderWidth: Math.max(shape.borderWidth, variant === 'secondary' ? 1 : 0),
             borderRadius: shape.radius.md,
           },
-          variant !== 'secondary' && !isDisabled ? shadowStyle(theme) : null,
+          hasShadow ? shadowStyle(theme) : null,
           isDisabled && styles.disabled,
           pressed && !isDisabled && styles.pressed,
           framed ? null : style,
